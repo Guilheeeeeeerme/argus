@@ -13,6 +13,7 @@ from argus.config import settings
 logger = logging.getLogger(__name__)
 
 HTTP_ROLES = frozenset({"api-admin", "api-ingest"})
+WORKER_ROLES = frozenset({"worker-vlm", "worker-aggregator", "worker-scheduler"})
 
 
 def _run_http_service() -> None:
@@ -28,6 +29,14 @@ def _run_http_service() -> None:
     uvicorn.run(app, host=settings.api_host, port=port, log_level=settings.log_level.lower())
 
 
+def _run_worker_service() -> None:
+    from argus.workers.runtime import run_worker_for_role
+
+    role = settings.service_role
+    logger.info("Starting Celery runtime for %s", role)
+    run_worker_for_role(role)
+
+
 def main() -> None:
     logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
     role = settings.service_role
@@ -35,6 +44,8 @@ def main() -> None:
 
     if role in HTTP_ROLES:
         _run_http_service()
+    elif role in WORKER_ROLES:
+        _run_worker_service()
     else:
         logger.error("Unknown or unsupported SERVICE_ROLE: %s", role)
         sys.exit(1)
