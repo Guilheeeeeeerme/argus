@@ -7,7 +7,7 @@ import sys
 
 import uvicorn
 
-from argus.apps.http import create_http_app, create_ingest_app
+from argus.apps.http import create_admin_app, create_ingest_app
 from argus.config import settings
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ WORKER_ROLES = frozenset({"worker-vlm", "worker-aggregator", "worker-scheduler"}
 def _run_http_service() -> None:
     role = settings.service_role
     if role == "api-admin":
-        app = create_http_app("api-admin", "ARGUS Foundation API")
+        app = create_admin_app()
     elif role == "api-ingest":
         app = create_ingest_app()
     else:

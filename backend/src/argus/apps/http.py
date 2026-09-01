@@ -38,6 +38,16 @@ def create_http_app(service_role: ServiceRole, title: str) -> FastAPI:
     return app
 
 
+def create_admin_app() -> FastAPI:
+    from argus.api.admin.router import router as admin_router
+    from argus.api.triage.router import router as triage_router
+
+    app = create_http_app("api-admin", "ARGUS Admin & Triage API")
+    app.include_router(admin_router)
+    app.include_router(triage_router)
+    return app
+
+
 def create_ingest_app() -> FastAPI:
     from argus.api.ingest.router import router as ingest_router
 
