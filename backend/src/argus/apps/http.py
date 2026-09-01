@@ -36,3 +36,11 @@ def create_http_app(service_role: ServiceRole, title: str) -> FastAPI:
         }
 
     return app
+
+
+def create_ingest_app() -> FastAPI:
+    from argus.api.ingest.router import router as ingest_router
+
+    app = create_http_app("api-ingest", "ARGUS Ingest API")
+    app.include_router(ingest_router)
+    return app

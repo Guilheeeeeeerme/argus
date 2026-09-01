@@ -1,0 +1,183 @@
+openapi: 3.1.0
+info:
+  title: ARGUS Edge Ingestion API
+  version: 1.0.0
+  description: |
+    High-throughput endpoint for edge devices to submit pre-filtered suspicious
+    frame sequences. Returns immediately after enqueueing to Redis Streams.
+
+servers:
+  - url: https://ingest.argus.example.com/v1
+    description: Production ingestion gateway
+
+paths:
+  /ingest/sequences:
+    post:
+      operationId: ingestSequence
+      summary: Submit a suspicious frame sequence for analysis
+      description: |
+        Accepts a filtered frame sequence from an edge device. Validates M2M
+        credentials, stores frames to object storage, enqueues to Redis Stream
+        `ingest:sequences`, and returns 202 Accepted immediately.
+      security:
+        - EdgeM2M: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestSequenceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IngestSequenceMultipart'
+      responses:
+        '202':
+          description: Sequence accepted and queued for analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestAcceptedResponse'
+        '400':
+          description: Invalid payload or camera has no active context mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired M2M token
+        '409':
+          description: Duplicate ingestion_id (idempotent replay)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestAcceptedResponse'
+        '422':
+          description: tenant_id/camera_id mismatch with token claims
+
+  /ingest/health:
+    get:
+      operationId: ingestHealth
+      summary: Ingestion service health check
+      responses:
+        '200':
+          description: Service healthy
+
+components:
+  securitySchemes:
+    EdgeM2M:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Auth0 M2M client credentials token. Claims required:
+        `tenant_id`, `camera_id`, `gty: client-credentials`.
+
+  schemas:
+    IngestSequenceRequest:
+      type: object
+      required:
+        - ingestion_id
+        - tenant_id
+        - camera_id
+        - captured_at
+        - context_mode_id
+        - region_id
+        - frames
+      properties:
+        ingestion_id:
+          type: string
+          format: uuid
+          description: Edge-generated idempotency key
+        tenant_id:
+          type: string
+          format: uuid
+        camera_id:
+          type: string
+          format: uuid
+        captured_at:
+          type: string
+          format: date-time
+          description: Edge clock timestamp (UTC)
+        context_mode_id:
+          type: string
+          format: uuid
+          description: Active mode at capture time (edge-cached)
+        region_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Triggered region of interest
+        edge_trigger_metadata:
+          type: object
+          additionalProperties: true
+          description: Edge-local filter reason (motion type, duration, etc.)
+        frames:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/FramePayload'
+
+    IngestSequenceMultipart:
+      type: object
+      required:
+        - metadata
+        - frames
+      properties:
+        metadata:
+          type: string
+          description: JSON string matching IngestSequenceRequest (without frames)
+        frames:
+          type: array
+          items:
+            type: string
+            format: binary
+          description: Raw JPEG/PNG frame binaries (preferred for large sequences)
+
+    FramePayload:
+      type: object
+      required:
+        - index
+        - content
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        content:
+          type: string
+          format: byte
+          description: Base64-encoded JPEG or PNG frame
+        captured_at:
+          type: string
+          format: date-time
+          description: Per-frame timestamp if sub-second precision needed
+
+    IngestAcceptedResponse:
+      type: object
+      required:
+        - ingestion_id
+        - status
+        - queued_at
+      properties:
+        ingestion_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, duplicate]
+        queued_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
