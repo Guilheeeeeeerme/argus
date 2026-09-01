@@ -9,6 +9,7 @@ import uvicorn
 
 from argus.apps.http import create_admin_app, create_ingest_app, create_ws_app
 from argus.config import settings
+from argus.core.logging import RequestContextMiddleware, configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,14 @@ HTTP_ROLES = frozenset({"api-admin", "api-ingest", "ws-gateway"})
 WORKER_ROLES = frozenset(
     {"worker-vlm", "worker-aggregator", "worker-notify", "worker-scheduler"}
 )
+
+
+def _configure_logging() -> None:
+    configure_logging()
+
+
+def _attach_middleware(app) -> None:
+    app.add_middleware(RequestContextMiddleware)
 
 
 def _run_http_service() -> None:
@@ -29,6 +38,7 @@ def _run_http_service() -> None:
     else:
         raise ValueError(f"Unsupported HTTP role: {role}")
 
+    _attach_middleware(app)
     port = settings.resolved_api_port()
     logger.info("Starting %s on %s:%s", role, settings.api_host, port)
     uvicorn.run(app, host=settings.api_host, port=port, log_level=settings.log_level.lower())
@@ -43,7 +53,7 @@ def _run_worker_service() -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
+    _configure_logging()
     role = settings.service_role
     logger.info("ARGUS backend starting with SERVICE_ROLE=%s", role)
 

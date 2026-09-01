@@ -6,23 +6,63 @@
 
 ## About
 
-ARGUS is a project built around the idea of **watching many things at once** — detecting change and threat without abandoning what is already under protection.
+ARGUS is a multi-tenant SaaS surveillance platform that watches many cameras at once — detecting anomalies, aggregating evidence, and alerting human watchers in real time.
 
-Named after **Argos Panoptes** (Ἄργος Πανόπτης), the many-eyed sentinel of Greek mythology: some of his eyes always remained open while others rested. ARGUS carries that spirit into software — persistent, layered observation that does not blink when attention is needed elsewhere.
+Named after **Argos Panoptes** (Ἄργος Πανόπτης), the many-eyed sentinel of Greek mythology.
 
-## Concept
+## Repository layout
 
-At its core, ARGUS represents the ability to:
+| Path | Purpose |
+|------|---------|
+| `backend/` | Python FastAPI + Celery backend (7 deployables) |
+| `specs/001-saas-mvp/` | Feature spec, plan, tasks, quickstart validation |
+| `.specify/` | Spec Kit project config and constitution |
 
-- **Observe multiple points simultaneously**
-- **Detect changes and threats** as they emerge
-- **Stay committed to what is already protected** while scanning the horizon
+## Backend quick start
 
-It is, in mythological terms, the principle of *one eye on the fish, one on the cat*: protection is not only about guarding what you hold — it is also about keeping watch on what might threaten it.
+```bash
+cd backend
+cp .env.example .env
+# Set DATABASE_URL, REDIS_URL, S3_*, AUTH0_* (see docs/auth0-setup.md)
 
-## Status
+docker compose -f docker/docker-compose.yml up -d postgres redis minio minio-init
+ADMIN_DATABASE_URL=postgresql+asyncpg://argus:argus@localhost:5432/argus ./scripts/migrate.sh
+PYTHONPATH=src python scripts/seed_dev.py
 
-Early stage. Repository initialized; implementation to follow.
+# Dev without Docker for all services:
+pip install -e ".[dev]"
+export PYTHONPATH=src AUTH0_USE_MOCK=true
+pytest tests/ -q
+```
+
+### Service ports
+
+| SERVICE_ROLE | Port | Description |
+|--------------|------|-------------|
+| `api-admin` | 8000 | Admin + Triage REST API |
+| `api-ingest` | 8001 | Edge sequence ingestion |
+| `ws-gateway` | 8002 | Real-time WebSocket triage |
+| `worker-vlm` | — | VLM analysis (Celery) |
+| `worker-aggregator` | — | Evidence aggregation |
+| `worker-notify` | — | Twilio SMS/WhatsApp |
+| `worker-scheduler` | — | Context mode schedules |
+
+Start a service:
+
+```bash
+SERVICE_ROLE=api-admin PYTHONPATH=src python -m argus.main
+```
+
+Full stack: `docker compose -f backend/docker/docker-compose.yml up -d --build`
+
+## Auth0
+
+See [backend/docs/auth0-setup.md](backend/docs/auth0-setup.md) for tenant custom claims (`tenant_id`, `role`). Local dev can use `AUTH0_USE_MOCK=true`.
+
+## Validation
+
+MVP acceptance scenarios: [specs/001-saas-mvp/quickstart.md](specs/001-saas-mvp/quickstart.md)  
+Latest run log: [specs/001-saas-mvp/validation-log.md](specs/001-saas-mvp/validation-log.md)
 
 ## License
 
