@@ -1,0 +1,249 @@
+x-argus-env: &argus-env
+  DATABASE_URL: postgresql+asyncpg://argus_app:argus_app@postgres:5432/argus
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_ACCESS_KEY_ID: minioadmin
+  S3_SECRET_ACCESS_KEY: minioadmin
+  S3_BUCKET_NAME: argus-frames
+  S3_REGION: us-east-1
+  AUTH0_DOMAIN: ${AUTH0_DOMAIN:-dev-placeholder.auth0.com}
+  AUTH0_API_AUDIENCE: ${AUTH0_API_AUDIENCE:-https://api.argus.local}
+  AUTH0_ALGORITHMS: RS256
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+  TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+  TWILIO_SMS_FROM: ${TWILIO_SMS_FROM:-}
+  TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+  API_HOST: 0.0.0.0
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-argus-build: &argus-build
+  context: ..
+  dockerfile: docker/Dockerfile
+
+services:
+  # ── Infrastructure ───────────────────────────────────────────────────────
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: argus-postgres
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: argus
+      POSTGRES_DB: argus
+    ports:
+      - "5432:5432"
+    volumes:
+      - argus_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: argus-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - argus_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: argus-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - argus_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: argus-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb local/argus-frames --ignore-existing &&
+      mc anonymous set download local/argus-frames &&
+      echo 'MinIO bucket argus-frames ready'
+      "
+    restart: "no"
+
+  # ── HTTP deployables ───────────────────────────────────────────────────────
+
+  api-admin:
+    build:
+      <<: *argus-build
+      target: api-admin
+    container_name: argus-api-admin
+    environment:
+      <<: *argus-env
+      SERVICE_ROLE: api-admin
+      API_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api-ingest:
+    build:
+      <<: *argus-build
+      target: api-ingest
+    container_name: argus-api-ingest
+    environment:
+      <<: *argus-env
+      SERVICE_ROLE: api-ingest
+      API_PORT: 8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  ws-gateway:
+    build:
+      <<: *argus-build
+      target: ws-gateway
+    container_name: argus-ws-gateway
+    environment:
+      <<: *argus-env
+      SERVICE_ROLE: ws-gateway
+      API_PORT: 8002
+    ports:
+      - "8002:8002"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Worker deployables ─────────────────────────────────────────────────────
+
+  worker-vlm:
+    build:
+      <<: *argus-build
+      target: worker
+    container_name: argus-worker-vlm
+    environment:
+      <<: *argus-env
+      SERVICE_ROLE: worker-vlm
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-aggregator:
+    build:
+      <<: *argus-build
+      target: worker
+    container_name: argus-worker-aggregator
+    environment:
+      <<: *argus-env
+      SERVICE_ROLE: worker-aggregator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-notify:
+    build:
+      <<: *argus-build
+      target: worker
+    container_name: argus-worker-notify
+    environment:
+      <<: *argus-env
+      SERVICE_ROLE: worker-notify
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-scheduler:
+    build:
+      <<: *argus-build
+      target: worker
+    container_name: argus-worker-scheduler
+    environment:
+      <<: *argus-env
+      SERVICE_ROLE: worker-scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  argus_postgres_data:
+  argus_redis_data:
+  argus_minio_data:
