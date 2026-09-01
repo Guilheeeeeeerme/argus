@@ -190,3 +190,7 @@ class AggregationService:
             },
         )
 
+        if new_state == DecisionState.WARNING:
+            from argus.workers.notify import notify_warning
+
+            notify_warning.delay(str(decision.id))

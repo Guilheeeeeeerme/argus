@@ -1,5 +1,7 @@
 """FastAPI application factory for HTTP deployables."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 
 from argus.config import ServiceRole, settings
@@ -53,4 +55,31 @@ def create_ingest_app() -> FastAPI:
 
     app = create_http_app("api-ingest", "ARGUS Ingest API")
     app.include_router(ingest_router)
+    return app
+
+
+def create_ws_app() -> FastAPI:
+    import asyncio
+
+    from argus.ws.handlers import router as ws_router
+    from argus.ws.pubsub import run_pubsub_listener
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        task = asyncio.create_task(run_pubsub_listener())
+        yield
+        task.cancel()
+
+    app = FastAPI(
+        title="ARGUS WebSocket Gateway",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
+    register_exception_handlers(app)
+
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "service": "ws-gateway", "role": settings.service_role}
+
+    app.include_router(ws_router)
     return app

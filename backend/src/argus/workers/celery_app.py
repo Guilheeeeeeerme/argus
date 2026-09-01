@@ -14,6 +14,7 @@ celery_app = Celery(
         "argus.workers.vlm_analyzer",
         "argus.workers.aggregator",
         "argus.workers.scheduler",
+        "argus.workers.notifier",
     ],
 )
 
@@ -26,6 +27,7 @@ celery_app.conf.update(
     task_routes={
         "vlm.*": {"queue": "vlm"},
         "aggregate.*": {"queue": "aggregate"},
+        "notify.*": {"queue": "notify"},
         "schedule.*": {"queue": "schedule"},
     },
     beat_schedule={
