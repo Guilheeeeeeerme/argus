@@ -38,4 +38,7 @@ docker compose up --build
 - `argus-services/notifications` — notification delivery.
 - `argus-libs` — shared contracts and libraries.
 
-The local development hostname is `development.argus.com`. Core owns the shared infrastructure and service projects remain independently runnable under their own ports while integration conventions are established.
+The Admin app is available at `https://app.development.argus.com`. Core owns
+the shared infrastructure and TLS gateway; independently runnable services
+are exposed at `https://development.argus.com:3000`, `:3001`, `:3002`, and
+additional ports as they are added.

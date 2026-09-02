@@ -19,12 +19,13 @@ if [[ ! -f "$repo_root/argus-core/.env" ]]; then
 fi
 
 hosts_file="${ARGUS_HOSTS_FILE:-/etc/hosts}"
-hosts_entry="127.0.0.1 development.argus.com api.development.argus.com"
+hosts_entry="127.0.0.1 app.development.argus.com development.argus.com api.development.argus.com"
 if [[ ! -f "$hosts_file" ]]; then
   echo "Hosts file not found: $hosts_file" >&2
   exit 1
 fi
-if ! grep -Eq '(^|[[:space:]])development\.argus\.com([[:space:]]|$)' "$hosts_file" || \
+if ! grep -Eq '(^|[[:space:]])app\.development\.argus\.com([[:space:]]|$)' "$hosts_file" || \
+  ! grep -Eq '(^|[[:space:]])development\.argus\.com([[:space:]]|$)' "$hosts_file" || \
   ! grep -Eq '(^|[[:space:]])api\.development\.argus\.com([[:space:]]|$)' "$hosts_file"; then
   if [[ -w "$hosts_file" ]]; then
     printf '%s\n' "$hosts_entry" >> "$hosts_file"
