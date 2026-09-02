@@ -1,6 +1,6 @@
 # Argus Workspace
 
-This private repository is the workspace for the Argus platform. Runtime infrastructure lives in `core`; independently deployable domain projects live in `services`; reusable contracts and libraries live in `libs`.
+This private repository is the workspace for the Argus platform. Runtime infrastructure lives in `argus-core`; independently deployable domain projects live in `argus-services`; reusable contracts and libraries live in `argus-libs`.
 
 ## Get started
 
@@ -13,25 +13,25 @@ cd argus
 Start the shared platform dependencies and edge services:
 
 ```bash
-cd core
+cd argus-core
 docker compose up --build
 ```
 
-Run an individual domain project from the services repository. Each project owns its own compose file and can use its own port above 3000:
+Run an individual domain project from the argus-services repository. Each project owns its own compose file and can use its own port above 3000:
 
 ```bash
-cd services/triage
+cd argus-services/triage
 docker compose up --build
 ```
 
 ## Repository layout
 
-- `core` — shared platform runtime: TLS/edge routing, database, Redis, broker, and core APIs.
-- `services/capture` — capture and ingestion.
-- `services/triage` — triage workspace and operator experience.
-- `services/realtime` — realtime updates.
-- `services/analysis` — analysis workflows.
-- `services/notifications` — notification delivery.
-- `libs` — shared contracts and libraries.
+- `argus-core` — shared platform runtime: TLS/edge routing, database, Redis, broker, and core APIs.
+- `argus-services/capture` — capture and ingestion.
+- `argus-services/triage` — triage workspace and operator experience.
+- `argus-services/realtime` — realtime updates.
+- `argus-services/analysis` — analysis workflows.
+- `argus-services/notifications` — notification delivery.
+- `argus-libs` — shared contracts and libraries.
 
 The local development hostname is `development.argus.com`. Core owns the shared infrastructure and service projects remain independently runnable under their own ports while integration conventions are established.

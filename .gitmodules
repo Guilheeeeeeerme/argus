@@ -1,12 +1,12 @@
-[submodule "core"]
-	path = core
+[submodule "argus-core"]
+	path = argus-core
 	url = git@github.com:Guilheeeeeeerme/argus-core.git
 	branch = main
-[submodule "services"]
-	path = services
+[submodule "argus-services"]
+	path = argus-services
 	url = git@github.com:Guilheeeeeeerme/argus-services.git
 	branch = main
-[submodule "libs"]
-	path = libs
+[submodule "argus-libs"]
+	path = argus-libs
 	url = git@github.com:Guilheeeeeeerme/argus-libs.git
 	branch = main
