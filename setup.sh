@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-for command_name in git docker; do
+for command_name in git docker openssl; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "Required command not found: $command_name" >&2
     exit 1
@@ -16,6 +16,30 @@ git -C "$repo_root" submodule update --init --recursive
 if [[ ! -f "$repo_root/argus-core/.env" ]]; then
   cp "$repo_root/argus-core/.env.example" "$repo_root/argus-core/.env"
   echo "Created argus-core/.env from argus-core/.env.example."
+fi
+
+credentials_file="$repo_root/argus-core/.env.root-credentials.txt"
+if [[ ! -f "$credentials_file" ]]; then
+  root_password="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)"
+  root_email="root@argus.local"
+  {
+    echo "ARGUS_ROOT_EMAIL=$root_email"
+    echo "ARGUS_ROOT_PASSWORD=$root_password"
+  } > "$credentials_file"
+  chmod 600 "$credentials_file"
+  printf 'Created local root credentials at %s.\n' "$credentials_file"
+fi
+root_email="$(sed -n 's/^ARGUS_ROOT_EMAIL=//p' "$credentials_file")"
+root_password="$(sed -n 's/^ARGUS_ROOT_PASSWORD=//p' "$credentials_file")"
+if grep -q '^DEV_ROOT_EMAIL=' "$repo_root/argus-core/.env"; then
+  sed -i "s|^DEV_ROOT_EMAIL=.*|DEV_ROOT_EMAIL=$root_email|" "$repo_root/argus-core/.env"
+else
+  printf '\nDEV_ROOT_EMAIL=%s\n' "$root_email" >> "$repo_root/argus-core/.env"
+fi
+if grep -q '^DEV_ROOT_PASSWORD=' "$repo_root/argus-core/.env"; then
+  sed -i "s|^DEV_ROOT_PASSWORD=.*|DEV_ROOT_PASSWORD=$root_password|" "$repo_root/argus-core/.env"
+else
+  printf 'DEV_ROOT_PASSWORD=%s\n' "$root_password" >> "$repo_root/argus-core/.env"
 fi
 
 hosts_file="${ARGUS_HOSTS_FILE:-/etc/hosts}"
