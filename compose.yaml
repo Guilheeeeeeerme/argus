@@ -1,5 +1,0 @@
-name: argus
-
-# Default: Core Admin only. Add --profile platform --profile mfe for the full stack.
-include:
-  - path: backend/docker/docker-compose.yml

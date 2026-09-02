@@ -1,36 +1,6 @@
-# OS
-.DS_Store
-Thumbs.db
-
-# Editor
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Environment & secrets
 .env
 .env.*
 !.env.example
-*.pem
-*.key
-credentials.json
-secrets/
-
-# Dependencies & build
-node_modules/
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-dist/
-build/
-*.egg-info/
-target/
-
-# Logs & temp
-*.log
-tmp/
-temp/
-.cache/
+.DS_Store
+**/__pycache__/
+.pytest_cache/

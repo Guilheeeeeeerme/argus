@@ -1,43 +1,37 @@
-# ARGUS
+# Argus Workspace
 
-**Continuous vigilance. Simultaneous attention.**
+This private repository is the workspace for the Argus platform. Runtime infrastructure lives in `core`; independently deployable domain projects live in `services`; reusable contracts and libraries live in `libs`.
 
-> *Surveillance that never looks away.*
+## Get started
 
-## About
+```bash
+git clone git@github.com:Guilheeeeeeerme/argus.git
+cd argus
+./setup.sh
+```
 
-ARGUS is a project built around the idea of **watching many things at once** — detecting change and threat without abandoning what is already under protection.
+Start the shared platform dependencies and edge services:
 
-Named after **Argos Panoptes** (Ἄργος Πανόπτης), the many-eyed sentinel of Greek mythology: some of his eyes always remained open while others rested. ARGUS carries that spirit into software — persistent, layered observation that does not blink when attention is needed elsewhere.
+```bash
+cd core
+docker compose up --build
+```
 
-## Concept
+Run an individual domain project from the services repository. Each project owns its own compose file and can use its own port above 3000:
 
-At its core, ARGUS represents the ability to:
+```bash
+cd services/triage
+docker compose up --build
+```
 
-- **Observe multiple points simultaneously**
-- **Detect changes and threats** as they emerge
-- **Stay committed to what is already protected** while scanning the horizon
+## Repository layout
 
-It is, in mythological terms, the principle of *one eye on the fish, one on the cat*: protection is not only about guarding what you hold — it is also about keeping watch on what might threaten it.
+- `core` — shared platform runtime: TLS/edge routing, database, Redis, broker, and core APIs.
+- `services/capture` — capture and ingestion.
+- `services/triage` — triage workspace and operator experience.
+- `services/realtime` — realtime updates.
+- `services/analysis` — analysis workflows.
+- `services/notifications` — notification delivery.
+- `libs` — shared contracts and libraries.
 
-## Status
-
-Development MVP in progress. The backend MVP slices, local mock event/notification
-flow, hot-reload React surfaces, shared `.env`, and HTTPS development gateway are
-present in the working tree. Run the development instructions in
-`docs/development-network.md` and `specs/001-saas-mvp/quickstart.md`.
-
-The monorepo mirrors the future Core Admin, platform-services, and MFE
-repository boundaries. Plain `docker compose up --build` starts Core Admin;
-use `docker compose --profile platform --profile mfe up --build` for the full
-pipeline.
-
-## Project handoff
-
-Start each development interaction with [START_HERE.md](START_HERE.md). The
-evidence-based documentation and delivery audit is in
-[DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md).
-
-## License
-
-TBD
+The local development hostname is `development.argus.com`. Core owns the shared infrastructure and service projects remain independently runnable under their own ports while integration conventions are established.
