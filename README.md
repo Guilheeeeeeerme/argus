@@ -10,6 +10,10 @@ cd argus
 ./setup.sh
 ```
 
+The setup script initializes the repositories, creates `argus-core/.env`, adds
+the local development hostnames to `/etc/hosts`, starts Core, and trusts
+Caddy's generated development CA certificate (using `sudo` when needed).
+
 Start the shared platform dependencies and edge services:
 
 ```bash
