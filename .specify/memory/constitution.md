@@ -8,10 +8,9 @@ Sync Impact Report
   - Engineering Workflow
   - Governance
 - Removed sections: none
-- Follow-up TODOs:
-  - Spec Kit resolver unavailable: `.specify/scripts/bash/resolve-template.sh` missing.
-    Run `specify init` (or equivalent bundle install) to materialize the full `.specify/`
-    scaffold for `/speckit-specify`, `/speckit-plan`, and `/speckit-analyze`.
+- Follow-up TODOs: none. Spec Kit core scripts, templates, and workflow are
+  materialized in `.specify/`; the Codex integration remains environment-limited
+  because the workspace `.agents/` directory is read-only.
 -->
 
 # ARGUS Constitution

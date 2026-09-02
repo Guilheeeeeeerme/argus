@@ -22,7 +22,16 @@ It is, in mythological terms, the principle of *one eye on the fish, one on the 
 
 ## Status
 
-Early stage. Repository initialized; implementation to follow.
+Foundation stage. The repository contains the initial backend schema, RLS,
+Auth0/JWT primitives, Docker infrastructure, and development seed/validation
+scripts. The remaining MVP slices are tracked in the handoff audit and are not
+yet merged into `main`.
+
+## Project handoff
+
+Start each development interaction with [START_HERE.md](START_HERE.md). The
+evidence-based documentation and delivery audit is in
+[DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md).
 
 ## License
 
