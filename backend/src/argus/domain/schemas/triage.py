@@ -19,6 +19,7 @@ class DecisionSummary(BaseModel):
     evidence_count: int
     window_start: datetime
     window_end: datetime
+    updated_at: datetime
     last_evidence_at: datetime | None
 
     model_config = {"from_attributes": True}

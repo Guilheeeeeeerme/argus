@@ -22,10 +22,15 @@ It is, in mythological terms, the principle of *one eye on the fish, one on the 
 
 ## Status
 
-Foundation stage. The repository contains the initial backend schema, RLS,
-Auth0/JWT primitives, Docker infrastructure, and development seed/validation
-scripts. The remaining MVP slices are tracked in the handoff audit and are not
-yet merged into `main`.
+Development MVP in progress. The backend MVP slices, local mock event/notification
+flow, hot-reload React surfaces, shared `.env`, and HTTPS development gateway are
+present in the working tree. Run the development instructions in
+`docs/development-network.md` and `specs/001-saas-mvp/quickstart.md`.
+
+The monorepo mirrors the future Core Admin, platform-services, and MFE
+repository boundaries. Plain `docker compose up --build` starts Core Admin;
+use `docker compose --profile platform --profile mfe up --build` for the full
+pipeline.
 
 ## Project handoff
 

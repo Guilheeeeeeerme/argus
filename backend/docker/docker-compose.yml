@@ -8,7 +8,17 @@ x-argus-env: &argus-env
   S3_REGION: us-east-1
   AUTH0_DOMAIN: ${AUTH0_DOMAIN:-dev-placeholder.auth0.com}
   AUTH0_API_AUDIENCE: ${AUTH0_API_AUDIENCE:-https://api.argus.local}
-  AUTH0_ALGORITHMS: RS256
+  AUTH0_ALGORITHMS: ${AUTH0_ALGORITHMS:-HS256}
+  AUTH0_USE_MOCK: ${AUTH0_USE_MOCK:-true}
+  DEV_JWT_SECRET: ${DEV_JWT_SECRET:-local-development-secret}
+  NOTIFICATION_MODE: ${NOTIFICATION_MODE:-log}
+  DEV_NOTIFY_FAIL: ${DEV_NOTIFY_FAIL:-false}
+  EVENT_TRANSPORT: ${EVENT_TRANSPORT:-log}
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  SNS_TOPIC_ARN: ${SNS_TOPIC_ARN:-}
+  EVENTBRIDGE_BUS_NAME: ${EVENTBRIDGE_BUS_NAME:-default}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
   TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
@@ -20,6 +30,10 @@ x-argus-env: &argus-env
 x-argus-build: &argus-build
   context: ..
   dockerfile: docker/Dockerfile
+  network: host
+
+x-argus-env-file: &argus-env-file
+  - ../../.env
 
 services:
   # ── Infrastructure ───────────────────────────────────────────────────────
@@ -93,6 +107,7 @@ services:
   # ── HTTP deployables ───────────────────────────────────────────────────────
 
   api-admin:
+    env_file: *argus-env-file
     build:
       <<: *argus-build
       target: api-admin
@@ -124,6 +139,8 @@ services:
       start_period: 20s
 
   api-ingest:
+    profiles: [platform]
+    env_file: *argus-env-file
     build:
       <<: *argus-build
       target: api-ingest
@@ -155,6 +172,8 @@ services:
       start_period: 20s
 
   ws-gateway:
+    profiles: [platform]
+    env_file: *argus-env-file
     build:
       <<: *argus-build
       target: ws-gateway
@@ -184,6 +203,8 @@ services:
   # ── Worker deployables ─────────────────────────────────────────────────────
 
   worker-vlm:
+    profiles: [platform]
+    env_file: *argus-env-file
     build:
       <<: *argus-build
       target: worker
@@ -199,6 +220,8 @@ services:
     restart: unless-stopped
 
   worker-aggregator:
+    profiles: [platform]
+    env_file: *argus-env-file
     build:
       <<: *argus-build
       target: worker
@@ -214,6 +237,8 @@ services:
     restart: unless-stopped
 
   worker-notify:
+    profiles: [platform]
+    env_file: *argus-env-file
     build:
       <<: *argus-build
       target: worker
@@ -229,6 +254,8 @@ services:
     restart: unless-stopped
 
   worker-scheduler:
+    profiles: [platform]
+    env_file: *argus-env-file
     build:
       <<: *argus-build
       target: worker
@@ -243,7 +270,67 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  admin-dashboard:
+    build:
+      context: ../../apps/core-admin/web
+      dockerfile: Dockerfile
+      network: host
+    container_name: argus-admin-dashboard
+    volumes:
+      - ../../frontend/admin:/app
+      - admin_node_modules:/app/node_modules
+    environment:
+      VITE_ADMIN_API: ${VITE_ADMIN_API:-https://api.development.argus.com}
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-admin:
+        condition: service_healthy
+
+  triage-spa:
+    profiles: [mfe]
+    build:
+      context: ../../apps/mfes/triage
+      dockerfile: Dockerfile
+      network: host
+    container_name: argus-triage-spa
+    volumes:
+      - ../../frontend/triage:/app
+      - triage_node_modules:/app/node_modules
+    environment:
+      VITE_ADMIN_API: ${VITE_ADMIN_API:-https://api.development.argus.com}
+      VITE_WS_API: ${VITE_WS_API:-wss://ws.development.argus.com}
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3001"]
+    ports:
+      - "3001:3001"
+    depends_on:
+      api-admin:
+        condition: service_healthy
+      ws-gateway:
+        condition: service_healthy
+
+  dev-gateway:
+    image: caddy:2-alpine
+    container_name: argus-dev-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../../infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      admin-dashboard:
+        condition: service_started
+      api-admin:
+        condition: service_healthy
+
 volumes:
   argus_postgres_data:
   argus_redis_data:
   argus_minio_data:
+  admin_node_modules:
+  triage_node_modules:
+  caddy_data:
+  caddy_config:

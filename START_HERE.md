@@ -8,7 +8,7 @@ interaction.
 
 ```text
 NOTHING TO BE DONE: false
-PROJECT_STATUS: foundation_on_main; mvp_implementation_not_on_main
+PROJECT_STATUS: foundation_on_main; mvp_implementation_in_worktree; docker_dev_stack_verified
 ACTIVE_FEATURE: 001-saas-mvp
 LAST_AUDIT: 2026-09-02
 ```
@@ -19,9 +19,17 @@ feature validation log. Until then, this flag must remain `false`.
 
 ## What is currently true
 
-- `main` contains the foundation work from PR #1: database migrations/models,
-  Auth0/JWT security primitives, RLS setup, Docker infrastructure, seed and
-  validation scripts, and the initial backend test.
+- The staged backend slices are integrated in the working tree: ingestion,
+  workers, admin/triage REST, WebSocket delivery, notifications, and contracts.
+- A repository-level `.env` drives local development. Default event delivery is
+  structured logging; default SMS/WhatsApp delivery is also logging-only.
+- React/Vite Admin and Triage surfaces run with bind-mounted hot reload, and
+  Caddy provides local HTTPS subdomains under `*.development.argus.com`.
+- The repository now mirrors future extraction boundaries: `apps/core-admin`,
+  `apps/platform`, and `apps/mfes`. Plain Compose starts Core Admin; platform
+  and MFE services use opt-in profiles.
+- Local persona login shares a `.development.argus.com` cookie between SPAs;
+  Auth0 client-ID configuration is documented for the real SSO mode.
 - The feature specification and design artifacts are partly present under
   `specs/001-saas-mvp/`.
 - Spec Kit CLI `1.0.3` is installed and the repository now has its core
@@ -30,19 +38,18 @@ feature validation log. Until then, this flag must remain `false`.
   read-only in this workspace. The repository-local core installation remains
   usable; use the generated workflow files or install the Codex integration in
   a writable clone/workspace.
-- Local refs `pr/02-ingest` through `pr/06-polish` contain later implementation
-  work, but they are not merged into `main`. Treat them as review material, not
-  as completed project state.
+- The changes are not committed to `main` yet because this environment blocks
+  Git index/ref writes. Treat the current worktree as the active implementation.
 
 See [DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md) for the evidence-based
 status and the comparison with those refs.
 
 ## Required next interaction
 
-1. Start from a clean, verified `main` working tree and inspect the audit.
-2. Review the unmerged PR refs in dependency order (`pr/02-ingest` through
-   `pr/06-polish`) against the spec, plan, and constitution. Do not claim their
-   tasks are complete on `main` until their changes are merged and re-tested.
+1. Re-run the development stack and full browser/edge quickstart from a clean
+   reset; record the remaining scenario evidence.
+2. Complete real Auth0 SPA login wiring and validate SNS/EventBridge delivery
+   with configured credentials; local log modes remain the default.
 3. Use the Spec Kit flow for the active feature:
    `speckit-clarify` (if needed) → `speckit-analyze` →
    `speckit-implement`/targeted fixes → `speckit-converge`.

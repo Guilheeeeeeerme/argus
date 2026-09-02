@@ -1,0 +1,23 @@
+{
+    auto_https disable_redirects
+}
+app.development.argus.com {
+    tls internal
+    reverse_proxy admin-dashboard:3000
+}
+triage.development.argus.com {
+    tls internal
+    reverse_proxy triage-spa:3001
+}
+api.development.argus.com {
+    tls internal
+    reverse_proxy api-admin:8000
+}
+ingest.development.argus.com {
+    tls internal
+    reverse_proxy api-ingest:8001
+}
+ws.development.argus.com {
+    tls internal
+    reverse_proxy ws-gateway:8002
+}

@@ -1,0 +1,10 @@
+{
+  "name": "argus-monorepo",
+  "private": true,
+  "scripts": {
+    "dev:admin": "npm --prefix apps/core-admin/web run dev",
+    "dev:triage": "npm --prefix apps/mfes/triage run dev",
+    "build:admin": "npm --prefix apps/core-admin/web run build",
+    "build:triage": "npm --prefix apps/mfes/triage run build"
+  }
+}

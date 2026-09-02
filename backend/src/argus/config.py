@@ -25,7 +25,7 @@ DEFAULT_PORTS: dict[str, int] = {
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -61,6 +61,14 @@ class Settings(BaseSettings):
         alias="DEV_JWT_SECRET",
         default="local-dev-secret-change-me",
     )
+    dev_notify_fail: bool = Field(alias="DEV_NOTIFY_FAIL", default=False)
+    notification_mode: Literal["log", "twilio"] = Field(alias="NOTIFICATION_MODE", default="log")
+    event_transport: Literal["log", "sns", "eventbridge"] = Field(alias="EVENT_TRANSPORT", default="log")
+    aws_region: str = Field(alias="AWS_REGION", default="us-east-1")
+    aws_access_key_id: str = Field(alias="AWS_ACCESS_KEY_ID", default="")
+    aws_secret_access_key: str = Field(alias="AWS_SECRET_ACCESS_KEY", default="")
+    sns_topic_arn: str = Field(alias="SNS_TOPIC_ARN", default="")
+    eventbridge_bus_name: str = Field(alias="EVENTBRIDGE_BUS_NAME", default="default")
     auth0_claims_namespace: str = Field(
         alias="AUTH0_CLAIMS_NAMESPACE",
         default="https://argus.local",
@@ -72,6 +80,7 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = Field(alias="OPENAI_API_KEY", default="")
+    openai_base_url: str = Field(alias="OPENAI_BASE_URL", default="")
 
     twilio_account_sid: str = Field(alias="TWILIO_ACCOUNT_SID", default="")
     twilio_auth_token: str = Field(alias="TWILIO_AUTH_TOKEN", default="")

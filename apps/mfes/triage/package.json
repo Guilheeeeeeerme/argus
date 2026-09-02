@@ -1,0 +1,1 @@
+{"name":"argus-triage","private":true,"type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"tsc && vite build"},"dependencies":{"vite":"latest","typescript":"latest","react":"latest","react-dom":"latest"},"devDependencies":{}}

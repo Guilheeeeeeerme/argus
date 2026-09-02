@@ -30,6 +30,7 @@ from argus.domain.models import (  # noqa: E402
     TenantUser,
 )
 from argus.services.database import set_session_context  # noqa: E402
+from argus.services.redis import set_key  # noqa: E402
 
 # Stable IDs for local verification
 SEED_TENANT_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
@@ -41,6 +42,7 @@ SEED_LENS_ID = uuid.UUID("66666666-6666-4666-8666-666666666666")
 SEED_RULE_ID = uuid.UUID("77777777-7777-4777-8777-777777777777")
 SEED_ROOT_ADMIN_ID = uuid.UUID("88888888-8888-4888-8888-888888888888")
 SEED_TENANT_ADMIN_ID = uuid.UUID("99999999-9999-4999-8999-999999999999")
+SEED_WATCHER_ID = uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 SEED_NOTIF_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
 TENANT_SLUG = "demo-retail"
@@ -198,6 +200,23 @@ async def seed(session: AsyncSession) -> dict[str, str]:
             )
         )
 
+    watcher = await session.scalar(
+        select(TenantUser).where(
+            TenantUser.idp_subject == "auth0|seed-watcher",
+            TenantUser.tenant_id == tenant.id,
+        )
+    )
+    if watcher is None:
+        session.add(
+            TenantUser(
+                id=SEED_WATCHER_ID,
+                tenant_id=tenant.id,
+                idp_subject="auth0|seed-watcher",
+                email="watcher@demo-retail.local",
+                role=UserRole.WATCHER,
+            )
+        )
+
     notif = await session.get(NotificationConfig, SEED_NOTIF_ID)
     if notif is None:
         session.add(
@@ -210,6 +229,7 @@ async def seed(session: AsyncSession) -> dict[str, str]:
         )
 
     await session.commit()
+    await set_key(f"camera:active_mode:{SEED_CAMERA_ID}", str(SEED_MODE_ID), ex=86400)
     return {
         "tenant_id": str(tenant.id),
         "market_id": str(SEED_MARKET_ID),
