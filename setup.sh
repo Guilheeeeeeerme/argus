@@ -28,7 +28,10 @@ if ! command -v mkcert >/dev/null 2>&1; then
 fi
 
 # Initialize mkcert CA (requires sudo on first run)
-mkcert -install 2>/dev/null || true
+# Only run if CA doesn't exist yet
+if [[ ! -d "$HOME/.local/share/mkcert" ]]; then
+  mkcert -install 2>/dev/null || true
+fi
 
 git -C "$repo_root" submodule sync --recursive
 git -C "$repo_root" submodule update --init --recursive
@@ -82,22 +85,23 @@ if ! grep -Eq '(^|[[:space:]])app\.development\.argus\.com([[:space:]]|$)' "$hos
   echo "Added Argus development hostnames to $hosts_file."
 fi
 
-if [[ "${ARGUS_SKIP_CORE_START:-0}" != 1 ]]; then
-  # Generate development certificates
-  cert_dir="$repo_root/argus-core/infra/caddy/certs"
-  mkdir -p "$cert_dir"
-  if [[ ! -f "$cert_dir/cert.pem" ]] || [[ ! -f "$cert_dir/key.pem" ]]; then
-    echo "Generating development certificates..."
-    mkcert -cert-file "$cert_dir/cert.pem" \
-            -key-file "$cert_dir/key.pem" \
-            "*.development.argus.com" development.argus.com localhost 127.0.0.1
-    echo "Certificates generated at $cert_dir/"
-  fi
+# Generate development certificates (always, regardless of ARGUS_SKIP_CORE_START)
+cert_dir="$repo_root/argus-core/infra/caddy/certs"
+mkdir -p "$cert_dir"
+if [[ ! -f "$cert_dir/cert.pem" ]] || [[ ! -f "$cert_dir/key.pem" ]]; then
+  echo "Generating development certificates..."
+  mkcert -cert-file "$cert_dir/cert.pem" \
+          -key-file "$cert_dir/key.pem" \
+          "*.development.argus.com" development.argus.com localhost 127.0.0.1
+  echo "Certificates generated at $cert_dir/"
+fi
 
+if [[ "${ARGUS_SKIP_CORE_START:-0}" != 1 ]]; then
   docker compose -f "$repo_root/argus-core/compose.yaml" up -d --build
 fi
 
 # mkcert CA is trusted during mkcert -install step above
-# No separate cert trust extraction needed
+# ARGUS_SKIP_CERT_TRUST is kept for backward compatibility but no longer needed
+# as mkcert handles trust automatically
 
 echo "Argus workspace ready. Argus Core, services, and libs are available."
