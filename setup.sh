@@ -10,6 +10,26 @@ for command_name in git docker openssl; do
   fi
 done
 
+# Install mkcert if not present
+if ! command -v mkcert >/dev/null 2>&1; then
+  echo "mkcert not found. Installing..."
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -qq && sudo apt-get install -y -qq mkcert libnss3-tools
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y mkcert
+  elif command -v brew >/dev/null 2>&1; then
+    brew install mkcert
+  else
+    echo "Cannot install mkcert automatically." >&2
+    echo "Install manually: https://github.com/FiloSottile/mkcert#installation" >&2
+    exit 1
+  fi
+  echo "mkcert installed."
+fi
+
+# Initialize mkcert CA (requires sudo on first run)
+mkcert -install 2>/dev/null || true
+
 git -C "$repo_root" submodule sync --recursive
 git -C "$repo_root" submodule update --init --recursive
 
@@ -63,44 +83,21 @@ if ! grep -Eq '(^|[[:space:]])app\.development\.argus\.com([[:space:]]|$)' "$hos
 fi
 
 if [[ "${ARGUS_SKIP_CORE_START:-0}" != 1 ]]; then
+  # Generate development certificates
+  cert_dir="$repo_root/argus-core/infra/caddy/certs"
+  mkdir -p "$cert_dir"
+  if [[ ! -f "$cert_dir/cert.pem" ]] || [[ ! -f "$cert_dir/key.pem" ]]; then
+    echo "Generating development certificates..."
+    mkcert -cert-file "$cert_dir/cert.pem" \
+            -key-file "$cert_dir/key.pem" \
+            "*.development.argus.com" development.argus.com localhost 127.0.0.1
+    echo "Certificates generated at $cert_dir/"
+  fi
+
   docker compose -f "$repo_root/argus-core/compose.yaml" up -d --build
 fi
 
-if [[ "${ARGUS_SKIP_CERT_TRUST:-0}" != 1 ]]; then
-  cert_file="$(mktemp)"
-  trap 'rm -f "$cert_file"' EXIT
-  if ! docker exec argus-dev-gateway cat /data/caddy/pki/authorities/local/root.crt > "$cert_file"; then
-    echo "Could not read the Caddy local CA certificate from argus-dev-gateway." >&2
-    exit 1
-  fi
-
-  cert_target="/usr/local/share/ca-certificates/argus-development.crt"
-  if [[ -w "$(dirname "$cert_target")" ]]; then
-    cp "$cert_file" "$cert_target"
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo cp "$cert_file" "$cert_target"
-  else
-    echo "Cannot install the Argus CA certificate; sudo is required." >&2
-    exit 1
-  fi
-
-  if command -v update-ca-certificates >/dev/null 2>&1; then
-    if [[ -w /etc/ssl/certs ]]; then
-      update-ca-certificates >/dev/null
-    else
-      sudo update-ca-certificates >/dev/null
-    fi
-  elif command -v update-ca-trust >/dev/null 2>&1; then
-    if [[ -w /etc/pki/ca-trust/source/anchors ]]; then
-      update-ca-trust
-    else
-      sudo update-ca-trust
-    fi
-  else
-    echo "No supported CA trust update command found." >&2
-    exit 1
-  fi
-  echo "Trusted the Argus development CA certificate."
-fi
+# mkcert CA is trusted during mkcert -install step above
+# No separate cert trust extraction needed
 
 echo "Argus workspace ready. Argus Core, services, and libs are available."
