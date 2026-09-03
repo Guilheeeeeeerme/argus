@@ -6,3 +6,5 @@ argus-core/.env.root-credentials.txt
 **/__pycache__/
 .pytest_cache/
 .worktrees
+argus-core/infra/caddy/certs/*.pem
+argus-core/infra/caddy/certs/*.key
