@@ -5,3 +5,4 @@ argus-core/.env.root-credentials.txt
 .DS_Store
 **/__pycache__/
 .pytest_cache/
+.worktrees
