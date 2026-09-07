@@ -51,6 +51,22 @@ FastAPI API
 | Frontends | React, Vite, shared `@argus/design-system` package |
 | Auth | Opaque Redis sessions, PyJWT client-credentials for edge devices |
 
+## Guardrails & LLM spend
+
+All LLM calls follow the Promptdesk guardrails standard (`apps/api/docs/guardrails.md`).
+
+| OWASP risk | Mitigation |
+| --- | --- |
+| LLM01 Prompt injection | Untrusted feedback text is pre-screened against regex policies (`apps/api/src/argus/guardrails/registry.yml` via `screening.py`); a block skips the LLM call entirely and records a `policy_block` evidence. Remaining untrusted content is wrapped in a `BEGIN_UNTRUSTED_VLM_CONTEXT` / `END_UNTRUSTED_VLM_CONTEXT` fence (`fencing.py`) inside the user message, never the system prompt. |
+| LLM02 Sensitive disclosure | The VLM system prompt (from the registry) treats all context as data, never instructions, and forbids revealing prompts or secrets; biometric identification is prohibited by policy. |
+| LLM10 Unbounded consumption | Worker budget: fixed-window `LLM_RATE_LIMIT_PER_MINUTE` (default 20) and daily `LLM_DAILY_BUDGET` (default 500) checked in Redis before every call; over budget the call is skipped with `rate_limit`/`budget_exceeded` evidence. API: per-IP `RATE_LIMIT_PER_MINUTE` (default 30) via slowapi. |
+
+Providers and models:
+
+- `LLM_PROVIDER_ORDER` (default `gemini,openai`): Gemini first, OpenAI optional fallback; providers without a key are skipped; `OPENAI_BASE_URL` is honored.
+- Cheapest-first model rank (`integrations/model_rank.py`, Redis-cached, refreshed by the `models.refresh_rank` beat task every `MODEL_RANK_REFRESH_MS`, default 12h = twice daily): retries escalate through `rank[attempt]`, cross-provider failover only after all attempts of the earlier provider fail.
+- VLM analysis is ingest-driven, not scheduled; embeddings remain OpenAI-only (`text-embedding-3-small`) with a deterministic local fallback.
+
 ## Local development
 
 ```bash
