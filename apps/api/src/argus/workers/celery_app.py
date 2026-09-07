@@ -15,6 +15,7 @@ celery_app = Celery(
         "argus.workers.aggregator",
         "argus.workers.scheduler",
         "argus.workers.notifier",
+        "argus.integrations.model_rank",
     ],
 )
 
@@ -29,6 +30,7 @@ celery_app.conf.update(
         "aggregate.*": {"queue": "aggregate"},
         "notify.*": {"queue": "notify"},
         "schedule.*": {"queue": "schedule"},
+        "models.*": {"queue": "vlm"},
     },
     beat_schedule={
         "activate-scheduled-modes": {
@@ -38,6 +40,10 @@ celery_app.conf.update(
         "poll-ingest-stream": {
             "task": "vlm.process_ingest_stream",
             "schedule": 2.0,
+        },
+        "refresh-model-rank": {
+            "task": "models.refresh_rank",
+            "schedule": max(1.0, settings.model_rank_refresh_ms / 1000.0),
         },
     },
 )
