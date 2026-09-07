@@ -1,0 +1,55 @@
+.argus-triage {
+  max-width: 1100px;
+  margin: auto;
+  padding: var(--space-xl);
+}
+
+.argus-triage__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+@media (max-width: 700px) {
+  .argus-triage__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.argus-decision-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-sm) 0;
+  cursor: pointer;
+  color: var(--text-primary);
+  font: var(--font);
+}
+
+.argus-decision-btn:last-child {
+  border-bottom: none;
+}
+
+.argus-decision-btn:hover {
+  background: var(--bg-input);
+}
+
+.argus-decision-btn span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.argus-evidence {
+  border-top: 1px solid var(--border);
+  padding: var(--space-sm) 0;
+}
+
+.argus-evidence p {
+  margin: var(--space-xs) 0 0;
+  color: var(--text-secondary);
+}

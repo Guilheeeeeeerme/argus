@@ -1,0 +1,29 @@
+{
+  "name": "@argus/design-system",
+  "version": "0.0.1",
+  "description": "Argus shared design tokens, styles, and React components.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Guilheeeeeeerme/argus-libs.git",
+    "directory": "ui"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./global.css": "./src/global.css"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  }
+}

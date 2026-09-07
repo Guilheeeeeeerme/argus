@@ -1,0 +1,31 @@
+.argus-login {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.argus-admin {
+  max-width: 960px;
+  margin: auto;
+  padding: var(--space-xl);
+}
+
+.argus-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-sm) 0;
+}
+
+.argus-list-item:last-child {
+  border-bottom: 0;
+}
+
+.argus-inline-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
