@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider, ThemeToggle, Header, Sidenav, Button, Message } from '@argus/design-system';
+import { ThemeProvider, ThemeToggle, LocaleToggle, Header, Sidenav, Button, Message } from '@argus/design-system';
+import { I18nProvider, useT, useLocale } from '@argus/i18n';
 import '@argus/design-system/tokens.css';
 import '@argus/design-system/global.css';
 import './style.css';
@@ -10,12 +11,12 @@ import {
   getToken,
   getSession,
   isAllowedReturn,
-  setToken,
   TRIAGE_ORIGIN,
   Session as AuthSession,
 } from '@shared/auth';
 import { call, returnTo, APP, switchContext, Session, Company, Location, Account } from './api';
 import { Login } from './pages/Login';
+import { Register } from './pages/Register';
 import { Companies } from './pages/Companies';
 import { Users } from './pages/Users';
 import { Locations } from './pages/Locations';
@@ -25,6 +26,8 @@ function isPlatform(role: string): boolean {
 }
 
 function App({ initial }: { initial: Session }) {
+  const t = useT();
+  const { locale, setLocale } = useLocale();
   const [session, setSession] = useState(initial);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -56,7 +59,7 @@ function App({ initial }: { initial: Session }) {
       await load(next);
       const target = returnTo();
       if (target !== APP) window.location.assign(withToken(target));
-      else setMessage('Company context updated.');
+      else setMessage(t('Company context updated.'));
     } catch (error) {
       setMessage(String(error));
     }
@@ -66,14 +69,14 @@ function App({ initial }: { initial: Session }) {
     try {
       const next = await switchContext({ locationId: id || null });
       await load(next);
-      setMessage(id ? `Active location: ${next.activeLocation?.name}` : 'Location cleared.');
+      setMessage(id ? t('Active location: {name}', { name: next.activeLocation?.name ?? '' }) : t('Location cleared.'));
     } catch (error) {
       setMessage(String(error));
     }
   }
 
   async function deleteCompany(company: Company) {
-    if (!window.confirm(`Delete ${company.name}?`)) return;
+    if (!window.confirm(t('Delete {name}?', { name: company.name }))) return;
     try {
       await call(`/v1/admin/companies/${company.id}`, { method: 'DELETE' });
       await switchContext({ companyId: null });
@@ -93,19 +96,24 @@ function App({ initial }: { initial: Session }) {
     <main className="argus-admin">
       <Header
         title="ARGUS"
-        subtitle="Administration"
-        actions={<ThemeToggle />}
+        subtitle={t('Administration')}
+        actions={
+          <>
+            <LocaleToggle locale={locale} label={t('PT-BR')} ariaLabel={t('Switch language')} onLocaleChange={setLocale} />
+            <ThemeToggle />
+          </>
+        }
       />
       <Sidenav>
         {isPlatform(session.user.role) && (
           <label>
-            Company
+            {t('Company')}
             <select
-              aria-label="Active company"
+              aria-label={t('Active company')}
               value={session.activeCompany?.id ?? ''}
               onChange={e => void switchCompany(e.target.value)}
             >
-              <option value="">All companies</option>
+              <option value="">{t('All companies')}</option>
               {companies.map(company => (
                 <option key={company.id} value={company.id}>{company.name}</option>
               ))}
@@ -114,13 +122,13 @@ function App({ initial }: { initial: Session }) {
         )}
         {session.activeCompany && (
           <label>
-            Location
+            {t('Location')}
             <select
-              aria-label="Active location"
+              aria-label={t('Active location')}
               value={session.activeLocation?.id ?? ''}
               onChange={e => void switchLocation(e.target.value)}
             >
-              <option value="">No location selected</option>
+              <option value="">{t('No location selected')}</option>
               {locations.map(location => (
                 <option key={location.id} value={location.id}>{location.name}</option>
               ))}
@@ -131,16 +139,16 @@ function App({ initial }: { initial: Session }) {
           variant="ghost"
           onClick={() => window.location.assign(`${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(withToken(window.location.href))}`)}
         >
-          Open Triage
+          {t('Open Triage')}
         </Button>
         <Button
           variant="ghost"
           onClick={() => { void call('/v1/auth/logout', { method: 'POST' }); clearToken(); window.location.assign(APP); }}
         >
-          Sign out
+          {t('Sign out')}
         </Button>
       </Sidenav>
-      <Message text={message || `Signed in as ${session.user.email} (${session.user.role})`} />
+      <Message text={message || t('Signed in as {email} ({role})', { email: session.user.email, role: session.user.role })} />
       {isPlatform(session.user.role) && (
         <>
           <Companies companies={companies} onReload={() => void load()} />
@@ -158,7 +166,7 @@ function App({ initial }: { initial: Session }) {
   );
 }
 
-function SsoHandoff() {
+function SsoHandoffPage() {
   const params = new URLSearchParams(window.location.search);
   const target = params.get('returnUrl') ?? APP;
   const token = getToken();
@@ -181,12 +189,22 @@ function SsoHandoff() {
   );
 }
 
-function Root() {
+function LocaleAware() {
   const [session, setSession] = useState<Session | null>(null);
   const [booted, setBooted] = useState(false);
 
   useEffect(() => {
     consumeTokenFromUrl();
+    if (window.location.pathname === '/register') {
+      if (getToken()) {
+        getSession()
+          .then(() => { window.location.assign(APP); })
+          .catch(() => { clearToken(); setBooted(true); });
+      } else {
+        setBooted(true);
+      }
+      return;
+    }
     if (window.location.pathname === '/sso/handoff') {
       setBooted(true);
       return;
@@ -202,12 +220,19 @@ function Root() {
   }, []);
 
   if (!booted) return null;
-  if (window.location.pathname === '/sso/handoff') return <SsoHandoff />;
+  if (window.location.pathname === '/register') return <Register onRegister={setSession} />;
+  if (window.location.pathname === '/sso/handoff') return <SsoHandoffPage />;
   return session ? <App initial={session} /> : <Login onLogin={setSession} />;
 }
 
-createRoot(document.getElementById('root')!).render(
-  <ThemeProvider>
-    <Root />
-  </ThemeProvider>
-);
+function Root() {
+  return (
+    <ThemeProvider>
+      <I18nProvider>
+        <LocaleAware />
+      </I18nProvider>
+    </ThemeProvider>
+  );
+}
+
+createRoot(document.getElementById('root')!).render(<Root />);

@@ -5,6 +5,25 @@
   min-height: 100vh;
 }
 
+.argus-auth-link {
+  margin-top: var(--space-md);
+  color: var(--text-secondary);
+}
+
+.argus-auth-link a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+.argus-auth-link a:hover {
+  text-decoration: underline;
+}
+
+.argus-auth-hint {
+  margin-top: var(--space-md);
+  color: var(--text-muted);
+}
+
 .argus-admin {
   max-width: 960px;
   margin: auto;

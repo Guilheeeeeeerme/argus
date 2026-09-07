@@ -30,6 +30,7 @@ export default defineConfig({
       { find: '@argus/design-system/tokens.css', replacement: path.join(ui, 'tokens.css') },
       { find: '@argus/design-system/global.css', replacement: path.join(ui, 'global.css') },
       { find: /^@argus\/design-system$/, replacement: path.join(ui, 'index.ts') },
+      { find: /^@argus\/i18n$/, replacement: path.resolve(rootDir, '../../packages/i18n/src/index.ts') },
       { find: '@shared/auth', replacement: path.resolve(rootDir, '../shared/auth/index.ts') },
     ],
   },

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Input, Card, Message } from '@argus/design-system';
+import { useT, localizeApiError } from '@argus/i18n';
 import { call, Account } from '../api';
 
 interface UsersProps {
@@ -9,6 +10,7 @@ interface UsersProps {
 }
 
 export function Users({ users, companyId, onReload }: UsersProps) {
+  const t = useT();
   const [userEmail, setUserEmail] = useState('manager@argus.local');
   const [userPassword, setUserPassword] = useState('Password123!');
   const [userRole, setUserRole] = useState('manager');
@@ -16,7 +18,7 @@ export function Users({ users, companyId, onReload }: UsersProps) {
 
   async function createUser() {
     if (!companyId) {
-      setMessage('Select a tenant before creating a user.');
+      setMessage(t('Select a tenant before creating a user.'));
       return;
     }
     try {
@@ -30,53 +32,53 @@ export function Users({ users, companyId, onReload }: UsersProps) {
         }),
       });
       onReload();
-      setMessage('User created.');
+      setMessage(t('User created.'));
     } catch (error) {
-      setMessage(String(error));
+      setMessage(localizeApiError(String(error), t));
     }
   }
 
   async function deleteUser(user: Account) {
-    if (!window.confirm(`Delete ${user.email}?`)) return;
+    if (!window.confirm(t('Delete {name}?', { name: user.email }))) return;
     try {
       await call(`/v1/admin/users/${user.id}`, { method: 'DELETE' });
       onReload();
     } catch (error) {
-      setMessage(String(error));
+      setMessage(localizeApiError(String(error), t));
     }
   }
 
   return (
     <Card>
-      <h2>Users</h2>
+      <h2>{t('Users')}</h2>
       {users.map(user => (
         <article key={user.id} className="argus-list-item">
           <b>{user.email}</b>
           <span>{user.role}</span>
-          <Button size="sm" variant="danger" onClick={() => deleteUser(user)}>Delete</Button>
+          <Button size="sm" variant="danger" onClick={() => deleteUser(user)}>{t('Delete')}</Button>
         </article>
       ))}
       <div className="argus-inline-form">
         <Input
-          label="User email"
+          label={t('User email')}
           value={userEmail}
           onChange={e => setUserEmail(e.target.value)}
         />
         <Input
-          label="Password"
+          label={t('Password')}
           type="password"
           value={userPassword}
           onChange={e => setUserPassword(e.target.value)}
         />
         <select
-          aria-label="User role"
+          aria-label={t('User role')}
           value={userRole}
           onChange={e => setUserRole(e.target.value)}
         >
-          <option value="manager">Manager</option>
-          <option value="operator">Operator</option>
+          <option value="manager">{t('Manager')}</option>
+          <option value="operator">{t('Operator')}</option>
         </select>
-        <Button onClick={createUser}>Create user</Button>
+        <Button onClick={createUser}>{t('Create user')}</Button>
       </div>
       <Message text={message} />
     </Card>

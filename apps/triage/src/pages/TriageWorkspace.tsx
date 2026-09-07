@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Header, Badge, Message, ThemeToggle } from '@argus/design-system';
+import { Button, Card, Header, Badge, Message, ThemeToggle, LocaleToggle } from '@argus/design-system';
+import { useT, useLocale } from '@argus/i18n';
 import { WS, Session, authedFetch, getToken, redirectToLogin } from '../api';
 import { DecisionDetail } from './DecisionDetail';
 
@@ -16,6 +17,8 @@ interface TriageWorkspaceProps {
 }
 
 export function TriageWorkspace({ session }: TriageWorkspaceProps) {
+  const t = useT();
+  const { locale, setLocale } = useLocale();
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [selected, setSelected] = useState<Decision | null>(null);
   const [message, setMessage] = useState('');
@@ -28,7 +31,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
       const response = await authedFetch(`/v1/companies/${company}/decisions`);
       if (response.status === 401) { redirectToLogin(); return; }
       setDecisions(await response.json());
-      setMessage('Live triage connected.');
+      setMessage(t('Live triage connected.'));
     }
 
     void loadDecisions();
@@ -39,28 +42,35 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
         .then(x => x.json())
         .then(setDecisions);
     };
-    ws.onerror = () => setMessage('WebSocket connection failed.');
-    ws.onclose = () => setMessage('WebSocket disconnected; refresh to reconnect.');
+    ws.onerror = () => setMessage(t('WebSocket connection failed.'));
+    ws.onclose = () => setMessage(t('WebSocket disconnected; refresh to reconnect.'));
 
     return () => ws.close();
-  }, [company]);
+  }, [company, t]);
 
   async function selectDecision(decision: Decision) {
     if (!company) return;
     setSelected(await authedFetch(`/v1/companies/${company}/decisions/${decision.id}`).then(r => r.json()));
   }
 
+  const where = session.location ? session.location.name : session.company_name;
+
   return (
     <main className="argus-triage">
       <Header
         title="ARGUS Triage"
-        subtitle={`Real-time workspace · ${session.email} · ${session.location ? session.location.name : session.company_name}`}
-        actions={<ThemeToggle />}
+        subtitle={`${t('Real-time workspace')} · ${session.email} · ${where}`}
+        actions={
+          <>
+            <LocaleToggle locale={locale} label={t('PT-BR')} ariaLabel={t('Switch language')} onLocaleChange={setLocale} />
+            <ThemeToggle />
+          </>
+        }
       />
       <Message text={message} />
       <div className="argus-triage__grid">
         <Card>
-          <h2>Decision feed</h2>
+          <h2>{t('Decision feed')}</h2>
           {decisions.map(decision => (
             <button
               key={decision.id}
@@ -68,15 +78,20 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
               onClick={() => selectDecision(decision)}
             >
               <Badge variant={decision.state as any}>{decision.state}</Badge>
-              <span>{decision.evidence_count} evidence · severity {decision.cumulative_severity}</span>
+              <span>{t(
+                decision.evidence_count === 1
+                  ? '{count} evidence · severity {severity}'
+                  : '{count} evidences · severity {severity}',
+                { count: decision.evidence_count, severity: decision.cumulative_severity },
+              )}</span>
             </button>
           ))}
         </Card>
         {selected && (
           <DecisionDetail
             decision={selected}
-            company={company!}
-            onResolved={() => { setSelected(null); setMessage('Decision resolved.'); }}
+            company={company}
+            onResolved={() => { setSelected(null); setMessage(t('Decision resolved.')); }}
           />
         )}
       </div>

@@ -12,3 +12,4 @@ export { Header } from './components/Header';
 export { Sidenav } from './components/Sidenav';
 export { Message } from './components/Message';
 export { ThemeToggle } from './components/ThemeToggle';
+export { LocaleToggle } from './components/LocaleToggle';

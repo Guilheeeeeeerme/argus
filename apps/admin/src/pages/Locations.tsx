@@ -1,5 +1,6 @@
 import { useEffect, useState, MouseEvent } from 'react';
 import { Button, Input, Card, Message } from '@argus/design-system';
+import { useT, localizeApiError } from '@argus/i18n';
 import { call, Location, Camera } from '../api';
 
 interface LocationsProps {
@@ -9,6 +10,7 @@ interface LocationsProps {
 }
 
 export function Locations({ locations, companyId, onReload }: LocationsProps) {
+  const t = useT();
   const [locationName, setLocationName] = useState('New location');
   const [locationAddress, setLocationAddress] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -21,16 +23,16 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
         body: JSON.stringify({ name: locationName, address: locationAddress || null, timezone: 'UTC' }),
       });
       onReload();
-      setMessage('Location created.');
+      setMessage(t('Location created.'));
     } catch (error) {
-      setMessage(String(error));
+      setMessage(localizeApiError(String(error), t));
     }
   }
 
   async function updateLocation(location: Location) {
-    const nextName = window.prompt('Location name', location.name);
+    const nextName = window.prompt(t('Location name'), location.name);
     if (!nextName) return;
-    const nextAddress = window.prompt('Address (used by the agent)', location.address ?? '');
+    const nextAddress = window.prompt(t('Address (used by the agent)'), location.address ?? '');
     if (nextAddress === null) return;
     try {
       await call(`/v1/companies/${companyId}/locations/${location.id}`, {
@@ -39,18 +41,18 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
       });
       onReload();
     } catch (error) {
-      setMessage(String(error));
+      setMessage(localizeApiError(String(error), t));
     }
   }
 
   async function deleteLocation(location: Location) {
-    if (!window.confirm(`Delete ${location.name}?`)) return;
+    if (!window.confirm(t('Delete {name}?', { name: location.name }))) return;
     try {
       await call(`/v1/companies/${companyId}/locations/${location.id}`, { method: 'DELETE' });
       if (openId === location.id) setOpenId(null);
       onReload();
     } catch (error) {
-      setMessage(String(error));
+      setMessage(localizeApiError(String(error), t));
     }
   }
 
@@ -69,9 +71,9 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
             body: JSON.stringify({ sketch: String(reader.result) }),
           });
           onReload();
-          setMessage(`Sketch uploaded for ${location.name}.`);
+          setMessage(t('Sketch uploaded for {name}.', { name: location.name }));
         } catch (error) {
-          setMessage(String(error));
+          setMessage(localizeApiError(String(error), t));
         }
       };
       reader.readAsDataURL(file);
@@ -81,17 +83,17 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
 
   return (
     <Card>
-      <h2>Locations</h2>
+      <h2>{t('Locations')}</h2>
       {locations.map(location => (
         <article key={location.id} className="argus-list-item">
           <b>{location.name}</b>
-          <span>{location.address ?? 'no address'} · {location.timezone}</span>
-          <Button size="sm" variant="ghost" onClick={() => updateLocation(location)}>Edit</Button>
-          <Button size="sm" variant="ghost" onClick={() => uploadSketch(location)}>Sketch</Button>
+          <span>{location.address ?? t('no address')} · {location.timezone}</span>
+          <Button size="sm" variant="ghost" onClick={() => updateLocation(location)}>{t('Edit')}</Button>
+          <Button size="sm" variant="ghost" onClick={() => uploadSketch(location)}>{t('Sketch')}</Button>
           <Button size="sm" variant="ghost" onClick={() => setOpenId(openId === location.id ? null : location.id)}>
-            {openId === location.id ? 'Close plan' : 'Plan'}
+            {openId === location.id ? t('Close plan') : t('Plan')}
           </Button>
-          <Button size="sm" variant="danger" onClick={() => deleteLocation(location)}>Delete</Button>
+          <Button size="sm" variant="danger" onClick={() => deleteLocation(location)}>{t('Delete')}</Button>
         </article>
       ))}
       {openId && locations.some(l => l.id === openId) && (
@@ -104,16 +106,16 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
       )}
       <div className="argus-inline-form">
         <Input
-          label="Location name"
+          label={t('Location name')}
           value={locationName}
           onChange={e => setLocationName(e.target.value)}
         />
         <Input
-          label="Address (agent)"
+          label={t('Address (agent)')}
           value={locationAddress}
           onChange={e => setLocationAddress(e.target.value)}
         />
-        <Button onClick={createLocation}>Create location</Button>
+        <Button onClick={createLocation}>{t('Create location')}</Button>
       </div>
       <Message text={message} />
     </Card>
@@ -131,6 +133,7 @@ function LocationSketch({
   onReload: () => void;
   onMessage: (text: string) => void;
 }) {
+  const t = useT();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [cameraName, setCameraName] = useState('New camera');
   const [streamUrl, setStreamUrl] = useState('rtsp://');
@@ -163,7 +166,7 @@ function LocationSketch({
       });
       setCameras(cameras.map(c => (c.id === camera.id ? { ...c, placement_x: x, placement_y: y } : c)));
     } catch {
-      onMessage('Failed to place camera.');
+      onMessage(t('Failed to place camera.'));
     }
   }
 
@@ -177,7 +180,7 @@ function LocationSketch({
       setCameras(all.filter(camera => camera.location_id === location.id));
       onReload();
     } catch (error) {
-      onMessage(String(error));
+      onMessage(localizeApiError(String(error), t));
     }
   }
 
@@ -191,9 +194,9 @@ function LocationSketch({
         style={{ position: 'relative', minHeight: 240, overflow: 'hidden' }}
       >
         {location.sketch ? (
-          <img src={location.sketch} alt={`${location.name} sketch`} style={{ width: '100%', display: 'block' }} />
+          <img src={location.sketch} alt={t('{name} sketch', { name: location.name })} style={{ width: '100%', display: 'block' }} />
         ) : (
-          <p style={{ padding: 'var(--space-xl)' }}>No sketch uploaded yet.</p>
+          <p style={{ padding: 'var(--space-xl)' }}>{t('No sketch uploaded yet.')}</p>
         )}
         {cameras.map(camera => (
           camera.placement_x != null && camera.placement_y != null ? (
@@ -220,23 +223,23 @@ function LocationSketch({
       </div>
       <div className="argus-inline-form">
         <select
-          aria-label="Camera to place"
+          aria-label={t('Camera to place')}
           onChange={e => setSelectedCamera(cameras.find(c => c.id === e.target.value) ?? null)}
           value={selectedCamera?.id ?? ''}
         >
-          <option value="">Select camera…</option>
+          <option value="">{t('Select camera…')}</option>
           {cameras.map(camera => (
             <option key={camera.id} value={camera.id}>
-              {camera.name}{camera.placement_x != null ? ' (placed)' : ''}
+              {camera.name}{camera.placement_x != null ? ` (${t('placed')})` : ''}
             </option>
           ))}
         </select>
-        <span>Click the sketch to place the selected camera.</span>
+        <span>{t('Click the sketch to place the selected camera.')}</span>
       </div>
       <div className="argus-inline-form">
-        <Input label="Camera name" value={cameraName} onChange={e => setCameraName(e.target.value)} />
-        <Input label="Stream URL (RTSP)" value={streamUrl} onChange={e => setStreamUrl(e.target.value)} />
-        <Button onClick={addCamera}>Add camera</Button>
+        <Input label={t('Camera name')} value={cameraName} onChange={e => setCameraName(e.target.value)} />
+        <Input label={t('Stream URL (RTSP)')} value={streamUrl} onChange={e => setStreamUrl(e.target.value)} />
+        <Button onClick={addCamera}>{t('Add camera')}</Button>
       </div>
     </div>
   );

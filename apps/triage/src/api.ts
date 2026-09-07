@@ -19,23 +19,31 @@ export type Session = {
   location: { id: string; name: string; address: string | null } | null;
 };
 
-export async function loadSession(): Promise<Session | null> {
+export type SessionLookup =
+  | { ok: true; session: Session }
+  | { ok: true; companyless: true }
+  | { ok: false };
+
+export async function loadSession(): Promise<SessionLookup> {
   try {
     const me = (await apiFetch('/v1/auth/me')) as {
       user: { email: string; role: string };
       activeCompany: { id: string; name: string } | null;
       activeLocation: { id: string; name: string; address: string | null } | null;
     };
-    if (!me.activeCompany) return null;
+    if (!me.activeCompany) return { ok: true, companyless: true };
     return {
-      company_id: me.activeCompany.id,
-      company_name: me.activeCompany.name,
-      role: me.user.role,
-      email: me.user.email,
-      location: me.activeLocation,
+      ok: true,
+      session: {
+        company_id: me.activeCompany.id,
+        company_name: me.activeCompany.name,
+        role: me.user.role,
+        email: me.user.email,
+        location: me.activeLocation,
+      },
     };
   } catch {
-    return null;
+    return { ok: false };
   }
 }
 
