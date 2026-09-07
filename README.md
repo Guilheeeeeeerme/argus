@@ -135,3 +135,7 @@ scripts/up.sh      dev up + wait for health
 3. Bootstrap with `loadSession()` / `GET /v1/auth/me`
 4. Add origin to `SSO_RETURN_ORIGINS` + `VITE_SSO_RETURN_ORIGINS`
 5. Add compose service + expose port
+
+## Production
+
+Production builds, domains and Hostinger deployment are managed in the private [infra repository](https://github.com/Guilheeeeeeerme/infra). This repository retains local development configuration only. Its GitHub workflow notifies infra when deployment is enabled.

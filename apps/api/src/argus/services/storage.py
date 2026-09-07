@@ -8,6 +8,7 @@ from typing import BinaryIO
 
 import boto3
 from botocore.client import BaseClient
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from argus.config import settings
@@ -93,7 +94,7 @@ async def generate_presigned_get_url(
     bucket: str | None = None,
 ) -> str:
     bucket_name = bucket or settings.s3_bucket_name
-    client = _s3_client()
+    client = _public_s3_client()
 
     def _sign() -> str:
         return client.generate_presigned_url(
@@ -103,3 +104,17 @@ async def generate_presigned_get_url(
         )
 
     return await asyncio.to_thread(_sign)
+
+
+@lru_cache
+def _public_s3_client() -> BaseClient:
+    if not settings.s3_public_endpoint_url:
+        return _s3_client()
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.s3_public_endpoint_url,
+        aws_access_key_id=settings.s3_access_key_id,
+        aws_secret_access_key=settings.s3_secret_access_key,
+        region_name=settings.s3_region,
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+    )
