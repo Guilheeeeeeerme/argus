@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus.domain.enums import FeedbackDisposition
 from argus.domain.models import Decision, Feedback, Recipe, Rule
-from argus.integrations.openai_vlm import BIOMETRICS_PROHIBITION
+from argus.guardrails.fencing import fence
+from argus.guardrails.registry import render_prompt
 
 RAG_LIMIT = 5
 
@@ -20,7 +21,7 @@ def build_prompt(
     rules: list[Rule],
     rag_feedback: list[Feedback],
 ) -> str:
-    """Build VLM system prompt with rules, RAG examples, and biometrics constraint."""
+    """Build the VLM system prompt from the guardrails registry (trusted content only)."""
     rules_block = "\n".join(
         f"- {rule.name}: class={rule.detection_class or 'any'} "
         f"min_confidence={rule.confidence_threshold} "
@@ -28,18 +29,22 @@ def build_prompt(
         for rule in rules
     ) or "- No explicit rules configured."
 
+    return render_prompt(
+        "vlm.system",
+        {
+            "recipe_system_prompt": recipe.system_prompt.strip(),
+            "rules_block": rules_block,
+        },
+    )
+
+
+def build_user_context(rag_feedback: list[Feedback]) -> str:
+    """Fenced untrusted block (feedback reasoning) for the VLM user message."""
     rag_block = "\n".join(
         f"- FALSE POSITIVE example: {fb.reasoning}"
         for fb in rag_feedback
     ) or "- No prior false-positive feedback for this camera."
-
-    return (
-        f"{recipe.system_prompt.strip()}\n\n"
-        f"Rules to evaluate:\n{rules_block}\n\n"
-        f"Historical false-positive feedback (avoid repeating these mistakes):\n{rag_block}\n\n"
-        f"Constraint: {BIOMETRICS_PROHIBITION} or infer biometric attributes.\n"
-        "Respond in JSON with fields including is_suspicious, confidence_score, reasoning."
-    )
+    return fence(rag_block)
 
 
 async def retrieve_rag_feedback(

@@ -4,11 +4,47 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
-from argus.config import ServiceRole, settings
+from argus.config import ServiceRole, Settings, settings
 from argus.core.auth import AuthContext, get_auth_context
 from argus.core.exceptions import register_exception_handlers
 from argus.services.database import check_database_connection
+
+RATE_LIMIT_EXEMPT_PATHS = frozenset(
+    {"/health", "/health/db", "/docs", "/redoc", "/openapi.json"}
+)
+
+
+def _remote_address(request) -> str:
+    client = request.client
+    return client.host if client and client.host else "127.0.0.1"
+
+
+def build_limiter(s: Settings) -> Limiter:
+    return Limiter(
+        key_func=_remote_address,
+        default_limits=[f"{s.rate_limit_per_minute}/minute"],
+        storage_uri=s.redis_url or "memory://",
+        in_memory_fallback_enabled=True,
+        key_style="url",
+    )
+
+
+class RateLimitExemptingMiddleware(SlowAPIMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path in RATE_LIMIT_EXEMPT_PATHS:
+            return await call_next(request)
+        return await super().dispatch(request, call_next)
+
+
+def install_rate_limiting(app: FastAPI) -> None:
+    limiter = build_limiter(settings)
+    app.state.limiter = limiter
+    app.add_middleware(RateLimitExemptingMiddleware)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 def create_http_app(
@@ -68,6 +104,7 @@ def create_admin_app() -> FastAPI:
         task.cancel()
 
     app = create_http_app("api-admin", "ARGUS Admin & Triage API", lifespan=lifespan)
+    install_rate_limiting(app)
     from argus.api.dev import router as dev_router
     from argus.api.auth import router as auth_router
     from argus.api.internal import router as internal_router
