@@ -183,7 +183,7 @@ async def test_no_active_mode_returns_400(
         headers=_auth_headers(m2m_token),
     )
     assert response.status_code == 400
-    assert "active rule set" in response.json()["error"]["message"].lower()
+    assert "context mode" in response.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
