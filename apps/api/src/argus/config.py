@@ -95,6 +95,16 @@ class Settings(BaseSettings):
 
     openai_api_key: str = Field(alias="OPENAI_API_KEY", default="")
     openai_base_url: str = Field(alias="OPENAI_BASE_URL", default="")
+    openai_model: str = Field(alias="OPENAI_MODEL", default="gpt-4o")
+
+    gemini_api_key: str = Field(alias="GEMINI_API_KEY", default="")
+    gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-2.5-flash-lite")
+    llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini,openai")
+    model_rank_refresh_ms: int = Field(alias="MODEL_RANK_REFRESH_MS", default=43200000)
+    model_rank_top_n: int = Field(alias="MODEL_RANK_TOP_N", default=3)
+    llm_rate_limit_per_minute: int = Field(alias="LLM_RATE_LIMIT_PER_MINUTE", default=20)
+    llm_daily_budget: int = Field(alias="LLM_DAILY_BUDGET", default=500)
+    rate_limit_per_minute: int = Field(alias="RATE_LIMIT_PER_MINUTE", default=30)
 
     twilio_account_sid: str = Field(alias="TWILIO_ACCOUNT_SID", default="")
     twilio_auth_token: str = Field(alias="TWILIO_AUTH_TOKEN", default="")

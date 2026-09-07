@@ -1,141 +1,100 @@
-# ARGUS
+# Argus
 
-Multi-company surveillance platform - admin (SSO host) + triage MFE sharing Redis-backed opaque sessions, single Docker network (`argus_dmz`), hot reload everywhere. Development only: no TLS, plain HTTP.
+Multi-company surveillance platform: an admin application (SSO host), a real-time triage micro-frontend, and an AI vision pipeline that turns camera streams into operator-ready decisions.
+
+## Live
+
+| Application | URL |
+| --- | --- |
+| Admin (SSO host) | https://app.argus.ferredemo.dev |
+| Triage MFE | https://triage.argus.ferredemo.dev |
+| API | https://api.argus.ferredemo.dev |
+| Storage (signed URLs) | https://api.storage.argus.ferredemo.dev |
+
+## Features
+
+- **Postgres row-level security multi-tenancy** — every query is scoped at the database level through session context; company APIs read the tenant from the Redis session only, never from client-supplied claims.
+- **SSO across micro-frontends** — opaque Redis-backed sessions with hash-token handoff and origin allow-listing; the triage MFE never shows a company switcher and inherits platform-user context switches on refresh.
+- **Roles** — `root`/`admin` (platform, can switch company/location), `manager` and `operator` (single company).
+- **Physical model** — locations with addresses and floor-plan sketches, edge agents bound N:N, cameras with RTSP stream configuration and placements.
+- **AI analysis pipeline** — Celery workers run VLM detection over extracted frames against rule sets with shifts, recipes and detection bindings; decisions follow a state machine with alarms.
+- **Real-time triage** — WebSocket event rail authenticated with session tokens.
+- **S3-compatible storage** — private MinIO bucket with signed download URLs.
+- **Edge M2M auth** — agent devices authenticate with client-credentials JWTs, decoupled from user sessions.
 
 ## Architecture
 
 ```
-Admin (:8180)     = SSO login host + admin shell + company/location switcher (root/admin)
-Triage MFE (:8181)= operator workspace (WS live updates)
-API (:8800)       = FastAPI — auth, admin, triage, ingest; RLS multi-tenancy
-Worker            = Celery on Redis (VLM analyze, aggregation, notifier, scheduler)
+Admin (Vite)      = SSO login host + admin shell + company/location switcher
+Triage MFE (Vite) = operator workspace (WS live updates)
+Worker            = Celery on Redis — VLM analysis, aggregation, notifier, scheduler
 
 Browser / MFE
     │  Authorization: Bearer <opaque-session-token>
     ▼
-FastAPI (:8800, argus_dmz)
+FastAPI API
     ├── Redis     → sessions + Celery broker + pub/sub (WS events)
-    └── Postgres  → companies, users, locations, cameras, decisions (pgvector) — RLS scoped
+    ├── Postgres  → companies, users, locations, cameras, decisions (pgvector) — RLS scoped
+    └── MinIO     → frame/object storage with signed URLs
+         ▼
+    Celery worker → VLM analysis → decisions → notifications
 ```
 
-All services join the `argus_dmz` network; edge ports are published for the host/browser.
+## Tech stack
 
-## Stack
+| Layer | Technology |
+| --- | --- |
+| API | Python 3.12, FastAPI, SQLAlchemy (async), Alembic |
+| Database | PostgreSQL 16 with RLS + pgvector |
+| Async | Celery, Redis (broker, sessions, pub/sub) |
+| Storage | MinIO (S3 API, boto3) with signed URLs |
+| Frontends | React, Vite, shared `@argus/design-system` package |
+| Auth | Opaque Redis sessions, PyJWT client-credentials for edge devices |
 
-- **API**: Python 3.12, FastAPI, SQLAlchemy async + Alembic, Postgres RLS, Redis (sessions/broker/pubsub), Celery
-- **Frontends**: React + Vite (dev servers with bind mounts), shared `@argus/design-system` (`packages/ui`), shared SSO helpers (`apps/shared/auth`)
-- **Infra**: docker compose — pgvector/pg16, redis 7
+## Guardrails & LLM spend
 
-## Quick start
+All LLM calls follow the Promptdesk guardrails standard (`apps/api/docs/guardrails.md`).
+
+| OWASP risk | Mitigation |
+| --- | --- |
+| LLM01 Prompt injection | Untrusted feedback text is pre-screened against regex policies (`apps/api/src/argus/guardrails/registry.yml` via `screening.py`); a block skips the LLM call entirely and records a `policy_block` evidence. Remaining untrusted content is wrapped in a `BEGIN_UNTRUSTED_VLM_CONTEXT` / `END_UNTRUSTED_VLM_CONTEXT` fence (`fencing.py`) inside the user message, never the system prompt. |
+| LLM02 Sensitive disclosure | The VLM system prompt (from the registry) treats all context as data, never instructions, and forbids revealing prompts or secrets; biometric identification is prohibited by policy. |
+| LLM10 Unbounded consumption | Worker budget: fixed-window `LLM_RATE_LIMIT_PER_MINUTE` (default 20) and daily `LLM_DAILY_BUDGET` (default 500) checked in Redis before every call; over budget the call is skipped with `rate_limit`/`budget_exceeded` evidence. API: per-IP `RATE_LIMIT_PER_MINUTE` (default 30) via slowapi. |
+
+Providers and models:
+
+- `LLM_PROVIDER_ORDER` (default `gemini,openai`): Gemini first, OpenAI optional fallback; providers without a key are skipped; `OPENAI_BASE_URL` is honored.
+- Cheapest-first model rank (`integrations/model_rank.py`, Redis-cached, refreshed by the `models.refresh_rank` beat task every `MODEL_RANK_REFRESH_MS`, default 12h = twice daily): retries escalate through `rank[attempt]`, cross-provider failover only after all attempts of the earlier provider fail.
+- VLM analysis is ingest-driven, not scheduled; embeddings remain OpenAI-only (`text-embedding-3-small`) with a deterministic local fallback.
+
+## Local development
 
 ```bash
 cp .env.example .env
 ./scripts/up.sh -d
 ```
 
-If your machine does not already resolve `admin.argus.test` and `triage.argus.test`, add them to your hosts file so the browser can reach the two frontends over HTTP.
-
-Hot reload is automatic: `uvicorn --reload` for the API, Vite dev servers for admin/triage (source bind-mounted). Celery requires a manual `docker compose restart worker` after worker code changes.
+Add `admin.argus.test` and `triage.argus.test` to your hosts file. Hot reload is automatic for the API (uvicorn) and frontends (Vite); restart the worker after Celery changes.
 
 | Service | URL |
-|---------|-----|
+| --- | --- |
 | Admin (SSO host) | http://admin.argus.test:8180 |
 | Triage MFE | http://triage.argus.test:8181 |
 | API | http://api.argus.test:8800 (`/health`, `/health/db`) |
-| Postgres | `postgres:5432` (`argus`/`argus`) |
-| Redis | `redis:6379` |
 
-Wipe dev data: `docker compose down -v`.
+Seeded data (2 companies with locations, agents, cameras and rule sets) is idempotent and runs on API start; seed credentials are listed in the seed output. Wipe with `docker compose down -v`.
 
-## SSO flow (different origins cannot share localStorage)
-
-1. Triage opens without a fresh `#token=` → redirect to `http://admin.argus.test:8180/sso/handoff?returnUrl=<encoded triage URL>`
-2. Admin has a session → redirect to `returnUrl#token=<opaque>`
-3. Otherwise → login form, then the same hash handoff
-4. Triage stores the token (strips the hash) and calls `GET /v1/auth/me`
-
-`SSO_RETURN_ORIGINS` / `VITE_SSO_RETURN_ORIGINS` prevent open redirects.
-
-## Roles
-
-| Role | Scope | Can switch company/location? |
-|------|-------|---------------------------|
-| `root` | Platform (us) | Yes — creates companies + users |
-| `admin` | Platform (customer + support) | Yes — creates companies + users |
-| `manager` | One company | No |
-| `operator` | One company | No (triage; can edit rules) |
-
-Triage MFE never shows a switcher. Platform users switch company + location on the admin app; MFEs read the updated session on refresh. **Security rule:** company APIs must use the Redis session `activeCompanyId` only — never a client-supplied `companyId` body/claim.
-
-### Locations, agents, cameras
-
-Locations carry an **address** and a **sketch** (floor plan) where cameras are placed. **Agents** (edge devices) bind to locations N:N. Cameras store industry-standard stream config (RTSP), served to the media layer by the stream-gateway. The active location's address feeds the agent's ingest context.
-
-## Seed credentials
-
-Password for all seeded users: **`Password123!`**
-
-| Email | Role | Company |
-|-------|------|--------|
-| `root@argus.local` | root | — |
-| `admin@argus.local` | admin | — |
-| `manager.downtown@argus.local` | manager | Downtown Retail |
-| `operator.downtown@argus.local` | operator | Downtown Retail |
-| `manager.airport@argus.local` | manager | Airport Retail |
-| `operator.airport@argus.local` | operator | Airport Retail |
-
-Seed runs automatically on API start (idempotent): 2 companies × locations (sketches) + agents (N:N) + cameras (stream config + placements), rule set with shifts, recipe, rule with detection binding, notification config.
-
-## Auth API
-
-```http
-Authorization: Bearer <session-token>
-```
-
-| Method | Path | Notes |
-|--------|------|-------|
-| `POST` | `/v1/auth/login` | `{ email, password }` → `{ token, user, activeCompany, activeLocation }` |
-| `POST` | `/v1/auth/logout` | Deletes the Redis session |
-| `GET` | `/v1/auth/me` | Session bootstrap for every app |
-| `PATCH` | `/v1/auth/context` | `{ companyId? , locationId? }` — root/admin only |
-| `GET` | `/v1/admin/companies` | List companies (platform) |
-| `GET` | `/v1/admin/users` | List users (platform) |
-| `POST` | `/v1/admin/users` | Create user with password (platform) |
-| `GET/POST/PATCH/DELETE` | `/v1/companies/{id}/locations` | Location CRUD incl. `address` + sketch upload |
-| `GET` | `/v1/companies/{id}/decisions` | Triage feed |
-| `WS` | `/v1/ws?token=` | Live updates, session-token auth |
-
-Edge agent devices authenticate with M2M client-credentials JWTs (`AUTH0_USE_MOCK=true` issues local HS256 tokens via `GET /v1/dev/session/edge`).
-
-## Repo layout
+## Repository layout
 
 ```
-apps/api           FastAPI + Celery + Alembic (RLS multi-tenancy)
-apps/admin         Admin app / SSO host + switcher (Vite, :8180)
-apps/triage        Triage MFE (Vite, :8181)
-apps/shared/auth   Shared token + SSO helpers
-packages/ui        @argus/design-system (tokens, theme, components)
-docker-compose.yml postgres + redis + api + worker + admin + triage (argus_dmz)
-scripts/up.sh      dev up + wait for health
+apps/api          FastAPI + Celery + Alembic (RLS multi-tenancy)
+apps/admin        Admin app / SSO host + switcher
+apps/triage       Triage operator MFE
+apps/shared       Shared token + SSO helpers
+packages/ui       @argus/design-system (tokens, theme, components)
+docs/services     Service specs (stream-to-image, decision engine, notifications)
 ```
 
-## Service sketches (docs-first, not implemented)
+## Deployment
 
-- `docs/services/stream-to-image.md` — streams → temporary frame images
-- `docs/services/image-analysis.md` — detections over rules (implemented in the worker; extraction path)
-- `docs/services/decision-engine.md` — decisions, state machine, alarms (implemented; extraction path)
-- `docs/services/notifications.md` — alarm delivery (partial; handoff)
-- `docs/realtime-page.md` — triage event rail UX spec
-- `docs/sketch-editor-mfe.md` — standalone drawing MFE (embeddable)
-
-## Adding another MFE
-
-1. New Vite app (e.g. `:8182`)
-2. Reuse `@shared/auth`: `consumeTokenFromUrl` → else `redirectToLogin(MAIN_ORIGIN)`
-3. Bootstrap with `loadSession()` / `GET /v1/auth/me`
-4. Add origin to `SSO_RETURN_ORIGINS` + `VITE_SSO_RETURN_ORIGINS`
-5. Add compose service + expose port
-
-## Production
-
-Production builds, domains and Hostinger deployment are managed in the private [infra repository](https://github.com/Guilheeeeeeerme/infra). This repository retains local development configuration only. Its GitHub workflow notifies infra when deployment is enabled.
+Production images, DNS, TLS and rollout are owned by a separate private infrastructure repository. Pushes to `main` request a deployment from that repository, which builds reproducible release bundles (application SHA + infrastructure SHA) and rolls them out with health-checked Compose deployments. Production boots without development fixtures: a bootstrap job creates the platform root account and provisions the storage bucket.

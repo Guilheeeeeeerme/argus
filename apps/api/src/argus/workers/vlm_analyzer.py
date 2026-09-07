@@ -15,10 +15,14 @@ from sqlalchemy import select
 from argus.config import settings
 from argus.domain.enums import UserRole
 from argus.domain.models import Evidence, Recipe, Rule
-from argus.integrations.openai_vlm import MockVLMClient, OpenAIVLMClient, VLMClient
+from argus.guardrails.screening import screen
+from argus.integrations.llm_provider import resolve_llm_chain
+from argus.integrations.model_rank import rank_for
 from argus.services.database import company_session
+from argus.services.llm_budget import check_llm_allowance
 from argus.services.recipe_builder import (
     build_prompt,
+    build_user_context,
     compute_severity_score,
     retrieve_rag_feedback,
 )
@@ -30,19 +34,30 @@ from argus.workers.utils import run_async
 logger = logging.getLogger(__name__)
 
 CONSUMER_NAME = f"vlm-{socket.gethostname()}-{os.getpid()}"
-_vlm_client: VLMClient | None = None
+_vlm_provider: tuple[str, VLMClient] | None = None
+
+
+def get_vlm_provider() -> tuple[str, VLMClient]:
+    global _vlm_provider
+    if _vlm_provider is None:
+        _vlm_provider = resolve_llm_chain(settings)[0]
+    return _vlm_provider
 
 
 def get_vlm_client() -> VLMClient:
-    global _vlm_client
-    if _vlm_client is None:
-        _vlm_client = MockVLMClient() if settings.auth0_use_mock or not settings.openai_api_key else OpenAIVLMClient()
-    return _vlm_client
+    return get_vlm_provider()[1]
 
 
 def set_vlm_client(client: VLMClient) -> None:
-    global _vlm_client
-    _vlm_client = client
+    global _vlm_provider
+    _vlm_provider = ("mock", client)
+
+
+async def _model_for_attempt(provider: str, attempt: int) -> str | None:
+    ranks = await rank_for(provider)
+    if ranks and attempt < len(ranks):
+        return ranks[attempt]
+    return None
 
 
 @celery_app.task(name="vlm.process_ingest_stream")
@@ -60,7 +75,7 @@ def process_ingest_stream() -> int:
 )
 def analyze_ingest_message(self, message_id: str, fields: dict[str, Any]) -> str | None:
     try:
-        return run_async(_analyze_message(message_id, fields))
+        return run_async(_analyze_message(message_id, fields, attempt=self.request.retries))
     except Exception as exc:
         if self.request.retries >= self.max_retries:
             run_async(move_to_dlq(fields, error=str(exc)))
@@ -86,7 +101,7 @@ async def _process_ingest_stream_batch() -> int:
     return processed
 
 
-async def _analyze_message(message_id: str, fields: dict[str, Any]) -> str:
+async def _analyze_message(message_id: str, fields: dict[str, Any], *, attempt: int = 0) -> str:
     parsed = _parse_stream_fields(fields)
     company_id = UUID(parsed["company_id"])
     camera_id = UUID(parsed["camera_id"])
@@ -119,10 +134,58 @@ async def _analyze_message(message_id: str, fields: dict[str, Any]) -> str:
         rag_feedback = await retrieve_rag_feedback(
             session, company_id=company_id, camera_id=camera_id
         )
+
+        blocked_policy = _screen_feedback(rag_feedback)
+        if blocked_policy is not None:
+            evidence = _skipped_evidence(
+                company_id=company_id,
+                camera_id=camera_id,
+                region_id=region_id,
+                rule_set_id=rule_set_id,
+                captured_at=captured_at,
+                frame_uri=frame_uris[0] if frame_uris else "",
+                ingestion_id=ingestion_id,
+                status="policy_block",
+                detail=f"feedback blocked by policy {blocked_policy}",
+            )
+            session.add(evidence)
+            await session.flush()
+            await _maybe_xack(message_id)
+            logger.warning(
+                "LLM call skipped: evidence=%s reason=policy_block policy=%s",
+                evidence.id,
+                blocked_policy,
+            )
+            return str(evidence.id)
+
         prompt = build_prompt(recipe, rules, rag_feedback)
         output_schema = dict(recipe.output_schema)
 
-    client = get_vlm_client()
+    allowance = await check_llm_allowance()
+    if allowance is not None:
+        async with company_session(company_id, UserRole.MANAGER.value) as session:
+            evidence = _skipped_evidence(
+                company_id=company_id,
+                camera_id=camera_id,
+                region_id=region_id,
+                rule_set_id=rule_set_id,
+                captured_at=captured_at,
+                frame_uri=frame_uris[0] if frame_uris else "",
+                ingestion_id=ingestion_id,
+                status=allowance,
+                detail=f"llm skipped: {allowance}",
+            )
+            session.add(evidence)
+            await session.flush()
+            await _maybe_xack(message_id)
+            logger.warning(
+                "LLM call skipped: evidence=%s reason=%s", evidence.id, allowance
+            )
+            return str(evidence.id)
+
+    provider, client = get_vlm_provider()
+    model = await _model_for_attempt(provider, attempt)
+    user_context = build_user_context(rag_feedback)
     scenario = parsed.get("edge_trigger_metadata", {}).get("scenario", "")
     if settings.auth0_use_mock and scenario:
         prompt = f"{prompt}\nDevelopment scenario: {scenario}"
@@ -130,6 +193,8 @@ async def _analyze_message(message_id: str, fields: dict[str, Any]) -> str:
         system_prompt=prompt,
         frame_uris=frame_uris,
         output_schema=output_schema,
+        model=model,
+        user_context=user_context,
     )
     severity_score = compute_severity_score(vlm_result, rules)
 
@@ -157,6 +222,45 @@ async def _analyze_message(message_id: str, fields: dict[str, Any]) -> str:
 
     aggregate_evidence.delay(evidence_id)
     return evidence_id
+
+
+def _screen_feedback(rag_feedback: list[Any]) -> str | None:
+    """Screen untrusted feedback text before any prompt build. Returns blocking policy id."""
+    for feedback in rag_feedback:
+        reasoning = getattr(feedback, "reasoning", "") or ""
+        hits = screen(reasoning)
+        blocked = [hit for hit in hits if hit.action == "block"]
+        if blocked:
+            return blocked[0].policy_id
+    return None
+
+
+def _skipped_evidence(
+    *,
+    company_id: UUID,
+    camera_id: UUID,
+    region_id: UUID | None,
+    rule_set_id: UUID,
+    captured_at: datetime,
+    frame_uri: str,
+    ingestion_id: UUID,
+    status: str,
+    detail: str,
+) -> Evidence:
+    """Evidence row for an LLM call that was not performed (fails closed)."""
+    return Evidence(
+        company_id=company_id,
+        camera_id=camera_id,
+        region_id=region_id,
+        rule_set_id=rule_set_id,
+        captured_at=captured_at,
+        vlm_result={"status": status, "error": detail},
+        detection_class=None,
+        confidence=None,
+        severity_score=0,
+        frame_storage_uri=frame_uri,
+        ingestion_id=ingestion_id,
+    )
 
 
 async def _maybe_xack(message_id: str) -> None:

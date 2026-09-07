@@ -29,14 +29,22 @@ class OpenAIVLMClient:
         system_prompt: str,
         frame_uris: list[str],
         output_schema: dict[str, Any],
+        model: str | None = None,
+        user_context: str = "",
     ) -> dict[str, Any]:
         if not settings.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is not configured")
 
         from openai import OpenAI
 
-        client = OpenAI(api_key=settings.openai_api_key)
-        user_content: list[dict[str, Any]] = [
+        client = OpenAI(
+            api_key=settings.openai_api_key,
+            base_url=settings.openai_base_url or None,
+        )
+        user_content: list[dict[str, Any]] = []
+        if user_context:
+            user_content.append({"type": "text", "text": user_context})
+        user_content.append(
             {
                 "type": "text",
                 "text": (
@@ -44,7 +52,7 @@ class OpenAIVLMClient:
                     f"Schema: {json.dumps(output_schema)}"
                 ),
             }
-        ]
+        )
         for uri in frame_uris:
             user_content.append(
                 {
@@ -54,7 +62,7 @@ class OpenAIVLMClient:
             )
 
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model=model or settings.openai_model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -84,12 +92,16 @@ class MockVLMClient:
         system_prompt: str,
         frame_uris: list[str],
         output_schema: dict[str, Any],
+        model: str | None = None,
+        user_context: str = "",
     ) -> dict[str, Any]:
         self.calls.append(
             {
                 "system_prompt": system_prompt,
                 "frame_uris": frame_uris,
                 "output_schema": output_schema,
+                "model": model,
+                "user_context": user_context,
             }
         )
         # Fixture names make the browser smoke test deterministic without a provider.
