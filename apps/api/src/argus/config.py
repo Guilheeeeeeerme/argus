@@ -51,6 +51,7 @@ class Settings(BaseSettings):
         alias="S3_ENDPOINT_URL",
         default="http://minio:9000",
     )
+    s3_public_endpoint_url: str = Field(alias="S3_PUBLIC_ENDPOINT_URL", default="")
     s3_access_key_id: str = Field(alias="S3_ACCESS_KEY_ID", default="minioadmin")
     s3_secret_access_key: str = Field(
         alias="S3_SECRET_ACCESS_KEY",
