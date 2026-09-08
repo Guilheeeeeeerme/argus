@@ -64,7 +64,7 @@ All LLM calls follow the Promptdesk guardrails standard (`apps/api/docs/guardrai
 
 Providers and models:
 
-- `LLM_PROVIDER_ORDER` (default `gemini,openai`): Gemini first, OpenAI optional fallback; providers without a key are skipped; `OPENAI_BASE_URL` is honored.
+- `LLM_PROVIDER_ORDER` (default `gemini,openai`): Gemini first, OpenAI optional fallback; providers without a key are skipped; `GEMINI_BASE_URL` and `OPENAI_BASE_URL` are honored (point at Headroom for compression).
 - Cheapest-first model rank (`integrations/model_rank.py`, Redis-cached, refreshed by the `models.refresh_rank` beat task every `MODEL_RANK_REFRESH_MS`, default 12h = twice daily): retries escalate through `rank[attempt]`, cross-provider failover only after all attempts of the earlier provider fail.
 - VLM analysis is ingest-driven, not scheduled; embeddings remain OpenAI-only (`text-embedding-3-small`) with a deterministic local fallback.
 
