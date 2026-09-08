@@ -34,7 +34,14 @@ class Settings(BaseSettings):
 
     cors_origins: str = Field(
         alias="CORS_ORIGINS",
-        default="http://admin.argus.test:8180,http://triage.argus.test:8181",
+        default=(
+            "http://localhost:8180,http://localhost:8181,"
+            "http://127.0.0.1:8180,http://127.0.0.1:8181"
+        ),
+    )
+    triage_public_origin: str = Field(
+        alias="TRIAGE_PUBLIC_ORIGIN",
+        default="http://localhost:8181",
     )
     stream_gateway_token: str = Field(
         alias="STREAM_GATEWAY_TOKEN",
@@ -60,10 +67,10 @@ class Settings(BaseSettings):
     s3_bucket_name: str = Field(alias="S3_BUCKET_NAME", default="argus-frames")
     s3_region: str = Field(alias="S3_REGION", default="us-east-1")
 
-    auth0_domain: str = Field(alias="AUTH0_DOMAIN", default="your-tenant.auth0.com")
+    auth0_domain: str = Field(alias="AUTH0_DOMAIN", default="dev.local")
     auth0_api_audience: str = Field(
         alias="AUTH0_API_AUDIENCE",
-        default="http://api.argus.test:8800",
+        default="http://localhost:8800",
     )
     auth0_algorithms: str = Field(alias="AUTH0_ALGORITHMS", default="RS256")
     auth0_use_mock: bool = Field(alias="AUTH0_USE_MOCK", default=False)

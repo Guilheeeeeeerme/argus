@@ -4,8 +4,13 @@ x-api-env: &api-env
   DATABASE_URL: postgresql+asyncpg://argus_app:argus_app@postgres:5432/argus
   ADMIN_DATABASE_URL: postgresql+asyncpg://argus:argus@postgres:5432/argus
   REDIS_URL: redis://redis:6379/0
-  AUTH0_USE_MOCK: "true"
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8180,http://localhost:8181,http://127.0.0.1:8180,http://127.0.0.1:8181}
+  AUTH0_USE_MOCK: ${AUTH0_USE_MOCK:-true}
+  AUTH0_DOMAIN: ${AUTH0_DOMAIN:-dev.local}
+  AUTH0_API_AUDIENCE: ${AUTH0_API_AUDIENCE:-http://localhost:8800}
+  AUTH0_CLAIMS_NAMESPACE: ${AUTH0_CLAIMS_NAMESPACE:-http://argus.local}
   DEV_JWT_SECRET: ${DEV_JWT_SECRET:-local-dev-secret-change-me}
+  TRIAGE_PUBLIC_ORIGIN: ${TRIAGE_PUBLIC_ORIGIN:-http://localhost:8181}
   API_HOST: 0.0.0.0
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -160,9 +165,9 @@ services:
     environment:
       VITE_API_BASE: /api
       VITE_API_PROXY_TARGET: http://api:8000
-      VITE_MAIN_ORIGIN: http://admin.argus.test:8180
-      VITE_SUPPORT_ORIGIN: http://triage.argus.test:8181
-      VITE_SSO_RETURN_ORIGINS: http://admin.argus.test:8180,http://triage.argus.test:8181
+      VITE_MAIN_ORIGIN: ${VITE_MAIN_ORIGIN:-http://localhost:8180}
+      VITE_SUPPORT_ORIGIN: ${VITE_SUPPORT_ORIGIN:-http://localhost:8181}
+      VITE_SSO_RETURN_ORIGINS: ${VITE_SSO_RETURN_ORIGINS:-http://localhost:8180,http://localhost:8181,http://127.0.0.1:8180,http://127.0.0.1:8181}
     ports: ["8180:8180"]
     volumes:
       - ./apps/admin:/app
@@ -179,9 +184,9 @@ services:
     environment:
       VITE_API_BASE: /api
       VITE_API_PROXY_TARGET: http://api:8000
-      VITE_MAIN_ORIGIN: http://admin.argus.test:8180
-      VITE_SUPPORT_ORIGIN: http://triage.argus.test:8181
-      VITE_SSO_RETURN_ORIGINS: http://admin.argus.test:8180,http://triage.argus.test:8181
+      VITE_MAIN_ORIGIN: ${VITE_MAIN_ORIGIN:-http://localhost:8180}
+      VITE_SUPPORT_ORIGIN: ${VITE_SUPPORT_ORIGIN:-http://localhost:8181}
+      VITE_SSO_RETURN_ORIGINS: ${VITE_SSO_RETURN_ORIGINS:-http://localhost:8180,http://localhost:8181,http://127.0.0.1:8180,http://127.0.0.1:8181}
     ports: ["8181:8181"]
     volumes:
       - ./apps/triage:/app

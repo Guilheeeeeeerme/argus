@@ -74,13 +74,13 @@ cp .env.example .env
 ./scripts/up.sh -d
 ```
 
-Add `admin.argus.test` and `triage.argus.test` to your hosts file. Hot reload is automatic for the API (uvicorn) and frontends (Vite); restart the worker after Celery changes.
+Hot reload is automatic for the API (uvicorn) and frontends (Vite); restart the worker after Celery changes. No `/etc/hosts` entries are required.
 
 | Service | URL |
 | --- | --- |
-| Admin (SSO host) | http://admin.argus.test:8180 |
-| Triage MFE | http://triage.argus.test:8181 |
-| API | http://api.argus.test:8800 (`/health`, `/health/db`) |
+| Admin (SSO host) | http://localhost:8180 |
+| Triage MFE | http://localhost:8181 |
+| API | http://localhost:8800 (`/health`, `/health/db`) |
 
 Seeded data (2 companies with locations, agents, cameras and rule sets) is idempotent and runs on API start; seed credentials are listed in the seed output. Wipe with `docker compose down -v`.
 
