@@ -55,11 +55,12 @@ FastAPI API
 
 All LLM calls follow the Promptdesk guardrails standard (`apps/api/docs/guardrails.md`).
 
-| OWASP risk | Mitigation |
+| OWASP risk (2026) | Mitigation |
 | --- | --- |
-| LLM01 Prompt injection | Untrusted feedback text is pre-screened against regex policies (`apps/api/src/argus/guardrails/registry.yml` via `screening.py`); a block skips the LLM call entirely and records a `policy_block` evidence. Remaining untrusted content is wrapped in a `BEGIN_UNTRUSTED_VLM_CONTEXT` / `END_UNTRUSTED_VLM_CONTEXT` fence (`fencing.py`) inside the user message, never the system prompt. |
-| LLM02 Sensitive disclosure | The VLM system prompt (from the registry) treats all context as data, never instructions, and forbids revealing prompts or secrets; biometric identification is prohibited by policy. |
-| LLM10 Unbounded consumption | Worker budget: fixed-window `LLM_RATE_LIMIT_PER_MINUTE` (default 20) and daily `LLM_DAILY_BUDGET` (default 500) checked in Redis before every call; over budget the call is skipped with `rate_limit`/`budget_exceeded` evidence. API: per-IP `RATE_LIMIT_PER_MINUTE` (default 30) via slowapi. |
+| LLM01 Prompt injection | Untrusted feedback is screened at write and before LLM; remaining content is fenced in the user message. |
+| LLM02 Sensitive disclosure | Keys never in prompts. Frames/prompts leave to Gemini/OpenAI by design — require DPA; prompt rules are defense-in-depth only. |
+| LLM03 Excessive agency | No tools; WARNING notify requires triage HITL approve; severity uses allowlisted JSON + confidence floor. |
+| LLM06 Unbounded consumption | Per-tenant + global Redis call budgets; optional token/cost halt; API per-IP rate limit. |
 
 Providers and models:
 

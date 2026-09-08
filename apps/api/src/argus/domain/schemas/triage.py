@@ -44,9 +44,17 @@ class DecisionDetail(BaseModel):
     evidence_count: int
     window_start: datetime
     window_end: datetime
+    updated_at: datetime | None = None
+    awaiting_notify_approval: bool = False
     evidences: list[EvidenceDetail] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+class NotifyActionResponse(BaseModel):
+    decision_id: UUID
+    updated_deliveries: int
+    status: str
 
 
 class ResolveDecisionRequest(BaseModel):

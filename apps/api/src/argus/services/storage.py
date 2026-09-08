@@ -87,6 +87,33 @@ async def upload_fileobj(
     return await asyncio.to_thread(_upload)
 
 
+def parse_s3_uri(uri: str) -> tuple[str, str]:
+    """Parse ``s3://bucket/key`` into (bucket, key)."""
+    if not uri.startswith("s3://"):
+        raise ValueError(f"Not an s3 URI: {uri[:32]}")
+    without = uri.removeprefix("s3://")
+    bucket, _, key = without.partition("/")
+    if not bucket or not key:
+        raise ValueError(f"Malformed s3 URI: {uri[:64]}")
+    return bucket, key
+
+
+async def download_bytes(uri: str) -> tuple[bytes, str]:
+    """Fetch object bytes for an ``s3://`` URI. Returns (payload, content_type)."""
+    bucket_name, key = parse_s3_uri(uri)
+    client = _s3_client()
+
+    def _get() -> tuple[bytes, str]:
+        response = client.get_object(Bucket=bucket_name, Key=key)
+        body = response["Body"].read()
+        content_type = (response.get("ContentType") or "application/octet-stream").split(
+            ";", 1
+        )[0]
+        return body, content_type
+
+    return await asyncio.to_thread(_get)
+
+
 async def generate_presigned_get_url(
     key: str,
     *,

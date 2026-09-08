@@ -162,6 +162,11 @@ class AggregationService:
             },
             actor="worker-aggregator",
         )
+        if new_state == DecisionState.WARNING:
+            from argus.workers.notifier import queue_warning_deliveries
+
+            # HITL: queue deliveries awaiting manager approval; do not send yet.
+            await queue_warning_deliveries(session, decision)
         await self._emit_state_change(decision, old_state, new_state)
 
     def _compute_state(self, decision: Decision, company: Company) -> DecisionState:
@@ -199,8 +204,3 @@ class AggregationService:
                 "previous_state": old_state.value,
             },
         )
-
-        if new_state == DecisionState.WARNING:
-            from argus.workers.notify import notify_warning
-
-            notify_warning.delay(str(decision.id))

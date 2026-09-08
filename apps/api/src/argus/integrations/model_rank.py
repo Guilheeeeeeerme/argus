@@ -37,13 +37,30 @@ _EXCLUDED_MODEL_PATTERN = re.compile(
     r"(?i)(embed|image|imagen|tts|aqa|realtime|audio|moderation|vision|whisper|search|veo|distill)"
 )
 
+_ALLOWED_MODEL_PREFIXES: dict[str, tuple[str, ...]] = {
+    "gemini": ("gemini-2", "gemini-3", "gemini-1.5", "gemini-flash", "gemini-pro"),
+    "openai": ("gpt-4", "gpt-5", "gpt-3.5", "o1", "o3", "o4"),
+}
+
+
+def _is_allowlisted_model(provider: str, name: str) -> bool:
+    prefixes = _ALLOWED_MODEL_PREFIXES.get(provider, ())
+    lower = name.lower()
+    if _EXCLUDED_MODEL_PATTERN.search(lower):
+        return False
+    return any(lower.startswith(prefix) for prefix in prefixes)
+
 
 def _seed_candidates(provider: str) -> list[tuple[str, float]]:
     return list(_SEED_MODEL_PRICES.get(provider, []))
 
 
 def _enrich_candidates(provider: str, candidates: list[tuple[str, float]]) -> list[tuple[str, float]]:
-    """Best-effort provider models.list enrichment. Never crashes the caller."""
+    """Best-effort provider models.list enrichment. Never crashes the caller.
+
+    Unknown / non-allowlisted model IDs are ignored (not inserted at inf price).
+    """
+    known_prices = {name: price for name, price in candidates}
     try:
         if provider == "gemini":
             import httpx
@@ -60,8 +77,9 @@ def _enrich_candidates(provider: str, candidates: list[tuple[str, float]]) -> li
                     if "generateContent" not in methods:
                         continue
                     name = (model.get("name") or "").removeprefix("models/")
-                    if name and not _EXCLUDED_MODEL_PATTERN.search(name):
-                        candidates.append((name, float("inf")))
+                    if name and _is_allowlisted_model(provider, name) and name not in known_prices:
+                        # Only promote models we already priced via seeds.
+                        continue
         elif provider == "openai":
             from openai import OpenAI
 
@@ -69,8 +87,12 @@ def _enrich_candidates(provider: str, candidates: list[tuple[str, float]]) -> li
                 client = OpenAI(api_key=settings.openai_api_key)
                 for model in client.models.list():
                     model_id = getattr(model, "id", "")
-                    if model_id and not _EXCLUDED_MODEL_PATTERN.search(model_id):
-                        candidates.append((model_id, float("inf")))
+                    if (
+                        model_id
+                        and _is_allowlisted_model(provider, model_id)
+                        and model_id not in known_prices
+                    ):
+                        continue
     except Exception:
         logger.info("Model rank enrichment unavailable for %s; using seeds", provider)
     return candidates
@@ -78,11 +100,13 @@ def _enrich_candidates(provider: str, candidates: list[tuple[str, float]]) -> li
 
 def compute_rank(provider: str, *, top_n: int | None = None) -> list[str]:
     limit = top_n if top_n is not None else settings.model_rank_top_n
-    candidates = _enrich_candidates(provider, _seed_candidates(provider))
+    # Enrichment is best-effort discovery only; production rank stays seed-priced.
+    _enrich_candidates(provider, _seed_candidates(provider))
+    candidates = _seed_candidates(provider)
     seen: set[str] = set()
     unique: list[tuple[str, float]] = []
     for name, price in candidates:
-        if _EXCLUDED_MODEL_PATTERN.search(name):
+        if not _is_allowlisted_model(provider, name):
             continue
         if name in seen:
             continue

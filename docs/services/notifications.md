@@ -1,8 +1,8 @@
 # Service sketch: notifications
 
 > Status: **PARTIALLY IMPLEMENTED** inside `apps/api` (config CRUD +
-> `notify` worker in log mode). Extraction + channel expansion are pending.
-> This document is the handoff. Related: `decision-engine.md`.
+> HITL-gated `notify` worker in log mode). Extraction + channel expansion
+> are pending. This document is the handoff. Related: `decision-engine.md`.
 
 ## Purpose
 
@@ -15,16 +15,32 @@ tracking, and dedup so one decision alarms once.
 | Piece | State | File |
 |---|---|---|
 | `notification_configs` CRUD (channel, recipient, is_active) | Implemented, routes `/v1/companies/{company_id}/notifications`, manager+ roles | `api/admin/notifications.py` |
-| `notification_deliveries` (decision_id, channel, status, provider_message_id, error_detail) | Implemented (model + API read) | migration `005_operational` |
+| `notification_deliveries` (decision_id, channel, status, provider_message_id, error_detail) | Implemented (model + API read) | migration `005_operational` + `009_notify_hitl` |
 | Twilio client (SMS/WhatsApp) | Implemented, behind `NOTIFICATION_MODE=log` | `integrations/twilio_client.py` |
-| `notify_warning` task | Implemented — reads decision + config, "sends" (log), writes a delivery row | `workers/notifier.py`, `workers/notify.py` |
-| Delivery lifecycle pending→sent→delivered→failed | Modeled; only `sent` (log) is produced in dev | `domain/enums.py` |
+| WARNING → queue deliveries | Implemented — creates `awaiting_approval` rows; **does not send** | `services/aggregation.py` → `queue_warning_deliveries` |
+| HITL approve / dismiss | Implemented — manager+ `POST .../approve-notify` and `.../dismiss-notify` | `api/triage/decisions.py`, triage `DecisionDetail.tsx` |
+| `notify_warning` task | Implemented — sends only `pending` deliveries (after approve) with a **deterministic** SMS body (no model prose) | `workers/notifier.py`, `workers/notify.py` |
+| Delivery lifecycle | `awaiting_approval` → `pending` → `sent`/`failed`, or `dismissed` | `domain/enums.py` |
+
+## HITL gate (Lethal Trifecta / Rule of Two)
+
+External SMS/WhatsApp is a high-impact egress channel. Model-driven severity
+must not auto-page humans:
+
+1. Aggregator transitions a decision to WARNING and queues
+   `notification_deliveries` with status `awaiting_approval` (one per active
+   config; idempotent on `(decision_id, config_id)`).
+2. A manager+ reviews the decision in triage and either:
+   - **Approve notify** — sets deliveries to `pending` and enqueues
+     `notify_warning`, which sends the deterministic body and marks `sent`.
+   - **Dismiss notify** — sets deliveries to `dismissed`; no provider call.
+3. SMS body is fixed template text + decision/camera ids + triage deep link —
+   never VLM reasoning or free-form model output.
 
 ## Responsibilities (to build / extract)
 
-1. **Per-decision dedup** — one delivery per (decision, config). Today the
-   aggregator calls `notify_warning` on every transition into WARNING; ensure
-   idempotency via unique `(decision_id, config_id)` before re-enqueueing.
+1. **Per-decision dedup** — one delivery per (decision, config). Queue helper
+   skips existing rows before insert.
 2. **Channel adapters** behind one interface:
    - `log` (dev, current),
    - `twilio` SMS/WhatsApp (client exists — wire `NOTIFICATION_MODE=twilio`),
@@ -52,8 +68,8 @@ services/notifications/
 ```
 
 Contracts it consumes:
-- Trigger: `notify_warning.delay(decision_id)` (from decision engine) — keep
-  the Celery task name stable during extraction.
+- Trigger: WARNING → `queue_warning_deliveries`; send only after
+  `approve-notify` → `notify_warning.delay(decision_id)`.
 - Reads: `decisions`, `notification_configs` (company scoped, RLS role=manager).
 - Writes: `notification_deliveries` + provider APIs.
 
@@ -72,10 +88,13 @@ Contracts it consumes:
   `notify` queue).
 - Force a test alarm: seed an ingest message with scenario `warning`
   (MockVLM raises severity) → decision → WARNING → check
-  `notification_deliveries` rows + worker logs.
-- Replay a failed delivery: fix cause → `celery call notify.deliver` with the
-  delivery id (or re-run `notify_warning`).
-- Tests: `apps/api/tests/test_notifier.py`.
+  `notification_deliveries` rows are `awaiting_approval` (nothing sent yet).
+- Approve in triage UI (or `POST .../approve-notify`) → worker sends → status
+  `sent`.
+- Replay a failed delivery: fix cause → set status back to `pending` →
+  `celery call notify.notify_warning` with the decision id.
+- Tests: `apps/api/tests/test_notifier.py`, triage approve/dismiss coverage in
+  `test_triage_api.py`.
 
 ## Open decisions
 

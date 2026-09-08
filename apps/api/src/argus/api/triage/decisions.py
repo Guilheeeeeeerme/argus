@@ -12,12 +12,18 @@ from sqlalchemy.orm import selectinload
 
 from argus.api.deps import get_company_db, require_role
 from argus.core.auth import AuthContext
-from argus.domain.enums import DecisionState, FeedbackDisposition, UserRole
-from argus.domain.models import Decision, DecisionEvidence, Evidence
+from argus.domain.enums import (
+    DecisionState,
+    FeedbackDisposition,
+    NotificationStatus,
+    UserRole,
+)
+from argus.domain.models import Decision, DecisionEvidence, Evidence, NotificationDelivery
 from argus.domain.schemas.triage import (
     DecisionDetail,
     DecisionSummary,
     EvidenceDetail,
+    NotifyActionResponse,
     ResolveDecisionRequest,
     ResolveDecisionResponse,
 )
@@ -33,6 +39,7 @@ _DISPOSITION_TO_STATE = {
     FeedbackDisposition.FALSE_POSITIVE: DecisionState.RESOLVED_FALSE_POSITIVE,
     FeedbackDisposition.FALSE_NEGATIVE: DecisionState.RESOLVED_FALSE_NEGATIVE,
 }
+_MANAGER_PLUS = (UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
 
 
 @router.get("", response_model=list[DecisionSummary])
@@ -92,6 +99,13 @@ async def get_decision(
             )
         )
 
+    awaiting = await session.scalar(
+        select(NotificationDelivery.id).where(
+            NotificationDelivery.decision_id == decision.id,
+            NotificationDelivery.status == NotificationStatus.AWAITING_APPROVAL,
+        ).limit(1)
+    )
+
     return DecisionDetail(
         id=decision.id,
         camera_id=decision.camera_id,
@@ -102,7 +116,104 @@ async def get_decision(
         window_start=decision.window_start,
         window_end=decision.window_end,
         updated_at=decision.updated_at,
+        awaiting_notify_approval=awaiting is not None,
         evidences=evidence_details,
+    )
+
+
+@router.post("/{decision_id}/approve-notify", response_model=NotifyActionResponse)
+async def approve_notify(
+    company_id: UUID,
+    decision_id: UUID,
+    session: AsyncSession = Depends(get_company_db),
+    auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
+) -> NotifyActionResponse:
+    """Human approval gate: move awaiting deliveries to pending and enqueue send."""
+    decision = await session.get(Decision, decision_id)
+    if decision is None or decision.company_id != company_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Decision not found")
+
+    deliveries = list(
+        (
+            await session.scalars(
+                select(NotificationDelivery).where(
+                    NotificationDelivery.decision_id == decision.id,
+                    NotificationDelivery.status == NotificationStatus.AWAITING_APPROVAL,
+                )
+            )
+        ).all()
+    )
+    if not deliveries:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No notifications awaiting approval",
+        )
+
+    for delivery in deliveries:
+        delivery.status = NotificationStatus.PENDING
+
+    await write_audit_record(
+        session,
+        decision=decision,
+        event_type="notify_approved",
+        payload={"delivery_ids": [str(d.id) for d in deliveries]},
+        actor=auth.sub,
+    )
+    await session.commit()
+
+    from argus.workers.notify import notify_warning
+
+    notify_warning.delay(str(decision.id))
+    return NotifyActionResponse(
+        decision_id=decision.id,
+        updated_deliveries=len(deliveries),
+        status=NotificationStatus.PENDING.value,
+    )
+
+
+@router.post("/{decision_id}/dismiss-notify", response_model=NotifyActionResponse)
+async def dismiss_notify(
+    company_id: UUID,
+    decision_id: UUID,
+    session: AsyncSession = Depends(get_company_db),
+    auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
+) -> NotifyActionResponse:
+    """Cancel awaiting notification deliveries without sending."""
+    decision = await session.get(Decision, decision_id)
+    if decision is None or decision.company_id != company_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Decision not found")
+
+    deliveries = list(
+        (
+            await session.scalars(
+                select(NotificationDelivery).where(
+                    NotificationDelivery.decision_id == decision.id,
+                    NotificationDelivery.status == NotificationStatus.AWAITING_APPROVAL,
+                )
+            )
+        ).all()
+    )
+    if not deliveries:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No notifications awaiting approval",
+        )
+
+    for delivery in deliveries:
+        delivery.status = NotificationStatus.DISMISSED
+
+    await write_audit_record(
+        session,
+        decision=decision,
+        event_type="notify_dismissed",
+        payload={"delivery_ids": [str(d.id) for d in deliveries]},
+        actor=auth.sub,
+    )
+    await session.commit()
+    return NotifyActionResponse(
+        decision_id=decision.id,
+        updated_deliveries=len(deliveries),
+        status=NotificationStatus.DISMISSED.value,
     )
 
 

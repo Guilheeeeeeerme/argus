@@ -111,6 +111,19 @@ class Settings(BaseSettings):
     model_rank_top_n: int = Field(alias="MODEL_RANK_TOP_N", default=3)
     llm_rate_limit_per_minute: int = Field(alias="LLM_RATE_LIMIT_PER_MINUTE", default=20)
     llm_daily_budget: int = Field(alias="LLM_DAILY_BUDGET", default=500)
+    llm_global_daily_budget: int = Field(alias="LLM_GLOBAL_DAILY_BUDGET", default=5000)
+    llm_daily_token_budget: int = Field(alias="LLM_DAILY_TOKEN_BUDGET", default=0)
+    llm_daily_cost_usd: float = Field(alias="LLM_DAILY_COST_USD", default=0.0)
+    llm_estimated_tokens_per_call: int = Field(
+        alias="LLM_ESTIMATED_TOKENS_PER_CALL", default=4000
+    )
+    llm_estimated_cost_per_call_usd: float = Field(
+        alias="LLM_ESTIMATED_COST_PER_CALL_USD", default=0.01
+    )
+    vlm_min_confidence_for_hint: float = Field(
+        alias="VLM_MIN_CONFIDENCE_FOR_HINT", default=0.55
+    )
+    frame_http_allowlist: str = Field(alias="FRAME_HTTP_ALLOWLIST", default="")
     rate_limit_per_minute: int = Field(alias="RATE_LIMIT_PER_MINUTE", default=30)
 
     twilio_account_sid: str = Field(alias="TWILIO_ACCOUNT_SID", default="")

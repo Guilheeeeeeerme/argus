@@ -61,9 +61,10 @@ def _fields(**overrides) -> dict:
 @pytest.mark.asyncio
 async def test_budget_exhausted_skips_llm_call(mock_vlm: MockVLMClient) -> None:
     today = datetime.now(UTC).strftime("%Y%m%d")
-    budget_key = f"llm:budget:{today}"
+    company = str(SEED_COMPANY_ID)
+    budget_key = f"llm:budget:{company}:{today}"
     redis = get_redis()
-    await redis.set(budget_key, int(settings.llm_daily_budget))
+    await redis.set(budget_key, int(settings.llm_daily_budget) + 1)
     try:
         evidence_id = await vlm_analyzer._analyze_message("budget-msg-1", _fields())
         async with company_session(SEED_COMPANY_ID, "manager") as session:
@@ -80,9 +81,10 @@ async def test_budget_exhausted_skips_llm_call(mock_vlm: MockVLMClient) -> None:
 async def test_rate_limit_exhausted_skips_llm_call(mock_vlm: MockVLMClient) -> None:
     import time
 
-    rate_key = f"llm:rate:{int(time.time() // 60)}"
+    company = str(SEED_COMPANY_ID)
+    rate_key = f"llm:rate:{company}:{int(time.time() // 60)}"
     redis = get_redis()
-    await redis.set(rate_key, int(settings.llm_rate_limit_per_minute))
+    await redis.set(rate_key, int(settings.llm_rate_limit_per_minute) + 1)
     try:
         evidence_id = await vlm_analyzer._analyze_message("rate-msg-1", _fields())
         async with company_session(SEED_COMPANY_ID, "manager") as session:
@@ -95,14 +97,15 @@ async def test_rate_limit_exhausted_skips_llm_call(mock_vlm: MockVLMClient) -> N
 
 @pytest.mark.asyncio
 async def test_check_llm_allowance_denies_over_budget() -> None:
-    today = datetime.now(UTC).strftime("%Y%m%d")
     redis = get_redis()
-    await redis.set(f"llm:budget:{today}", int(settings.llm_daily_budget) + 1)
+    today = datetime.now(UTC).strftime("%Y%m%d")
+    company = "11111111-1111-4111-8111-111111111111"
+    key = f"llm:budget:{company}:{today}"
+    await redis.set(key, int(settings.llm_daily_budget) + 1)
     try:
-        assert await check_llm_allowance() == BUDGET_EXCEEDED
+        assert await check_llm_allowance(company) == BUDGET_EXCEEDED
     finally:
-        await redis.delete(f"llm:budget:{today}")
-
+        await redis.delete(key)
 
 @pytest.mark.asyncio
 async def test_policy_block_skips_llm_call(mock_vlm: MockVLMClient) -> None:
