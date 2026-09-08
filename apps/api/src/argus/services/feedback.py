@@ -48,7 +48,7 @@ async def generate_embedding(text: str) -> list[float]:
         try:
             from openai import OpenAI
 
-            client = OpenAI(api_key=settings.openai_api_key)
+            client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url or None)
             response = client.embeddings.create(
                 model="text-embedding-3-small",
                 input=text,
