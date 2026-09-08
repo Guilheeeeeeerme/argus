@@ -8,7 +8,7 @@ interface LocaleToggleProps {
 }
 
 export function LocaleToggle({ locale, label, ariaLabel, onLocaleChange }: LocaleToggleProps) {
-  const next = locale === 'en' ? 'pt-BR' : 'en';
+  const next: LocaleValue = locale === 'en' ? 'pt-BR' : 'en';
   return (
     <button
       type="button"

@@ -11,9 +11,9 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
     <header className="argus-header">
       <div>
         <h1>{title}</h1>
-        {subtitle && <p>{subtitle}</p>}
+        {subtitle ? <p>{subtitle}</p> : null}
       </div>
-      {actions && <div className="argus-header__actions">{actions}</div>}
+      {actions ? <div className="argus-header__actions">{actions}</div> : null}
     </header>
   );
 }

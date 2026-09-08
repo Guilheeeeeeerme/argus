@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider, ThemeToggle, LocaleToggle, Header, Sidenav, Button, Message } from '@argus/design-system';
+import {
+  ThemeProvider,
+  ThemeToggle,
+  LocaleToggle,
+  AppShell,
+  Sidenav,
+  Button,
+  Message,
+  Skeleton,
+  AlertDialog,
+} from '@argus/design-system';
 import { I18nProvider, useT, useLocale } from '@argus/i18n';
 import '@argus/design-system/tokens.css';
 import '@argus/design-system/global.css';
@@ -33,6 +43,7 @@ function App({ initial }: { initial: Session }) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [users, setUsers] = useState<Account[]>([]);
   const [message, setMessage] = useState('');
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   async function load(next = session) {
     setSession(next);
@@ -45,13 +56,17 @@ function App({ initial }: { initial: Session }) {
         setLocations(
           (await call(`/v1/companies/${next.activeCompany.id}/locations`)) as Location[],
         );
+      } else {
+        setLocations([]);
       }
     } catch (error) {
       setMessage(String(error));
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   async function switchCompany(id: string) {
     try {
@@ -69,18 +84,11 @@ function App({ initial }: { initial: Session }) {
     try {
       const next = await switchContext({ locationId: id || null });
       await load(next);
-      setMessage(id ? t('Active location: {name}', { name: next.activeLocation?.name ?? '' }) : t('Location cleared.'));
-    } catch (error) {
-      setMessage(String(error));
-    }
-  }
-
-  async function deleteCompany(company: Company) {
-    if (!window.confirm(t('Delete {name}?', { name: company.name }))) return;
-    try {
-      await call(`/v1/admin/companies/${company.id}`, { method: 'DELETE' });
-      await switchContext({ companyId: null });
-      await load(await getSession());
+      setMessage(
+        id
+          ? t('Active location: {name}', { name: next.activeLocation?.name ?? '' })
+          : t('Location cleared.'),
+      );
     } catch (error) {
       setMessage(String(error));
     }
@@ -92,19 +100,29 @@ function App({ initial }: { initial: Session }) {
     return `${target}#token=${encodeURIComponent(token)}`;
   }
 
+  function signOut() {
+    void call('/v1/auth/logout', { method: 'POST' });
+    clearToken();
+    window.location.assign(APP);
+  }
+
   return (
-    <main className="argus-admin">
-      <Header
-        title="ARGUS"
-        subtitle={t('Administration')}
-        actions={
-          <>
-            <LocaleToggle locale={locale} label={t('PT-BR')} ariaLabel={t('Switch language')} onLocaleChange={setLocale} />
-            <ThemeToggle />
-          </>
-        }
-      />
-      <Sidenav>
+    <AppShell
+      brand="ARGUS"
+      meta={t('Administration')}
+      actions={
+        <>
+          <LocaleToggle
+            locale={locale}
+            label={t('PT-BR')}
+            ariaLabel={t('Switch language')}
+            onLocaleChange={setLocale}
+          />
+          <ThemeToggle />
+        </>
+      }
+    >
+      <Sidenav aria-label={t('Tenant context')}>
         {isPlatform(session.user.role) && (
           <label>
             {t('Company')}
@@ -115,7 +133,9 @@ function App({ initial }: { initial: Session }) {
             >
               <option value="">{t('All companies')}</option>
               {companies.map(company => (
-                <option key={company.id} value={company.id}>{company.name}</option>
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
               ))}
             </select>
           </label>
@@ -130,39 +150,69 @@ function App({ initial }: { initial: Session }) {
             >
               <option value="">{t('No location selected')}</option>
               {locations.map(location => (
-                <option key={location.id} value={location.id}>{location.name}</option>
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
               ))}
             </select>
           </label>
         )}
         <Button
-          variant="ghost"
-          onClick={() => window.location.assign(`${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(withToken(window.location.href))}`)}
+          variant="secondary"
+          onClick={() =>
+            window.location.assign(
+              `${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(withToken(window.location.href))}`,
+            )
+          }
         >
           {t('Open Triage')}
         </Button>
-        <Button
-          variant="ghost"
-          onClick={() => { void call('/v1/auth/logout', { method: 'POST' }); clearToken(); window.location.assign(APP); }}
-        >
+        <Button variant="ghost" onClick={() => setConfirmSignOut(true)}>
           {t('Sign out')}
         </Button>
       </Sidenav>
-      <Message text={message || t('Signed in as {email} ({role})', { email: session.user.email, role: session.user.role })} />
-      {isPlatform(session.user.role) && (
-        <>
-          <Companies companies={companies} onReload={() => void load()} />
-          <Users users={users} companyId={session.activeCompany?.id ?? null} onReload={() => void load()} />
-        </>
-      )}
-      {session.activeCompany && (
-        <Locations
-          locations={locations}
-          companyId={session.activeCompany.id}
-          onReload={() => void load()}
-        />
-      )}
-    </main>
+
+      <Message
+        text={
+          message ||
+          t('Signed in as {email} ({role})', {
+            email: session.user.email,
+            role: session.user.role,
+          })
+        }
+      />
+
+      <div className="argus-admin-sections">
+        {isPlatform(session.user.role) && (
+          <>
+            <Companies companies={companies} onReload={() => void load()} />
+            <Users
+              users={users}
+              companyId={session.activeCompany?.id ?? null}
+              onReload={() => void load()}
+            />
+          </>
+        )}
+        {session.activeCompany && (
+          <Locations
+            locations={locations}
+            companyId={session.activeCompany.id}
+            onReload={() => void load()}
+          />
+        )}
+      </div>
+
+      <AlertDialog
+        open={confirmSignOut}
+        title={t('Sign out')}
+        description={t('End your session on this device?')}
+        confirmLabel={t('Sign out')}
+        cancelLabel={t('Cancel')}
+        tone="primary"
+        onConfirm={signOut}
+        onCancel={() => setConfirmSignOut(false)}
+      />
+    </AppShell>
   );
 }
 
@@ -182,7 +232,9 @@ function SsoHandoffPage() {
     <Login
       onLogin={(session: AuthSession) => {
         if (isAllowedReturn(target)) {
-          window.location.assign(`${target}#token=${encodeURIComponent(session.token ?? getToken() ?? '')}`);
+          window.location.assign(
+            `${target}#token=${encodeURIComponent(session.token ?? getToken() ?? '')}`,
+          );
         }
       }}
     />
@@ -190,6 +242,7 @@ function SsoHandoffPage() {
 }
 
 function LocaleAware() {
+  const t = useT();
   const [session, setSession] = useState<Session | null>(null);
   const [booted, setBooted] = useState(false);
 
@@ -198,8 +251,13 @@ function LocaleAware() {
     if (window.location.pathname === '/register') {
       if (getToken()) {
         getSession()
-          .then(() => { window.location.assign(APP); })
-          .catch(() => { clearToken(); setBooted(true); });
+          .then(() => {
+            window.location.assign(APP);
+          })
+          .catch(() => {
+            clearToken();
+            setBooted(true);
+          });
       } else {
         setBooted(true);
       }
@@ -219,7 +277,14 @@ function LocaleAware() {
     }
   }, []);
 
-  if (!booted) return null;
+  if (!booted) {
+    return (
+      <div className="argus-boot" role="status" aria-live="polite">
+        <Skeleton width={180} height={20} aria-label={t('Loading')} />
+        <Skeleton width={120} height={14} />
+      </div>
+    );
+  }
   if (window.location.pathname === '/register') return <Register onRegister={setSession} />;
   if (window.location.pathname === '/sso/handoff') return <SsoHandoffPage />;
   return session ? <App initial={session} /> : <Login onLogin={setSession} />;

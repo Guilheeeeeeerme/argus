@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Header, Badge, Message, ThemeToggle, LocaleToggle } from '@argus/design-system';
+import {
+  Card,
+  Badge,
+  Message,
+  ThemeToggle,
+  LocaleToggle,
+  AppShell,
+  EmptyState,
+  Status,
+  Skeleton,
+} from '@argus/design-system';
 import { useT, useLocale } from '@argus/i18n';
 import { WS, Session, authedFetch, getToken, redirectToLogin } from '../api';
 import { DecisionDetail } from './DecisionDetail';
@@ -22,6 +32,8 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [selected, setSelected] = useState<Decision | null>(null);
   const [message, setMessage] = useState('');
+  const [connection, setConnection] = useState<'connecting' | 'live' | 'error'>('connecting');
+  const [loading, setLoading] = useState(true);
   const company = session.company_id;
 
   useEffect(() => {
@@ -29,72 +41,142 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
 
     async function loadDecisions() {
       const response = await authedFetch(`/v1/companies/${company}/decisions`);
-      if (response.status === 401) { redirectToLogin(); return; }
+      if (response.status === 401) {
+        redirectToLogin();
+        return;
+      }
       setDecisions(await response.json());
+      setLoading(false);
       setMessage(t('Live triage connected.'));
     }
 
     void loadDecisions();
 
     const ws = new WebSocket(`${WS}/v1/ws?token=${encodeURIComponent(getToken() ?? '')}`);
+    ws.onopen = () => setConnection('live');
     ws.onmessage = () => {
       authedFetch(`/v1/companies/${company}/decisions`)
         .then(x => x.json())
         .then(setDecisions);
     };
-    ws.onerror = () => setMessage(t('WebSocket connection failed.'));
-    ws.onclose = () => setMessage(t('WebSocket disconnected; refresh to reconnect.'));
+    ws.onerror = () => {
+      setConnection('error');
+      setMessage(t('WebSocket connection failed.'));
+    };
+    ws.onclose = () => {
+      setConnection('error');
+      setMessage(t('WebSocket disconnected; refresh to reconnect.'));
+    };
 
     return () => ws.close();
   }, [company, t]);
 
   async function selectDecision(decision: Decision) {
     if (!company) return;
-    setSelected(await authedFetch(`/v1/companies/${company}/decisions/${decision.id}`).then(r => r.json()));
+    setSelected(
+      await authedFetch(`/v1/companies/${company}/decisions/${decision.id}`).then(r => r.json()),
+    );
   }
 
   const where = session.location ? session.location.name : session.company_name;
+  const statusTone = connection === 'live' ? 'live' : connection === 'error' ? 'error' : 'neutral';
+  const statusLabel =
+    connection === 'live'
+      ? t('Live')
+      : connection === 'error'
+        ? t('Disconnected')
+        : t('Connecting…');
 
   return (
-    <main className="argus-triage">
-      <Header
-        title="ARGUS Triage"
-        subtitle={`${t('Real-time workspace')} · ${session.email} · ${where}`}
-        actions={
-          <>
-            <LocaleToggle locale={locale} label={t('PT-BR')} ariaLabel={t('Switch language')} onLocaleChange={setLocale} />
-            <ThemeToggle />
-          </>
-        }
+    <AppShell
+      brand="ARGUS"
+      meta={`${t('Triage')} · ${where}`}
+      wide
+      actions={
+        <>
+          <LocaleToggle
+            locale={locale}
+            label={t('PT-BR')}
+            ariaLabel={t('Switch language')}
+            onLocaleChange={setLocale}
+          />
+          <ThemeToggle />
+        </>
+      }
+    >
+      <div className="argus-triage-status-row">
+        <Status label={statusLabel} tone={statusTone} />
+        <p className="argus-list-row__meta">
+          {session.email} · {session.role}
+        </p>
+      </div>
+      <Message
+        text={message}
+        variant={connection === 'error' ? 'error' : 'info'}
       />
-      <Message text={message} />
       <div className="argus-triage__grid">
         <Card>
           <h2>{t('Decision feed')}</h2>
-          {decisions.map(decision => (
-            <button
-              key={decision.id}
-              className="argus-decision-btn"
-              onClick={() => selectDecision(decision)}
-            >
-              <Badge variant={decision.state as any}>{decision.state}</Badge>
-              <span>{t(
-                decision.evidence_count === 1
-                  ? '{count} evidence · severity {severity}'
-                  : '{count} evidences · severity {severity}',
-                { count: decision.evidence_count, severity: decision.cumulative_severity },
-              )}</span>
-            </button>
-          ))}
+          {loading ? (
+            <div className="argus-skeleton-stack">
+              <Skeleton height={36} aria-label={t('Loading decisions')} />
+              <Skeleton height={36} />
+              <Skeleton height={36} />
+            </div>
+          ) : decisions.length === 0 ? (
+            <EmptyState
+              title={t('No decisions yet')}
+              description={t('New detections will appear here in real time.')}
+            />
+          ) : (
+            <div className="argus-decision-list" role="list">
+              {decisions.map(decision => (
+                <button
+                  key={decision.id}
+                  type="button"
+                  role="listitem"
+                  className="argus-decision-btn"
+                  aria-current={selected?.id === decision.id ? 'true' : undefined}
+                  onClick={() => void selectDecision(decision)}
+                >
+                  <Badge variant={decision.state as 'normal' | 'weird' | 'warning' | 'resolved'}>
+                    {decision.state}
+                  </Badge>
+                  <span className="argus-decision-btn__meta">
+                    {t(
+                      decision.evidence_count === 1
+                        ? '{count} evidence · severity {severity}'
+                        : '{count} evidences · severity {severity}',
+                      {
+                        count: decision.evidence_count,
+                        severity: decision.cumulative_severity,
+                      },
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </Card>
-        {selected && (
+        {selected ? (
           <DecisionDetail
             decision={selected}
             company={company}
-            onResolved={() => { setSelected(null); setMessage(t('Decision resolved.')); }}
+            onResolved={() => {
+              setSelected(null);
+              setMessage(t('Decision resolved.'));
+            }}
+            onClose={() => setSelected(null)}
           />
+        ) : (
+          <Card>
+            <EmptyState
+              title={t('Select a decision')}
+              description={t('Choose an item from the feed to review evidence and resolve.')}
+            />
+          </Card>
         )}
       </div>
-    </main>
+    </AppShell>
   );
 }

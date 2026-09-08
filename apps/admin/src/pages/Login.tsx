@@ -1,5 +1,12 @@
 import { FormEvent, useState } from 'react';
-import { Button, Input, Card, Header, Message, LocaleToggle } from '@argus/design-system';
+import {
+  Button,
+  Input,
+  Card,
+  Message,
+  LocaleToggle,
+  ThemeToggle,
+} from '@argus/design-system';
 import { useT, useLocale, localizeApiError } from '@argus/i18n';
 import { setToken, Session } from '@shared/auth';
 import { call, returnTo, APP } from '../api';
@@ -10,9 +17,11 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
   const [email, setEmail] = useState('root@argus.local');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setSubmitting(true);
     try {
       const session = (await call('/v1/auth/login', {
         method: 'POST',
@@ -28,36 +37,53 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
       }
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <main className="argus-login">
-      <Card>
-        <Header
-          title="ARGUS"
-          subtitle={t('Sign in to continue.')}
-          actions={<LocaleToggle locale={locale} label={t('PT-BR')} ariaLabel={t('Switch language')} onLocaleChange={setLocale} />}
-        />
-        <form onSubmit={submit}>
-          <Input
-            label={t('Email')}
-            value={email}
-            onChange={e => setEmail(e.target.value)}
+    <main className="argus-auth">
+      <div className="argus-auth__panel">
+        <div className="argus-auth__toolbar">
+          <LocaleToggle
+            locale={locale}
+            label={t('PT-BR')}
+            ariaLabel={t('Switch language')}
+            onLocaleChange={setLocale}
           />
-          <Input
-            label={t('Password')}
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-          />
-          <Button type="submit">{t('Sign in')}</Button>
-        </form>
-        <p className="argus-auth-link">
-          {t('No account?')} <a href="/register">{t('Register')}</a>
-        </p>
-        <Message text={message} />
-      </Card>
+          <ThemeToggle />
+        </div>
+        <Card>
+          <h1 className="argus-auth__brand">ARGUS</h1>
+          <p className="argus-auth__subtitle">{t('Sign in to continue.')}</p>
+          <form onSubmit={submit}>
+            <Input
+              label={t('Email')}
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+            <Input
+              label={t('Password')}
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+            <Button type="submit" disabled={submitting}>
+              {t('Sign in')}
+            </Button>
+          </form>
+          <p className="argus-auth__link">
+            {t('No account?')} <a href="/register">{t('Register')}</a>
+          </p>
+          <Message text={message} variant="error" />
+        </Card>
+      </div>
     </main>
   );
 }

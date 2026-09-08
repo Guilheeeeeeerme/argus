@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Button, Input, Card, Message } from '@argus/design-system';
+import {
+  Button,
+  Input,
+  Select,
+  Card,
+  Message,
+  ListRow,
+  EmptyState,
+  AlertDialog,
+} from '@argus/design-system';
 import { useT, localizeApiError } from '@argus/i18n';
 import { call, Account } from '../api';
 
@@ -15,6 +24,7 @@ export function Users({ users, companyId, onReload }: UsersProps) {
   const [userPassword, setUserPassword] = useState('Password123!');
   const [userRole, setUserRole] = useState('manager');
   const [message, setMessage] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<Account | null>(null);
 
   async function createUser() {
     if (!companyId) {
@@ -38,8 +48,10 @@ export function Users({ users, companyId, onReload }: UsersProps) {
     }
   }
 
-  async function deleteUser(user: Account) {
-    if (!window.confirm(t('Delete {name}?', { name: user.email }))) return;
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const user = pendingDelete;
+    setPendingDelete(null);
     try {
       await call(`/v1/admin/users/${user.id}`, { method: 'DELETE' });
       onReload();
@@ -51,13 +63,25 @@ export function Users({ users, companyId, onReload }: UsersProps) {
   return (
     <Card>
       <h2>{t('Users')}</h2>
-      {users.map(user => (
-        <article key={user.id} className="argus-list-item">
-          <b>{user.email}</b>
-          <span>{user.role}</span>
-          <Button size="sm" variant="danger" onClick={() => deleteUser(user)}>{t('Delete')}</Button>
-        </article>
-      ))}
+      {users.length === 0 ? (
+        <EmptyState
+          title={t('No users yet')}
+          description={t('Create a manager or operator for the active company.')}
+        />
+      ) : (
+        users.map(user => (
+          <ListRow
+            key={user.id}
+            title={user.email}
+            meta={user.role}
+            actions={
+              <Button size="sm" variant="danger" onClick={() => setPendingDelete(user)}>
+                {t('Delete')}
+              </Button>
+            }
+          />
+        ))
+      )}
       <div className="argus-inline-form">
         <Input
           label={t('User email')}
@@ -70,17 +94,30 @@ export function Users({ users, companyId, onReload }: UsersProps) {
           value={userPassword}
           onChange={e => setUserPassword(e.target.value)}
         />
-        <select
-          aria-label={t('User role')}
+        <Select
+          label={t('User role')}
           value={userRole}
           onChange={e => setUserRole(e.target.value)}
-        >
-          <option value="manager">{t('Manager')}</option>
-          <option value="operator">{t('Operator')}</option>
-        </select>
+          options={[
+            { value: 'manager', label: t('Manager') },
+            { value: 'operator', label: t('Operator') },
+          ]}
+        />
         <Button onClick={createUser}>{t('Create user')}</Button>
       </div>
       <Message text={message} />
+
+      <AlertDialog
+        open={Boolean(pendingDelete)}
+        title={t('Delete user')}
+        description={t('Delete {name}? This cannot be undone.', {
+          name: pendingDelete?.email ?? '',
+        })}
+        confirmLabel={t('Delete')}
+        cancelLabel={t('Cancel')}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </Card>
   );
 }
