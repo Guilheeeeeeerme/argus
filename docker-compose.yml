@@ -40,7 +40,6 @@ services:
       POSTGRES_USER: argus
       POSTGRES_PASSWORD: argus
       POSTGRES_DB: argus
-    ports: ["15432:5432"]
     volumes: ["argus_postgres_data:/var/lib/postgresql/data"]
     networks: [argus_dmz]
     healthcheck:
@@ -54,7 +53,6 @@ services:
     image: redis:7-alpine
     container_name: argus-redis
     command: redis-server --appendonly yes
-    ports: ["16379:6379"]
     volumes: ["argus_redis_data:/data"]
     networks: [argus_dmz]
     healthcheck:
@@ -70,9 +68,6 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "19000:9000"
-      - "19001:9001"
     volumes: ["argus_minio_data:/data"]
     networks: [argus_dmz]
     healthcheck:
@@ -170,7 +165,10 @@ services:
       VITE_SSO_RETURN_ORIGINS: ${VITE_SSO_RETURN_ORIGINS:-http://localhost:8180,http://localhost:8181,http://127.0.0.1:8180,http://127.0.0.1:8181}
     ports: ["8180:8180"]
     volumes:
+      # Vite aliases resolve ../../packages and ../shared from /app (= apps/admin).
       - ./apps/admin:/app
+      - ./packages:/packages
+      - ./apps/shared:/shared
       - admin_node_modules:/app/node_modules
     networks: [argus_dmz]
     depends_on:
@@ -190,6 +188,8 @@ services:
     ports: ["8181:8181"]
     volumes:
       - ./apps/triage:/app
+      - ./packages:/packages
+      - ./apps/shared:/shared
       - triage_node_modules:/app/node_modules
     networks: [argus_dmz]
     depends_on:
