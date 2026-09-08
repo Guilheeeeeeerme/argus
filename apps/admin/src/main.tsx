@@ -3,15 +3,15 @@ import { createRoot } from 'react-dom/client';
 import {
   ThemeProvider,
   ThemeToggle,
-  LocaleToggle,
   AppShell,
   Sidenav,
   Button,
   Message,
   Skeleton,
   AlertDialog,
+  UserMenu,
 } from '@argus/design-system';
-import { I18nProvider, useT, useLocale } from '@argus/i18n';
+import { I18nProvider, useT, useLocale, SUPPORTED_LOCALES } from '@argus/i18n';
 import '@argus/design-system/tokens.css';
 import '@argus/design-system/global.css';
 import './style.css';
@@ -34,6 +34,11 @@ import { Locations } from './pages/Locations';
 function isPlatform(role: string): boolean {
   return role === 'root' || role === 'admin';
 }
+
+const LOCALE_LABELS: Record<(typeof SUPPORTED_LOCALES)[number], string> = {
+  en: 'English',
+  'pt-BR': 'Português (Brasil)',
+};
 
 function App({ initial }: { initial: Session }) {
   const t = useT();
@@ -106,81 +111,98 @@ function App({ initial }: { initial: Session }) {
     window.location.assign(APP);
   }
 
+  const displayName = session.user.email.split('@')[0] || session.user.email;
+
   return (
     <AppShell
       brand="ARGUS"
       meta={t('Administration')}
       actions={
         <>
-          <LocaleToggle
-            locale={locale}
-            label={t('PT-BR')}
-            ariaLabel={t('Switch language')}
-            onLocaleChange={setLocale}
-          />
           <ThemeToggle />
+          <UserMenu
+            name={displayName}
+            email={session.user.email}
+            locale={locale}
+            locales={SUPPORTED_LOCALES.map(code => ({
+              value: code,
+              label: LOCALE_LABELS[code],
+            }))}
+            languageLabel={t('Language')}
+            logoutLabel={t('Log out')}
+            onLocaleChange={next => setLocale(next as typeof locale)}
+            onLogout={() => setConfirmSignOut(true)}
+          />
         </>
       }
+      sidebar={
+        <Sidenav brand="ARGUS" subtitle={t('Administration')} aria-label={t('Tenant context')}>
+          {isPlatform(session.user.role) && (
+            <div className="argus-sidenav__section">
+              <label className="argus-sidenav__section-label" htmlFor="company-switcher">
+                {t('Company')}
+              </label>
+              <select
+                id="company-switcher"
+                className="argus-select"
+                aria-label={t('Active company')}
+                value={session.activeCompany?.id ?? ''}
+                onChange={e => void switchCompany(e.target.value)}
+              >
+                <option value="">{t('All companies')}</option>
+                {companies.map(company => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {!isPlatform(session.user.role) && (
+            <div className="argus-sidenav__section">
+              <span className="argus-sidenav__section-label">{t('Company')}</span>
+              <span className="argus-list-row__title">
+                {session.activeCompany?.name ?? t('All companies')}
+              </span>
+            </div>
+          )}
+          {session.activeCompany && (
+            <div className="argus-sidenav__section">
+              <label className="argus-sidenav__section-label" htmlFor="location-switcher">
+                {t('Location')}
+              </label>
+              <select
+                id="location-switcher"
+                className="argus-select"
+                aria-label={t('Active location')}
+                value={session.activeLocation?.id ?? ''}
+                onChange={e => void switchLocation(e.target.value)}
+              >
+                <option value="">{t('No location selected')}</option>
+                {locations.map(location => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="argus-sidenav__footer">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                window.location.assign(
+                  `${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(withToken(window.location.href))}`,
+                )
+              }
+            >
+              {t('Open Triage')}
+            </Button>
+          </div>
+        </Sidenav>
+      }
     >
-      <Sidenav aria-label={t('Tenant context')}>
-        {isPlatform(session.user.role) && (
-          <label>
-            {t('Company')}
-            <select
-              aria-label={t('Active company')}
-              value={session.activeCompany?.id ?? ''}
-              onChange={e => void switchCompany(e.target.value)}
-            >
-              <option value="">{t('All companies')}</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {session.activeCompany && (
-          <label>
-            {t('Location')}
-            <select
-              aria-label={t('Active location')}
-              value={session.activeLocation?.id ?? ''}
-              onChange={e => void switchLocation(e.target.value)}
-            >
-              <option value="">{t('No location selected')}</option>
-              {locations.map(location => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <Button
-          variant="secondary"
-          onClick={() =>
-            window.location.assign(
-              `${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(withToken(window.location.href))}`,
-            )
-          }
-        >
-          {t('Open Triage')}
-        </Button>
-        <Button variant="ghost" onClick={() => setConfirmSignOut(true)}>
-          {t('Sign out')}
-        </Button>
-      </Sidenav>
-
-      <Message
-        text={
-          message ||
-          t('Signed in as {email} ({role})', {
-            email: session.user.email,
-            role: session.user.role,
-          })
-        }
-      />
+      {message ? <Message text={message} /> : null}
 
       <div className="argus-admin-sections">
         {isPlatform(session.user.role) && (
@@ -204,9 +226,9 @@ function App({ initial }: { initial: Session }) {
 
       <AlertDialog
         open={confirmSignOut}
-        title={t('Sign out')}
+        title={t('Log out?')}
         description={t('End your session on this device?')}
-        confirmLabel={t('Sign out')}
+        confirmLabel={t('Log out')}
         cancelLabel={t('Cancel')}
         tone="primary"
         onConfirm={signOut}

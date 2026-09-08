@@ -7,14 +7,14 @@
 .argus-sketch-editor {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+  border-top: var(--border-width) solid var(--border);
 }
 
 .argus-sketch-canvas {
   position: relative;
-  min-height: 240px;
+  min-height: 15rem;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg-input);
   cursor: crosshair;
@@ -34,12 +34,11 @@
 
 .argus-sketch-marker {
   position: absolute;
-  size: 14px;
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   transform: translate(-50%, -50%);
   background: var(--color-primary);
-  border: 2px solid var(--text-on-accent);
+  border: var(--outline-width) solid var(--text-on-accent);
   border-radius: 50%;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
@@ -62,9 +61,8 @@
   color: var(--text-muted);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 47.9375rem) {
   .argus-shell__top {
-    flex-wrap: wrap;
     padding-top: calc(var(--space-2) + var(--safe-top));
     padding-bottom: var(--space-2);
   }
@@ -72,18 +70,10 @@
   .argus-shell__body {
     padding: var(--space-4);
   }
+}
 
-  .argus-sidenav {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .argus-sidenav label {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .argus-sidenav select {
-    flex: 1;
+@media (min-width: 48rem) and (max-width: 63.9375rem) {
+  .argus-shell__body {
+    padding: var(--space-4) var(--space-5);
   }
 }

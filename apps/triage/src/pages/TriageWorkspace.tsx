@@ -4,14 +4,16 @@ import {
   Badge,
   Message,
   ThemeToggle,
-  LocaleToggle,
   AppShell,
   EmptyState,
   Status,
   Skeleton,
+  UserMenu,
+  AlertDialog,
 } from '@argus/design-system';
-import { useT, useLocale } from '@argus/i18n';
-import { WS, Session, authedFetch, getToken, redirectToLogin } from '../api';
+import { useT, useLocale, SUPPORTED_LOCALES } from '@argus/i18n';
+import { clearToken, MAIN_ORIGIN } from '@shared/auth';
+import { WS, Session, authedFetch, getToken, redirectToLogin, API } from '../api';
 import { DecisionDetail } from './DecisionDetail';
 
 interface Decision {
@@ -26,6 +28,11 @@ interface TriageWorkspaceProps {
   session: Session;
 }
 
+const LOCALE_LABELS: Record<(typeof SUPPORTED_LOCALES)[number], string> = {
+  en: 'English',
+  'pt-BR': 'Português (Brasil)',
+};
+
 export function TriageWorkspace({ session }: TriageWorkspaceProps) {
   const t = useT();
   const { locale, setLocale } = useLocale();
@@ -34,6 +41,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
   const [message, setMessage] = useState('');
   const [connection, setConnection] = useState<'connecting' | 'live' | 'error'>('connecting');
   const [loading, setLoading] = useState(true);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const company = session.company_id;
 
   useEffect(() => {
@@ -78,6 +86,22 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
     );
   }
 
+  async function logout() {
+    try {
+      await fetch(`${API}/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(getToken() ? { authorization: `Bearer ${getToken()}` } : {}),
+        },
+      });
+    } catch {
+      /* still clear local session */
+    }
+    clearToken();
+    window.location.assign(MAIN_ORIGIN);
+  }
+
   const where = session.location ? session.location.name : session.company_name;
   const statusTone = connection === 'live' ? 'live' : connection === 'error' ? 'error' : 'neutral';
   const statusLabel =
@@ -86,6 +110,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
       : connection === 'error'
         ? t('Disconnected')
         : t('Connecting…');
+  const displayName = session.email.split('@')[0] || session.email;
 
   return (
     <AppShell
@@ -94,21 +119,26 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
       wide
       actions={
         <>
-          <LocaleToggle
-            locale={locale}
-            label={t('PT-BR')}
-            ariaLabel={t('Switch language')}
-            onLocaleChange={setLocale}
-          />
           <ThemeToggle />
+          <UserMenu
+            name={displayName}
+            email={session.email}
+            locale={locale}
+            locales={SUPPORTED_LOCALES.map(code => ({
+              value: code,
+              label: LOCALE_LABELS[code],
+            }))}
+            languageLabel={t('Language')}
+            logoutLabel={t('Log out')}
+            onLocaleChange={next => setLocale(next as typeof locale)}
+            onLogout={() => setConfirmLogout(true)}
+          />
         </>
       }
     >
       <div className="argus-triage-status-row">
         <Status label={statusLabel} tone={statusTone} />
-        <p className="argus-list-row__meta">
-          {session.email} · {session.role}
-        </p>
+        <p className="argus-list-row__meta">{session.role}</p>
       </div>
       <Message
         text={message}
@@ -177,6 +207,17 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
           </Card>
         )}
       </div>
+
+      <AlertDialog
+        open={confirmLogout}
+        title={t('Log out?')}
+        description={t('End your session on this device?')}
+        confirmLabel={t('Log out')}
+        cancelLabel={t('Cancel')}
+        tone="primary"
+        onConfirm={() => void logout()}
+        onCancel={() => setConfirmLogout(false)}
+      />
     </AppShell>
   );
 }

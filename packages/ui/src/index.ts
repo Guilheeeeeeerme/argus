@@ -18,4 +18,5 @@ export { EmptyState } from './components/EmptyState';
 export { Skeleton } from './components/Skeleton';
 export { ListRow } from './components/ListRow';
 export { AppShell } from './components/AppShell';
+export { UserMenu, ShellNavItem } from './components/UserMenu';
 export { Status } from './components/Status';
