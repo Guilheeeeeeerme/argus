@@ -11,6 +11,7 @@ from argus.domain.enums import NotificationChannel, NotificationStatus, UserRole
 from argus.integrations.twilio_client import get_notifier
 from argus.services.database import company_session
 from argus.domain.models import Decision, NotificationConfig, NotificationDelivery
+from argus.config import settings
 from argus.workers.celery_app import celery_app
 from argus.workers.utils import run_async
 
@@ -57,7 +58,7 @@ async def _notify_warning(decision_id: str) -> str:
             session.add(delivery)
             await session.flush()
 
-            deep_link = f"http://triage.argus.test:8181/decisions/{decision.id}"
+            deep_link = f"{settings.triage_public_origin.rstrip('/')}/decisions/{decision.id}"
             body = (
                 f"ARGUS Warning: decision {decision.id} on camera {decision.camera_id}. "
                 f"Review: {deep_link}"

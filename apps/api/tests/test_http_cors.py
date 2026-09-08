@@ -17,7 +17,12 @@ get_settings.cache_clear()
 
 @pytest.mark.parametrize(
     "origin",
-    ["http://admin.argus.test:8180", "http://triage.argus.test:8181"],
+    [
+        "http://localhost:8180",
+        "http://localhost:8181",
+        "http://127.0.0.1:8180",
+        "http://127.0.0.1:8181",
+    ],
 )
 @pytest.mark.asyncio
 async def test_browser_origins_are_allowed_for_preflight(origin: str) -> None:

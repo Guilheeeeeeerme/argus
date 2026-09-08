@@ -16,9 +16,9 @@ done
 cat <<'EOF'
 
 ARGUS dev stack:
-  Admin (SSO host)  http://admin.argus.test:8180
-  Triage MFE        http://triage.argus.test:8181
-  API               http://api.argus.test:8800  (health: /health)
+  Admin (SSO host)  http://localhost:8180
+  Triage MFE        http://localhost:8181
+  API               http://localhost:8800  (health: /health)
   Postgres          postgres:5432 (argus/argus)
   Redis             redis:6379
 

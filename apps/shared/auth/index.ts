@@ -1,7 +1,7 @@
 export const API_BASE = (import.meta.env?.VITE_API_BASE as string | undefined) ?? '/api';
 export const WS_BASE = (import.meta.env?.VITE_WS_BASE as string | undefined) ?? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
-export const MAIN_ORIGIN = (import.meta.env?.VITE_MAIN_ORIGIN as string | undefined) ?? 'http://admin.argus.test:8180';
-export const TRIAGE_ORIGIN = (import.meta.env?.VITE_SUPPORT_ORIGIN as string | undefined) ?? 'http://triage.argus.test:8181';
+export const MAIN_ORIGIN = (import.meta.env?.VITE_MAIN_ORIGIN as string | undefined) ?? 'http://localhost:8180';
+export const TRIAGE_ORIGIN = (import.meta.env?.VITE_SUPPORT_ORIGIN as string | undefined) ?? 'http://localhost:8181';
 export const API = API_BASE;
 export const WS = WS_BASE;
 
