@@ -30,7 +30,8 @@ Evidence created (image-analysis) → aggregate_evidence.delay(evidence_id)
            WEIRD    when evidence_count      >= company.weird_threshold
            NORMAL   otherwise
       5. on transition: audit record + WS event + event transport
-           - WARNING also enqueues notify_warning(decision_id)
+           - WARNING also queues notification_deliveries as
+             awaiting_approval (HITL; no Twilio send until approve-notify)
 ```
 
 ## Contracts

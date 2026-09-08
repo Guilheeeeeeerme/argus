@@ -35,10 +35,12 @@ class NotificationChannel(str, enum.Enum):
 
 
 class NotificationStatus(str, enum.Enum):
+    AWAITING_APPROVAL = "awaiting_approval"
     PENDING = "pending"
     SENT = "sent"
     DELIVERED = "delivered"
     FAILED = "failed"
+    DISMISSED = "dismissed"
 
 
 class ScheduleDay(str, enum.Enum):

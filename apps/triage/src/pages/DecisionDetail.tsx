@@ -16,6 +16,7 @@ interface Decision {
   evidence_count: number;
   cumulative_severity: number;
   updated_at: string;
+  awaiting_notify_approval?: boolean;
   evidences?: Evidence[];
 }
 
@@ -32,6 +33,10 @@ export function DecisionDetail({ decision, company, onResolved, onClose }: Decis
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [awaitingNotify, setAwaitingNotify] = useState(
+    Boolean(decision.awaiting_notify_approval),
+  );
+  const [notifyBusy, setNotifyBusy] = useState(false);
 
   async function resolve() {
     setSubmitting(true);
@@ -54,6 +59,22 @@ export function DecisionDetail({ decision, company, onResolved, onClose }: Decis
     }
   }
 
+  async function notifyAction(action: 'approve-notify' | 'dismiss-notify') {
+    setNotifyBusy(true);
+    setMessage('');
+    const response = await authedFetch(
+      `/v1/companies/${company}/decisions/${decision.id}/${action}`,
+      { method: 'POST' },
+    );
+    setNotifyBusy(false);
+    if (response.ok) {
+      setAwaitingNotify(false);
+      onResolved();
+    } else {
+      setMessage(localizeApiError(await response.text(), t));
+    }
+  }
+
   return (
     <Card>
       <h2>{t('Decision detail')}</h2>
@@ -66,6 +87,21 @@ export function DecisionDetail({ decision, company, onResolved, onClose }: Decis
           {t('{count} evidences', { count: decision.evidence_count })}
         </span>
       </p>
+      {awaitingNotify ? (
+        <div className="argus-resolve-actions">
+          <p>{t('External notification awaiting approval')}</p>
+          <Button
+            variant="ghost"
+            onClick={() => void notifyAction('dismiss-notify')}
+            disabled={notifyBusy}
+          >
+            {t('Dismiss notify')}
+          </Button>
+          <Button onClick={() => void notifyAction('approve-notify')} disabled={notifyBusy}>
+            {t('Approve notify')}
+          </Button>
+        </div>
+      ) : null}
       {decision.evidences?.map((evidence: Evidence) => (
         <article key={evidence.id} className="argus-evidence">
           <div className="argus-evidence__header">

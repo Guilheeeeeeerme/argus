@@ -1,4 +1,4 @@
-"""Notification worker — Twilio SMS/WhatsApp dispatch."""
+"""Notification worker — Twilio SMS/WhatsApp dispatch with HITL gate."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import logging
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus.domain.enums import NotificationChannel, NotificationStatus, UserRole
 from argus.integrations.twilio_client import get_notifier
@@ -26,7 +27,53 @@ logger = logging.getLogger(__name__)
     max_retries=3,
 )
 def notify_warning(self, decision_id: str) -> str:
+    """Send PENDING deliveries for a decision (after human approve-notify)."""
     return run_async(_notify_warning(decision_id))
+
+
+async def queue_warning_deliveries(session: AsyncSession, decision: Decision) -> int:
+    """Create awaiting_approval deliveries for active configs. Does not send."""
+    configs = list(
+        (
+            await session.scalars(
+                select(NotificationConfig).where(
+                    NotificationConfig.company_id == decision.company_id,
+                    NotificationConfig.is_active.is_(True),
+                )
+            )
+        ).all()
+    )
+    created = 0
+    for config in configs:
+        existing = await session.scalar(
+            select(NotificationDelivery.id).where(
+                NotificationDelivery.decision_id == decision.id,
+                NotificationDelivery.config_id == config.id,
+            )
+        )
+        if existing:
+            continue
+        session.add(
+            NotificationDelivery(
+                company_id=decision.company_id,
+                decision_id=decision.id,
+                config_id=config.id,
+                channel=config.channel,
+                status=NotificationStatus.AWAITING_APPROVAL,
+            )
+        )
+        created += 1
+    if created:
+        await session.flush()
+    return created
+
+
+def _deterministic_body(decision: Decision) -> str:
+    deep_link = f"{settings.triage_public_origin.rstrip('/')}/decisions/{decision.id}"
+    return (
+        f"ARGUS Warning: decision {decision.id} on camera {decision.camera_id}. "
+        f"Review: {deep_link}"
+    )
 
 
 async def _notify_warning(decision_id: str) -> str:
@@ -36,35 +83,30 @@ async def _notify_warning(decision_id: str) -> str:
         if decision is None:
             raise ValueError(f"Decision not found: {decision_id}")
 
-        configs = list(
+        deliveries = list(
             (
                 await session.scalars(
-                    select(NotificationConfig).where(
-                        NotificationConfig.company_id == decision.company_id,
-                        NotificationConfig.is_active.is_(True),
+                    select(NotificationDelivery).where(
+                        NotificationDelivery.decision_id == decision.id,
+                        NotificationDelivery.status == NotificationStatus.PENDING,
                     )
                 )
             ).all()
         )
+        if not deliveries:
+            logger.info("No pending notification deliveries for decision %s", decision_id)
+            await session.commit()
+            return decision_id
 
-        for config in configs:
-            delivery = NotificationDelivery(
-                company_id=decision.company_id,
-                decision_id=decision.id,
-                config_id=config.id,
-                channel=config.channel,
-                status=NotificationStatus.PENDING,
-            )
-            session.add(delivery)
-            await session.flush()
-
-            deep_link = f"{settings.triage_public_origin.rstrip('/')}/decisions/{decision.id}"
-            body = (
-                f"ARGUS Warning: decision {decision.id} on camera {decision.camera_id}. "
-                f"Review: {deep_link}"
-            )
+        body = _deterministic_body(decision)
+        for delivery in deliveries:
+            config = await session.get(NotificationConfig, delivery.config_id)
+            if config is None or not config.is_active:
+                delivery.status = NotificationStatus.FAILED
+                delivery.error_detail = "notification config missing or inactive"
+                continue
             try:
-                if config.channel == NotificationChannel.SMS:
+                if delivery.channel == NotificationChannel.SMS:
                     sid = notifier.send_sms(to=config.recipient, body=body)
                 else:
                     sid = notifier.send_whatsapp(to=config.recipient, body=body)

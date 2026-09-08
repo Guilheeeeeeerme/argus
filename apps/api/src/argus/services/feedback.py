@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from argus.config import settings
 from argus.domain.enums import FeedbackDisposition
 from argus.domain.models import Feedback
+from argus.guardrails.screening import is_blocked
 
 logger = logging.getLogger(__name__)
 EMBEDDING_DIM = 1536
@@ -25,6 +26,9 @@ async def create_feedback_with_embedding(
     reasoning: str,
     submitted_by: str,
 ) -> Feedback:
+    # Screen at write so poisoned text is never embedded into the RAG store.
+    if is_blocked(reasoning):
+        raise ValueError("feedback_blocked_by_policy")
     embedding = await generate_embedding(reasoning)
     feedback = Feedback(
         company_id=company_id,

@@ -18,6 +18,7 @@ from argus.domain.models import Evidence, Recipe, Rule
 from argus.guardrails.screening import screen
 from argus.integrations.llm_provider import resolve_llm_chain
 from argus.integrations.model_rank import rank_for
+from argus.integrations.openai_vlm import VLMClient
 from argus.services.database import company_session
 from argus.services.llm_budget import check_llm_allowance
 from argus.services.recipe_builder import (
@@ -25,6 +26,7 @@ from argus.services.recipe_builder import (
     build_user_context,
     compute_severity_score,
     retrieve_rag_feedback,
+    sanitize_vlm_result,
 )
 from argus.services.redis import move_to_dlq, xack, xreadgroup
 from argus.services.stream import INGEST_CONSUMER_GROUP, INGEST_STREAM
@@ -161,7 +163,7 @@ async def _analyze_message(message_id: str, fields: dict[str, Any], *, attempt: 
         prompt = build_prompt(recipe, rules, rag_feedback)
         output_schema = dict(recipe.output_schema)
 
-    allowance = await check_llm_allowance()
+    allowance = await check_llm_allowance(company_id)
     if allowance is not None:
         async with company_session(company_id, UserRole.MANAGER.value) as session:
             evidence = _skipped_evidence(
@@ -189,12 +191,14 @@ async def _analyze_message(message_id: str, fields: dict[str, Any], *, attempt: 
     scenario = parsed.get("edge_trigger_metadata", {}).get("scenario", "")
     if settings.auth0_use_mock and scenario:
         prompt = f"{prompt}\nDevelopment scenario: {scenario}"
-    vlm_result = client.analyze(
-        system_prompt=prompt,
-        frame_uris=frame_uris,
-        output_schema=output_schema,
-        model=model,
-        user_context=user_context,
+    vlm_result = sanitize_vlm_result(
+        client.analyze(
+            system_prompt=prompt,
+            frame_uris=frame_uris,
+            output_schema=output_schema,
+            model=model,
+            user_context=user_context,
+        )
     )
     severity_score = compute_severity_score(vlm_result, rules)
 

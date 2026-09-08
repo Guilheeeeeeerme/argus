@@ -78,23 +78,67 @@ async def retrieve_rag_feedback(
     return list(result.all())
 
 
+_ALLOWED_VLM_FIELDS = frozenset(
+    {
+        "detection_class",
+        "confidence_score",
+        "confidence",
+        "is_suspicious",
+        "severity_hint",
+        "reasoning",
+        "objects",
+        "summary",
+    }
+)
+
+
+def sanitize_vlm_result(vlm_result: dict[str, Any]) -> dict[str, Any]:
+    """Allowlist VLM JSON fields and clamp confidence into [0, 1]."""
+    cleaned: dict[str, Any] = {}
+    for key, value in vlm_result.items():
+        if key not in _ALLOWED_VLM_FIELDS:
+            continue
+        cleaned[key] = value
+    confidence = cleaned.get("confidence_score", cleaned.get("confidence"))
+    if confidence is not None:
+        try:
+            clamped = max(0.0, min(1.0, float(confidence)))
+        except (TypeError, ValueError):
+            clamped = 0.0
+        cleaned["confidence_score"] = clamped
+        cleaned.pop("confidence", None)
+    if "is_suspicious" in cleaned:
+        cleaned["is_suspicious"] = bool(cleaned["is_suspicious"])
+    return cleaned
+
+
 def compute_severity_score(vlm_result: dict[str, Any], rules: list[Rule]) -> int:
-    detection_class = vlm_result.get("detection_class")
-    confidence = vlm_result.get("confidence_score", vlm_result.get("confidence"))
+    from argus.config import settings
+
+    result = sanitize_vlm_result(vlm_result)
+    detection_class = result.get("detection_class")
+    confidence = result.get("confidence_score")
     score = 0
     for rule in rules:
         if rule.detection_class and detection_class != rule.detection_class:
             continue
         if confidence is not None and float(confidence) < float(rule.confidence_threshold):
             continue
-        if _matches_condition(rule.condition, vlm_result):
+        if _matches_condition(rule.condition, result):
             score += rule.severity_weight
-    if score == 0 and vlm_result.get("is_suspicious"):
-        hint = vlm_result.get("severity_hint") or vlm_result.get("confidence_score", 1)
+    # Claim–Check–Act: model hint only applies when confidence clears a floor.
+    min_conf = float(settings.vlm_min_confidence_for_hint)
+    if score == 0 and result.get("is_suspicious") and (
+        confidence is None or float(confidence) >= min_conf
+    ):
+        hint = result.get("severity_hint") or result.get("confidence_score", 1)
         if isinstance(hint, float):
             score = max(1, int(hint * 3))
         else:
-            score = int(hint)
+            try:
+                score = int(hint)
+            except (TypeError, ValueError):
+                score = 1
     return score
 
 
