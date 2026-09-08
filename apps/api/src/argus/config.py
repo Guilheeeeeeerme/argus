@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     openai_model: str = Field(alias="OPENAI_MODEL", default="gpt-4o")
 
     gemini_api_key: str = Field(alias="GEMINI_API_KEY", default="")
+    gemini_base_url: str = Field(
+        alias="GEMINI_BASE_URL",
+        default="https://generativelanguage.googleapis.com",
+    )
     gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-2.5-flash-lite")
     llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini,openai")
     model_rank_refresh_ms: int = Field(alias="MODEL_RANK_REFRESH_MS", default=43200000)

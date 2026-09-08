@@ -16,8 +16,11 @@ from argus.services.storage import download_bytes
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1beta/models"
 REQUEST_TIMEOUT_SECONDS = 60
+
+
+def _gemini_api_root() -> str:
+    return settings.gemini_base_url.rstrip("/") + "/v1beta/models"
 
 
 class GeminiVLMClient:
@@ -55,7 +58,7 @@ class GeminiVLMClient:
             "generationConfig": {"responseMimeType": "application/json"},
         }
         response = httpx.post(
-            f"{GEMINI_API_ROOT}/{used_model}:generateContent",
+            f"{_gemini_api_root()}/{used_model}:generateContent",
             headers={"x-goog-api-key": settings.gemini_api_key},
             json=payload,
             timeout=REQUEST_TIMEOUT_SECONDS,
