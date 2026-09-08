@@ -70,6 +70,8 @@ Providers and models:
 
 ## Local development
 
+This repository is development-oriented: `docker-compose.yml` runs a full local stack with dedicated Postgres, Redis, and MinIO for isolated DX. Production does not use this Compose file.
+
 ```bash
 cp .env.example .env
 ./scripts/up.sh -d
@@ -98,4 +100,4 @@ docs/services     Service specs (stream-to-image, decision engine, notifications
 
 ## Deployment
 
-Production images, DNS, TLS and rollout are owned by a separate private infrastructure repository. Pushes to `main` request a deployment from that repository, which builds reproducible release bundles (application SHA + infrastructure SHA) and rolls them out with health-checked Compose deployments. Production boots without development fixtures: a bootstrap job creates the platform root account and provisions the storage bucket.
+Production images, shared data plane (Postgres/Redis/MinIO), DNS, TLS, and rollout are owned by the private `infra` repository. This app only notifies infra on push to `main` (`.github/workflows/infra.yml`) when repository variable `INFRA_ENABLED=true` and secret `INFRA_DISPATCH_TOKEN` are set. Infra builds reproducible release bundles (application SHA + infrastructure SHA) and rolls them out with health-checked Compose deployments. Production boots without development fixtures: a bootstrap job creates the platform root account and provisions the storage bucket. Redis DB index `/1` is a production isolation detail on the shared Redis; local Compose keeps its own Redis on `/0`.
