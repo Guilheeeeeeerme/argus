@@ -104,7 +104,6 @@ services:
     ports: ["8800:8000"]
     volumes:
       - ./apps/api:/app
-      - ./docker-compose.yml:/app/docker-compose.yml:ro
     command:
       - sh
       - /app/docker-entrypoint.sh

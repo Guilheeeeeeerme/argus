@@ -14,4 +14,5 @@ export { EmptyState } from './EmptyState';
 export { Skeleton } from './Skeleton';
 export { ListRow } from './ListRow';
 export { AppShell } from './AppShell';
+export { UserMenu, ShellNavItem } from './UserMenu';
 export { Status } from './Status';
