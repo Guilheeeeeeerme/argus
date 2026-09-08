@@ -1,117 +1,88 @@
 # ARGUS UI Style Guide
 
-## For Agents Generating UI Code
+Linear-inspired design system for Argus admin and triage frontends.
+Dark mode is first-class. Import from `@argus/design-system` only.
 
-### Mandatory Rules
+## Mandatory Rules
 
-1. **Import from `@argus/design-system`** — never inline colors, never create ad-hoc CSS variables
+1. **Import from `@argus/design-system`** — never inline hex colors or ad-hoc CSS variables
 2. **Use CSS custom properties** — `var(--bg-surface)`, never `#172235`
-3. **Use shared components** — `<Button>`, `<Card>`, `<Badge>`, never raw `<button>` with inline styles
-4. **Dark mode is automatic** — never hardcode dark/light colors, always use tokens
-5. **All inputs must have labels** — use `<Input label="..."/>` or `<Select label="..."/>`
-6. **Use semantic HTML** — `<header>`, `<nav>`, `<main>`, `<section>`, `<article>`
-7. **State colors via Badge** — `<Badge variant={decision.state}>` for decision states
-8. **Layout** — max-width containers (960px admin, 1100px triage), `var(--space-xl)` padding
-9. **Typography** — never override font family, use `var(--font)` sizing
-10. **No inline styles** — all styling through CSS classes using tokens
+3. **Use shared components** — `<Button>`, `<Card>`, `<Badge>`, `<AlertDialog>`, never raw destructive `window.confirm`
+4. **Theme via tokens** — never hardcode dark/light colors
+5. **All inputs must have labels** — use `<Input label="…"/>` or `<Select label="…"/>`
+6. **Semantic HTML** — `<header>`, `<nav>`, `<main>`, `<section>`, `<article>`
+7. **State colors via Badge** — `<Badge variant={decision.state}>`
+8. **Layout** — prefer `<AppShell>`; content max-width via `--content-max`
+9. **Typography** — Inter only (`var(--font-family)`); `text-wrap: balance` on headings
+10. **No inline styles** — except dynamic geometry (e.g. sketch marker placement)
+11. **Focus** — never remove focus rings; use `2px` `#5E6AD2` outline + `2px` offset
+12. **Destructive actions** — must use `<AlertDialog>`
+13. **Icon-only buttons** — must have `aria-label`
+14. **Viewport height** — use `100dvh`, never `100vh` for full-screen shells
+15. **Motion** — respect `prefers-reduced-motion`; animate only `transform`/`opacity`
 
-### Available Tokens
+## Tokens
 
-| Category | Token | Description |
-|----------|-------|-------------|
-| Surface | `--bg-page` | Page background |
-| Surface | `--bg-surface` | Card/section background |
-| Surface | `--bg-input` | Input background |
-| Border | `--border` | Standard border |
-| Border | `--border-strong` | Emphasized border |
-| Text | `--text-primary` | Main text |
-| Text | `--text-secondary` | Secondary text |
-| Text | `--text-muted` | Muted text |
-| Text | `--text-accent` | Accent/brand text |
-| State | `--color-normal` | Normal state (green) |
-| State | `--color-weird` | Weird state (yellow) |
-| State | `--color-warning` | Warning state (red) |
-| State | `--color-resolved` | Resolved state (purple) |
-| Action | `--color-primary` | Primary button/action |
-| Action | `--color-danger` | Danger/destructive action |
-| Spacing | `--space-xs` through `--space-xl` | 4px to 32px |
-| Radius | `--radius-sm/md/lg` | 4px to 8px |
+| Category | Token | Notes |
+|----------|-------|-------|
+| Surface | `--bg-page` | `#080A0A` dark base |
+| Surface | `--bg-surface` | Cards / raised |
+| Surface | `--bg-overlay` | Dialogs / menus |
+| Surface | `--bg-input` / `--bg-hover` | Controls & hover |
+| Border | `--border` / `--border-strong` | 1px separators |
+| Text | `--text-primary` / `--text-secondary` / `--text-muted` / `--text-accent` | AA contrast |
+| State | `--color-normal` / `--weird` / `--warning` / `--resolved` | Domain states |
+| Action | `--color-primary` (`#5E6AD2`) / `--color-danger` | Linear accent |
+| Focus | `--color-focus` | Focus ring |
+| Spacing | `--space-1`…`--space-8` (4px grid) | Also `--space-xs`…`--space-xl` aliases |
+| Radius | `--radius-sm/md` = 6px, `--radius-lg` = 8px | |
+| Type | `--font-size-*`, `--font-weight-*` | Inter 400/500/700 |
 
-### Available Components
+## Components
 
 ```tsx
 import {
-  Button,      // variant: primary|danger|ghost, size: sm|md
-  Input,       // label: string, standard input props
-  Select,      // label: string, options: {value, label}[]
-  Textarea,    // label?: string, standard textarea props
-  Card,        // children wrapper
-  Badge,       // variant: normal|weird|warning|resolved
-  Header,      // title, subtitle?, actions?
-  Sidenav,     // children wrapper
-  Message,     // text, variant: info|error
-  ThemeToggle, // no props, sun/moon toggle
-  ThemeProvider, // wraps app root
+  ThemeProvider, ThemeToggle, useTheme,
+  AppShell, Header, Sidenav, Status,
+  Button,      // primary|secondary|danger|ghost · sm|md
+  Input, Select, Textarea,
+  Card, Badge, ListRow, Message,
+  EmptyState, Skeleton,
+  AlertDialog, Dialog,
+  LocaleToggle,
 } from '@argus/design-system';
 ```
 
-### Component Examples
+## Patterns
 
 ```tsx
-// Button
-<Button variant="primary" onClick={handleSave}>Save</Button>
-<Button variant="danger" onClick={handleDelete}>Delete</Button>
-<Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+<AppShell brand="ARGUS" meta={t('Administration')} actions={<ThemeToggle />}>
+  <Sidenav>{/* context switchers */}</Sidenav>
+  <Card>
+    <h2>{t('Companies')}</h2>
+    <ListRow title={…} meta={…} actions={…} />
+    <EmptyState title={…} description={…} />
+  </Card>
+</AppShell>
 
-// Input with label
-<Input label="Email" value={email} onChange={e => setEmail(e.target.value)} />
-
-// Select with options
-<Select
-  label="Disposition"
-  value={state}
-  onChange={e => setState(e.target.value)}
-  options={[
-    { value: 'tp', label: 'True Positive' },
-    { value: 'fp', label: 'False Positive' },
-  ]}
+<AlertDialog
+  open={open}
+  title={t('Delete company')}
+  description={t('Delete {name}? This cannot be undone.', { name })}
+  confirmLabel={t('Delete')}
+  cancelLabel={t('Cancel')}
+  onConfirm={…}
+  onCancel={…}
 />
-
-// Badge for states
-<Badge variant={decision.state}>{decision.state}</Badge>
-
-// Card wrapper
-<Card>
-  <h2>Section title</h2>
-  {/* content */}
-</Card>
 ```
 
-### CSS Pattern
-
-```css
-/* App-specific styles only — never duplicate token values */
-.my-page {
-  max-width: 960px;
-  margin: auto;
-  padding: var(--space-xl);
-}
-
-.my-list-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  border-bottom: 1px solid var(--border);
-  padding: var(--space-sm) 0;
-}
-```
-
-### Do / Don't
+## Do / Don't
 
 | Do | Don't |
 |----|-------|
-| `<Button>Save</Button>` | `<button style={{background: '#2563eb'}}>Save</button>` |
-| `color: var(--text-primary)` | `color: #e8edf5` |
-| `<Badge variant="warning">` | `<span style={{color: '#fca5a5'}}>warning</span>` |
-| `<Input label="Email"/>` | `<input placeholder="Email"/>` |
-| Import from `@argus/design-system` | Create local component duplicates |
+| `<Button variant="primary">` | Inline `#5E6AD2` backgrounds |
+| `color: var(--text-primary)` | Hardcoded slate palette leftovers |
+| `<AlertDialog>` for delete | `window.confirm` |
+| `<Dialog>` + `<Input>` for rename | `window.prompt` |
+| `min-height: 100dvh` | `100vh` / `h-screen` |
+| Inter via design tokens | system-ui / emoji theme toggles |

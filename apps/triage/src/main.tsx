@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider, LocaleToggle } from '@argus/design-system';
+import {
+  ThemeProvider,
+  LocaleToggle,
+  ThemeToggle,
+  Skeleton,
+  EmptyState,
+  Card,
+} from '@argus/design-system';
 import { I18nProvider, useT, useLocale } from '@argus/i18n';
 import '@argus/design-system/tokens.css';
 import '@argus/design-system/global.css';
@@ -9,9 +16,24 @@ import { consumeTokenFromUrl, getToken, redirectToLogin } from './api';
 import { loadSession, Session } from './api';
 import { TriageWorkspace } from './pages/TriageWorkspace';
 
-function TriageRoot() {
+function BootToolbar() {
   const t = useT();
   const { locale, setLocale } = useLocale();
+  return (
+    <div className="argus-boot__toolbar">
+      <LocaleToggle
+        locale={locale}
+        label={t('PT-BR')}
+        ariaLabel={t('Switch language')}
+        onLocaleChange={setLocale}
+      />
+      <ThemeToggle />
+    </div>
+  );
+}
+
+function TriageRoot() {
+  const t = useT();
   const [session, setSession] = useState<Session | null>(null);
   const [companyless, setCompanyless] = useState(false);
   const [booted, setBooted] = useState(false);
@@ -32,25 +54,33 @@ function TriageRoot() {
 
   if (!booted) {
     return (
-      <main>
-        <LocaleToggle locale={locale} label={t('PT-BR')} ariaLabel={t('Switch language')} onLocaleChange={setLocale} />
+      <main className="argus-boot">
+        <BootToolbar />
+        <Skeleton width={200} height={20} aria-label={t('Checking session…')} />
+        <Skeleton width={140} height={14} />
         <p>{t('Checking session…')}</p>
       </main>
     );
   }
   if (companyless) {
     return (
-      <main>
-        <LocaleToggle locale={locale} label={t('PT-BR')} ariaLabel={t('Switch language')} onLocaleChange={setLocale} />
-        <p>{t('No company assigned yet.')}</p>
-        <p>{t('Ask an administrator for access.')}</p>
+      <main className="argus-boot">
+        <BootToolbar />
+        <Card className="argus-auth__panel">
+          <EmptyState
+            title={t('No company assigned yet.')}
+            description={t('Ask an administrator for access.')}
+          />
+        </Card>
       </main>
     );
   }
   return session ? (
     <TriageWorkspace session={session} />
   ) : (
-    <main><p>{t('Redirecting to sign in…')}</p></main>
+    <main className="argus-boot">
+      <p>{t('Redirecting to sign in…')}</p>
+    </main>
   );
 }
 

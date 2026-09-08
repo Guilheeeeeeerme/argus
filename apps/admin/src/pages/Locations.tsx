@@ -1,5 +1,15 @@
 import { useEffect, useState, MouseEvent } from 'react';
-import { Button, Input, Card, Message } from '@argus/design-system';
+import {
+  Button,
+  Input,
+  Select,
+  Card,
+  Message,
+  ListRow,
+  EmptyState,
+  AlertDialog,
+  Dialog,
+} from '@argus/design-system';
 import { useT, localizeApiError } from '@argus/i18n';
 import { call, Location, Camera } from '../api';
 
@@ -15,12 +25,20 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
   const [locationAddress, setLocationAddress] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<Location | null>(null);
+  const [editing, setEditing] = useState<Location | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editAddress, setEditAddress] = useState('');
 
   async function createLocation() {
     try {
       await call(`/v1/companies/${companyId}/locations`, {
         method: 'POST',
-        body: JSON.stringify({ name: locationName, address: locationAddress || null, timezone: 'UTC' }),
+        body: JSON.stringify({
+          name: locationName,
+          address: locationAddress || null,
+          timezone: 'UTC',
+        }),
       });
       onReload();
       setMessage(t('Location created.'));
@@ -29,27 +47,31 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
     }
   }
 
-  async function updateLocation(location: Location) {
-    const nextName = window.prompt(t('Location name'), location.name);
-    if (!nextName) return;
-    const nextAddress = window.prompt(t('Address (used by the agent)'), location.address ?? '');
-    if (nextAddress === null) return;
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const location = pendingDelete;
+    setPendingDelete(null);
     try {
-      await call(`/v1/companies/${companyId}/locations/${location.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name: nextName, address: nextAddress || null, timezone: location.timezone }),
-      });
+      await call(`/v1/companies/${companyId}/locations/${location.id}`, { method: 'DELETE' });
+      if (openId === location.id) setOpenId(null);
       onReload();
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
     }
   }
 
-  async function deleteLocation(location: Location) {
-    if (!window.confirm(t('Delete {name}?', { name: location.name }))) return;
+  async function saveEdit() {
+    if (!editing || !editName.trim()) return;
     try {
-      await call(`/v1/companies/${companyId}/locations/${location.id}`, { method: 'DELETE' });
-      if (openId === location.id) setOpenId(null);
+      await call(`/v1/companies/${companyId}/locations/${editing.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editName.trim(),
+          address: editAddress || null,
+          timezone: editing.timezone,
+        }),
+      });
+      setEditing(null);
       onReload();
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
@@ -84,26 +106,56 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
   return (
     <Card>
       <h2>{t('Locations')}</h2>
-      {locations.map(location => (
-        <article key={location.id} className="argus-list-item">
-          <b>{location.name}</b>
-          <span>{location.address ?? t('no address')} · {location.timezone}</span>
-          <Button size="sm" variant="ghost" onClick={() => updateLocation(location)}>{t('Edit')}</Button>
-          <Button size="sm" variant="ghost" onClick={() => uploadSketch(location)}>{t('Sketch')}</Button>
-          <Button size="sm" variant="ghost" onClick={() => setOpenId(openId === location.id ? null : location.id)}>
-            {openId === location.id ? t('Close plan') : t('Plan')}
-          </Button>
-          <Button size="sm" variant="danger" onClick={() => deleteLocation(location)}>{t('Delete')}</Button>
-        </article>
-      ))}
-      {openId && locations.some(l => l.id === openId) && (
+      {locations.length === 0 ? (
+        <EmptyState
+          title={t('No locations yet')}
+          description={t('Add a location with an optional floor-plan sketch.')}
+        />
+      ) : (
+        locations.map(location => (
+          <ListRow
+            key={location.id}
+            title={location.name}
+            meta={`${location.address ?? t('no address')} · ${location.timezone}`}
+            actions={
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setEditing(location);
+                    setEditName(location.name);
+                    setEditAddress(location.address ?? '');
+                  }}
+                >
+                  {t('Edit')}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => void uploadSketch(location)}>
+                  {t('Sketch')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setOpenId(openId === location.id ? null : location.id)}
+                >
+                  {openId === location.id ? t('Close plan') : t('Plan')}
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => setPendingDelete(location)}>
+                  {t('Delete')}
+                </Button>
+              </>
+            }
+          />
+        ))
+      )}
+      {openId && locations.some(l => l.id === openId) ? (
         <LocationSketch
           location={locations.find(l => l.id === openId)!}
           companyId={companyId}
           onReload={onReload}
           onMessage={setMessage}
         />
-      )}
+      ) : null}
       <div className="argus-inline-form">
         <Input
           label={t('Location name')}
@@ -118,6 +170,41 @@ export function Locations({ locations, companyId, onReload }: LocationsProps) {
         <Button onClick={createLocation}>{t('Create location')}</Button>
       </div>
       <Message text={message} />
+
+      <AlertDialog
+        open={Boolean(pendingDelete)}
+        title={t('Delete location')}
+        description={t('Delete {name}? This cannot be undone.', {
+          name: pendingDelete?.name ?? '',
+        })}
+        confirmLabel={t('Delete')}
+        cancelLabel={t('Cancel')}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
+
+      <Dialog
+        open={Boolean(editing)}
+        title={t('Edit location')}
+        onClose={() => setEditing(null)}
+      >
+        <Input
+          label={t('Location name')}
+          value={editName}
+          onChange={e => setEditName(e.target.value)}
+        />
+        <Input
+          label={t('Address (used by the agent)')}
+          value={editAddress}
+          onChange={e => setEditAddress(e.target.value)}
+        />
+        <div className="argus-dialog__actions">
+          <Button variant="ghost" onClick={() => setEditing(null)}>
+            {t('Cancel')}
+          </Button>
+          <Button onClick={() => void saveEdit()}>{t('Save')}</Button>
+        </div>
+      </Dialog>
     </Card>
   );
 }
@@ -137,7 +224,7 @@ function LocationSketch({
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [cameraName, setCameraName] = useState('New camera');
   const [streamUrl, setStreamUrl] = useState('rtsp://');
-  const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = useState('');
 
   useEffect(() => {
     void (async () => {
@@ -149,6 +236,8 @@ function LocationSketch({
       }
     })();
   }, [companyId, location.id]);
+
+  const selectedCamera = cameras.find(c => c.id === selectedCameraId) ?? null;
 
   async function placeCamera(camera: Camera, event: MouseEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -188,57 +277,60 @@ function LocationSketch({
     <div className="argus-sketch-editor">
       <div
         className="argus-sketch-canvas"
+        role="img"
+        aria-label={t('{name} sketch', { name: location.name })}
         onClick={e => {
           if (selectedCamera) void placeCamera(selectedCamera, e);
         }}
-        style={{ position: 'relative', minHeight: 240, overflow: 'hidden' }}
       >
         {location.sketch ? (
-          <img src={location.sketch} alt={t('{name} sketch', { name: location.name })} style={{ width: '100%', display: 'block' }} />
+          <img src={location.sketch} alt={t('{name} sketch', { name: location.name })} />
         ) : (
-          <p style={{ padding: 'var(--space-xl)' }}>{t('No sketch uploaded yet.')}</p>
+          <p className="argus-sketch-empty">{t('No sketch uploaded yet.')}</p>
         )}
-        {cameras.map(camera => (
+        {cameras.map(camera =>
           camera.placement_x != null && camera.placement_y != null ? (
             <span
               key={camera.id}
               className="argus-sketch-marker"
               title={camera.name}
+              aria-label={camera.name}
               style={{
-                position: 'absolute',
                 left: `${camera.placement_x * 100}%`,
                 top: `${camera.placement_y * 100}%`,
-                transform: 'translate(-50%, -50%)',
-                background: 'var(--color-primary, #4a90d9)',
-                color: '#fff',
-                borderRadius: '50%',
-                width: 14,
-                height: 14,
-                display: 'inline-block',
-                cursor: 'pointer',
               }}
             />
-          ) : null
-        ))}
+          ) : null,
+        )}
       </div>
       <div className="argus-inline-form">
-        <select
-          aria-label={t('Camera to place')}
-          onChange={e => setSelectedCamera(cameras.find(c => c.id === e.target.value) ?? null)}
-          value={selectedCamera?.id ?? ''}
-        >
-          <option value="">{t('Select camera…')}</option>
-          {cameras.map(camera => (
-            <option key={camera.id} value={camera.id}>
-              {camera.name}{camera.placement_x != null ? ` (${t('placed')})` : ''}
-            </option>
-          ))}
-        </select>
-        <span>{t('Click the sketch to place the selected camera.')}</span>
+        <Select
+          label={t('Camera to place')}
+          value={selectedCameraId}
+          onChange={e => setSelectedCameraId(e.target.value)}
+          options={[
+            { value: '', label: t('Select camera…') },
+            ...cameras.map(camera => ({
+              value: camera.id,
+              label: `${camera.name}${camera.placement_x != null ? ` (${t('placed')})` : ''}`,
+            })),
+          ]}
+        />
+        <span className="argus-sketch-hint">
+          {t('Click the sketch to place the selected camera.')}
+        </span>
       </div>
       <div className="argus-inline-form">
-        <Input label={t('Camera name')} value={cameraName} onChange={e => setCameraName(e.target.value)} />
-        <Input label={t('Stream URL (RTSP)')} value={streamUrl} onChange={e => setStreamUrl(e.target.value)} />
+        <Input
+          label={t('Camera name')}
+          value={cameraName}
+          onChange={e => setCameraName(e.target.value)}
+        />
+        <Input
+          label={t('Stream URL (RTSP)')}
+          value={streamUrl}
+          onChange={e => setStreamUrl(e.target.value)}
+        />
         <Button onClick={addCamera}>{t('Add camera')}</Button>
       </div>
     </div>

@@ -23,23 +23,30 @@ interface DecisionDetailProps {
   decision: Decision;
   company: string;
   onResolved: () => void;
+  onClose?: () => void;
 }
 
-export function DecisionDetail({ decision, company, onResolved }: DecisionDetailProps) {
+export function DecisionDetail({ decision, company, onResolved, onClose }: DecisionDetailProps) {
   const t = useT();
   const [state, setState] = useState('');
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function resolve() {
-    const response = await authedFetch(`/v1/companies/${company}/decisions/${decision.id}/resolve`, {
-      method: 'POST',
-      body: JSON.stringify({
-        disposition: state,
-        reasoning: reason,
-        updated_at: decision.updated_at,
-      }),
-    });
+    setSubmitting(true);
+    const response = await authedFetch(
+      `/v1/companies/${company}/decisions/${decision.id}/resolve`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          disposition: state,
+          reasoning: reason,
+          updated_at: decision.updated_at,
+        }),
+      },
+    );
+    setSubmitting(false);
     if (response.ok) {
       onResolved();
     } else {
@@ -51,13 +58,22 @@ export function DecisionDetail({ decision, company, onResolved }: DecisionDetail
     <Card>
       <h2>{t('Decision detail')}</h2>
       <p>
-        <Badge variant={decision.state as any}>{decision.state}</Badge>
-        {' · '}{t('{count} evidences', { count: decision.evidence_count })}
+        <Badge variant={decision.state as 'normal' | 'weird' | 'warning' | 'resolved'}>
+          {decision.state}
+        </Badge>
+        {' · '}
+        <span className="tabular-nums">
+          {t('{count} evidences', { count: decision.evidence_count })}
+        </span>
       </p>
       {decision.evidences?.map((evidence: Evidence) => (
         <article key={evidence.id} className="argus-evidence">
-          <b>{evidence.severity_score}</b>
-          <span>{new Date(evidence.captured_at).toLocaleString()}</span>
+          <div className="argus-evidence__header">
+            <b className="argus-evidence__score">{evidence.severity_score}</b>
+            <span className="argus-evidence__time">
+              {new Date(evidence.captured_at).toLocaleString()}
+            </span>
+          </div>
           <p>{evidence.vlm_result?.reasoning ?? evidence.vlm_result?.description}</p>
         </article>
       ))}
@@ -77,7 +93,16 @@ export function DecisionDetail({ decision, company, onResolved }: DecisionDetail
         value={reason}
         onChange={e => setReason(e.target.value)}
       />
-      <Button onClick={resolve}>{t('Resolve')}</Button>
+      <div className="argus-resolve-actions">
+        {onClose ? (
+          <Button variant="ghost" onClick={onClose}>
+            {t('Close')}
+          </Button>
+        ) : null}
+        <Button onClick={() => void resolve()} disabled={!state || submitting}>
+          {t('Resolve')}
+        </Button>
+      </div>
       <Message text={message} variant="error" />
     </Card>
   );

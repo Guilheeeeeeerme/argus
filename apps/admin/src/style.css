@@ -1,50 +1,89 @@
-.argus-login {
+.argus-admin-sections {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.argus-sketch-editor {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.argus-sketch-canvas {
+  position: relative;
+  min-height: 240px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-input);
+  cursor: crosshair;
+}
+
+.argus-sketch-canvas img {
+  width: 100%;
+  display: block;
+}
+
+.argus-sketch-empty {
+  margin: 0;
+  padding: var(--space-8);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.argus-sketch-marker {
+  position: absolute;
+  size: 14px;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  background: var(--color-primary);
+  border: 2px solid var(--text-on-accent);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.argus-sketch-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.argus-boot {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  min-height: 100vh;
-}
-
-.argus-auth-link {
-  margin-top: var(--space-md);
-  color: var(--text-secondary);
-}
-
-.argus-auth-link a {
-  color: var(--text-accent);
-  text-decoration: none;
-}
-
-.argus-auth-link a:hover {
-  text-decoration: underline;
-}
-
-.argus-auth-hint {
-  margin-top: var(--space-md);
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 100dvh;
+  padding: var(--space-5);
   color: var(--text-muted);
 }
 
-.argus-admin {
-  max-width: 960px;
-  margin: auto;
-  padding: var(--space-xl);
-}
+@media (max-width: 720px) {
+  .argus-shell__top {
+    flex-wrap: wrap;
+    padding-top: calc(var(--space-2) + var(--safe-top));
+    padding-bottom: var(--space-2);
+  }
 
-.argus-list-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  border-bottom: 1px solid var(--border);
-  padding: var(--space-sm) 0;
-}
+  .argus-shell__body {
+    padding: var(--space-4);
+  }
 
-.argus-list-item:last-child {
-  border-bottom: 0;
-}
+  .argus-sidenav {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-.argus-inline-form {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
+  .argus-sidenav label {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .argus-sidenav select {
+    flex: 1;
+  }
 }
