@@ -36,8 +36,9 @@ fails closed (the analysis is skipped/failed, never silently degraded).
 | --- | --- | --- |
 | `GEMINI_API_KEY` | `""` | Gemini provider key |
 | `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Default Gemini model before rank override |
+| `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com` | Gemini API root; set to Headroom (`http://localhost:8787`) to compress |
 | `OPENAI_API_KEY` | `""` | OpenAI provider key |
-| `OPENAI_BASE_URL` | `""` | Optional OpenAI-compatible base URL |
+| `OPENAI_BASE_URL` | `""` | Optional OpenAI-compatible base URL (Headroom: `http://localhost:8787/v1`) |
 | `OPENAI_MODEL` | `gpt-4o` | Default OpenAI model before rank override |
 | `LLM_PROVIDER_ORDER` | `gemini,openai` | Provider priority |
 | `MODEL_RANK_REFRESH_MS` | `43200000` | Beat interval for `models.refresh_rank` |

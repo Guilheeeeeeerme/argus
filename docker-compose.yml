@@ -17,6 +17,7 @@ x-api-env: &api-env
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
   OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}
   GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
   LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-gemini,openai}
   MODEL_RANK_REFRESH_MS: ${MODEL_RANK_REFRESH_MS:-43200000}

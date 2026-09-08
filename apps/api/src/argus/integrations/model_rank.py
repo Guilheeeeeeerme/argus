@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 RANK_KEY_TEMPLATE = "models:rank:{provider}"
 RANK_UPDATED_AT_KEY = "models:rank:updatedAt"
 
-GEMINI_LIST_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+def _gemini_list_url() -> str:
+    return settings.gemini_base_url.rstrip("/") + "/v1beta/models"
 
 _SEED_MODEL_PRICES: dict[str, list[tuple[str, float]]] = {
     "gemini": [
@@ -67,7 +69,7 @@ def _enrich_candidates(provider: str, candidates: list[tuple[str, float]]) -> li
 
             if settings.gemini_api_key:
                 response = httpx.get(
-                    GEMINI_LIST_URL,
+                    _gemini_list_url(),
                     headers={"x-goog-api-key": settings.gemini_api_key},
                     timeout=10,
                 )
@@ -84,7 +86,10 @@ def _enrich_candidates(provider: str, candidates: list[tuple[str, float]]) -> li
             from openai import OpenAI
 
             if settings.openai_api_key:
-                client = OpenAI(api_key=settings.openai_api_key)
+                client = OpenAI(
+                    api_key=settings.openai_api_key,
+                    base_url=settings.openai_base_url or None,
+                )
                 for model in client.models.list():
                     model_id = getattr(model, "id", "")
                     if (
