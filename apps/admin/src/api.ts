@@ -6,20 +6,59 @@ import {
   Session as AuthSession,
   User,
   TenantRef,
+  EstablishmentRef,
   MarketRef,
 } from '@shared/auth';
 
 export const API = API_BASE;
 export const APP = MAIN_ORIGIN;
 export { isAllowedReturn, MAIN_ORIGIN as APP_ORIGIN };
-export type { AuthSession, User, TenantRef, MarketRef };
+export type { AuthSession, User, TenantRef, EstablishmentRef, MarketRef };
 
 export type Session = AuthSession;
 export type Company = { id: string; name: string; slug: string };
-export type Location = { id: string; name: string; address: string | null; sketch: string | null; timezone: string };
-export type Camera = { id: string; location_id: string; name: string; stream_url: string | null; placement_x: number | null; placement_y: number | null; is_active: boolean };
-export type Account = { id: string; company_id: string | null; email: string; idp_subject: string | null; role: string };
-export type Rule = { id: string; rule_set_id: string; name: string; detection_class: string | null; confidence_threshold: number; severity_weight: number };
+export type Establishment = {
+  id: string;
+  name: string;
+  address: string | null;
+  timezone: string;
+  active?: boolean;
+};
+export type Camera = {
+  id: string;
+  establishment_id: string;
+  name: string;
+  stream_url: string | null;
+  stream_username?: string | null;
+  is_active: boolean;
+};
+export type Prompt = {
+  id: string;
+  prompt_set_id: string;
+  text: string;
+  enabled: boolean;
+  sort_order: number;
+};
+export type PromptSet = {
+  id: string;
+  camera_id: string;
+  name: string;
+  prompts?: Prompt[];
+};
+export type WebhookEndpoint = {
+  id: string;
+  name: string;
+  establishment_id: string | null;
+  active?: boolean;
+  token?: string;
+};
+export type Account = {
+  id: string;
+  company_id: string | null;
+  email: string;
+  idp_subject: string | null;
+  role: string;
+};
 
 export const call = apiFetch as (path: string, init?: RequestInit) => Promise<unknown>;
 
@@ -29,6 +68,9 @@ export function returnTo(): string {
   return isAllowedReturn(target) ? target : APP;
 }
 
-export async function switchContext(body: { companyId?: string | null; locationId?: string | null }): Promise<Session> {
+export async function switchContext(body: {
+  companyId?: string | null;
+  establishmentId?: string | null;
+}): Promise<Session> {
   return (await call('/v1/auth/context', { method: 'PATCH', body: JSON.stringify(body) })) as Session;
 }

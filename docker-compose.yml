@@ -36,6 +36,7 @@ x-api-env: &api-env
   DEV_ROOT_PASSWORD: ${DEV_ROOT_PASSWORD:-Password123!}
   SEED_DEMO: ${SEED_DEMO:-1}
   DEMO_PASSWORD: ${DEMO_PASSWORD:-Password123!}
+  STREAM_GATEWAY_TOKEN: ${STREAM_GATEWAY_TOKEN:-dev-stream-gateway-token}
 
 services:
   postgres:
@@ -130,22 +131,25 @@ services:
       minio-init:
         condition: service_completed_successfully
 
-  worker:
+  prompt-eval:
     build:
-      context: ./apps/api
+      context: .
+      dockerfile: services/prompt-eval/Dockerfile
       network: host
-    container_name: argus-worker
+    container_name: argus-prompt-eval
     environment:
       <<: *api-env
-      SERVICE_ROLE: worker-vlm
-    volumes: ["./apps/api:/app"]
-    command:
-      - celery
-      - -A
-      - argus.workers.celery_app
-      - worker
-      - --beat
-      - --loglevel=INFO
+      MAX_CLIP_SECONDS: ${MAX_CLIP_SECONDS:-600}
+      CONTEXT_LOOKBACK_SECONDS: ${CONTEXT_LOOKBACK_SECONDS:-900}
+      PROMPT_EVAL_CONFIDENCE_FLOOR: ${PROMPT_EVAL_CONFIDENCE_FLOOR:-0.5}
+      FRAMES_READY_STREAM: frames:ready
+      FRAMES_READY_GROUP: prompt-eval
+      CONTEXT_EVENTS_STREAM: context:events
+      CONTEXT_EVENTS_GROUP: prompt-eval
+      DETECTIONS_POSITIVE_STREAM: detections:positive
+    volumes:
+      - ./services/prompt-eval/src/argus_prompt_eval:/app/argus_prompt_eval
+      - ./apps/api/src/argus:/app/argus
     networks: [argus_dmz]
     depends_on:
       postgres:
@@ -154,6 +158,9 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      api:
+        condition: service_started
+    restart: unless-stopped
 
   admin:
     build:
@@ -197,6 +204,72 @@ services:
     networks: [argus_dmz]
     depends_on:
       - api
+
+  stream-gateway:
+    image: alexxit/go2rtc:latest
+    container_name: argus-stream-gateway
+    volumes:
+      - ./services/stream-gateway/go2rtc.yaml:/config/go2rtc.yaml
+    ports:
+      - "1984:1984"
+      - "8554:8554"
+    networks: [argus_dmz]
+    restart: unless-stopped
+
+  stream-gateway-sync:
+    build:
+      context: ./services/stream-gateway
+      network: host
+    container_name: argus-stream-gateway-sync
+    environment:
+      API_INTERNAL_URL: http://api:8000
+      STREAM_GATEWAY_URL: http://stream-gateway:1984
+      STREAM_GATEWAY_TOKEN: ${STREAM_GATEWAY_TOKEN:-dev-stream-gateway-token}
+      POLL_INTERVAL: ${POLL_INTERVAL:-30}
+      GO2RTC_CONFIG_PATH: /config/go2rtc.yaml
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./services/stream-gateway/go2rtc.yaml:/config/go2rtc.yaml
+    networks: [argus_dmz]
+    depends_on:
+      - api
+      - stream-gateway
+    restart: unless-stopped
+
+  stream-prep:
+    build:
+      context: ./services/stream-prep
+      network: host
+    container_name: argus-stream-prep
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_BUCKET_NAME: argus-frames
+      S3_REGION: us-east-1
+      API_INTERNAL_URL: http://api:8000
+      STREAM_GATEWAY_URL: http://stream-gateway:1984
+      STREAM_GATEWAY_TOKEN: ${STREAM_GATEWAY_TOKEN:-dev-stream-gateway-token}
+      SAMPLE_FPS: ${SAMPLE_FPS:-1}
+      FRAME_TTL: ${FRAME_TTL:-3600}
+      POLL_INTERVAL: ${POLL_INTERVAL:-30}
+      WINDOW_SIZE: ${WINDOW_SIZE:-6}
+      ALLOW_SYNTHETIC_FRAMES: ${ALLOW_SYNTHETIC_FRAMES:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./services/stream-prep:/app
+    networks: [argus_dmz]
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+      stream-gateway:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   argus_postgres_data:

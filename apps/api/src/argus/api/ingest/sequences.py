@@ -1,32 +1,36 @@
-"""POST /v1/ingest/sequences — edge frame sequence ingestion."""
+"""Simplified test/back-compat inject path — XADD frames:ready."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import JSONResponse
+from datetime import UTC, datetime
+from uuid import uuid4
 
-from argus.core.auth import EdgeAuthContext, get_edge_auth_context
-from argus.domain.schemas.ingest import IngestAcceptedResponse, IngestSequenceRequest
-from argus.services.ingestion import IngestionService
+from fastapi import APIRouter, status
+
+from argus.domain.schemas.ingest import InjectAcceptedResponse, InjectFrameReadyRequest
+from argus.services.stream import enqueue_frames_ready
 
 router = APIRouter(tags=["ingest"])
-
-_service = IngestionService()
 
 
 @router.post(
     "/ingest/sequences",
-    response_model=IngestAcceptedResponse,
+    response_model=InjectAcceptedResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def ingest_sequence(
-    body: IngestSequenceRequest,
-    auth: EdgeAuthContext = Depends(get_edge_auth_context),
-) -> IngestAcceptedResponse | JSONResponse:
-    result = await _service.accept_sequence(auth, body)
-    if result.status == "duplicate":
-        return JSONResponse(
-            status_code=status.HTTP_409_CONFLICT,
-            content=result.model_dump(mode="json"),
-        )
-    return result
+async def inject_frames_ready(body: InjectFrameReadyRequest) -> InjectAcceptedResponse:
+    """Test inject: publish a frames:ready event (no Celery / Recipe dependency)."""
+    now = datetime.now(UTC)
+    sequence_id = body.sequence_id or str(uuid4())
+    await enqueue_frames_ready(
+        {
+            "company_id": str(body.company_id),
+            "establishment_id": str(body.establishment_id),
+            "camera_id": str(body.camera_id),
+            "sequence_id": sequence_id,
+            "captured_at": (body.captured_at or now).isoformat(),
+            "frame_uris": body.frame_uris,
+            "preproc_meta": body.preproc_meta,
+        }
+    )
+    return InjectAcceptedResponse(sequence_id=sequence_id, queued_at=now)

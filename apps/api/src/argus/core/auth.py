@@ -36,8 +36,13 @@ class AuthContext:
     role: UserRole
     company_id: UUID | None
     token: str
-    location_id: UUID | None = None
+    establishment_id: UUID | None = None
     camera_id: UUID | None = None
+
+    @property
+    def location_id(self) -> UUID | None:
+        """Backward-compatible alias for establishment_id."""
+        return self.establishment_id
 
 
 def _auth_context_from_session(token: str, session: SessionData) -> AuthContext:
@@ -57,15 +62,16 @@ def _auth_context_from_session(token: str, session: SessionData) -> AuthContext:
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid session company/location reference",
+                detail="Invalid session company/establishment reference",
             ) from exc
 
+    establishment_raw = session.establishment_id or session.location_id
     return AuthContext(
         sub=session.user_id,
         email=session.email,
         role=role,
         company_id=_uuid_or_none(session.company_id),
-        location_id=_uuid_or_none(session.location_id),
+        establishment_id=_uuid_or_none(establishment_raw),
         token=token,
     )
 

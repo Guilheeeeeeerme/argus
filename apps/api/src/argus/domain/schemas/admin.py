@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import time
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
-
-from argus.domain.enums import NotificationChannel, ScheduleDay
 
 
 class CreateCompanyRequest(BaseModel):
@@ -63,18 +61,26 @@ class CompanyUserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class CreateLocationRequest(BaseModel):
+class CreateEstablishmentRequest(BaseModel):
     name: str
     address: str | None = None
     timezone: str = "UTC"
+    active: bool = True
 
 
-class LocationResponse(BaseModel):
+class UpdateEstablishmentRequest(BaseModel):
+    name: str | None = None
+    address: str | None = None
+    timezone: str | None = None
+    active: bool | None = None
+
+
+class EstablishmentResponse(BaseModel):
     id: UUID
     name: str
     address: str | None
-    sketch: str | None
     timezone: str
+    active: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -84,8 +90,7 @@ class CreateCameraRequest(BaseModel):
     stream_url: str | None = None
     stream_username: str | None = None
     stream_password: str | None = None
-    placement_x: float | None = None
-    placement_y: float | None = None
+    is_active: bool = True
 
 
 class UpdateCameraRequest(BaseModel):
@@ -93,138 +98,96 @@ class UpdateCameraRequest(BaseModel):
     stream_url: str | None = None
     stream_username: str | None = None
     stream_password: str | None = None
-    placement_x: float | None = None
-    placement_y: float | None = None
+    is_active: bool | None = None
 
 
 class CameraResponse(BaseModel):
     id: UUID
-    location_id: UUID
+    establishment_id: UUID
     name: str
     stream_url: str | None
     stream_username: str | None
-    placement_x: float | None
-    placement_y: float | None
     is_active: bool
 
     model_config = {"from_attributes": True}
 
 
-class CreateRegionRequest(BaseModel):
+class CreatePromptSetRequest(BaseModel):
     name: str
-    polygon: list[dict[str, float]]
+    prompts: list["CreatePromptRequest"] = Field(default_factory=list)
 
 
-class RegionResponse(BaseModel):
+class UpdatePromptSetRequest(BaseModel):
+    name: str | None = None
+
+
+class PromptSetResponse(BaseModel):
     id: UUID
     camera_id: UUID
     name: str
-    polygon: list[dict[str, float]]
+    prompts: list["PromptResponse"] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
 
-class CreateRuleSetRequest(BaseModel):
-    name: str
-    description: str | None = None
+class CreatePromptRequest(BaseModel):
+    text: str
+    enabled: bool = True
+    sort_order: int = 0
 
 
-class RuleSetResponse(BaseModel):
+class UpdatePromptRequest(BaseModel):
+    text: str | None = None
+    enabled: bool | None = None
+    sort_order: int | None = None
+
+
+class PromptResponse(BaseModel):
     id: UUID
-    name: str
-    description: str | None
-    is_active: bool
+    prompt_set_id: UUID
+    text: str
+    enabled: bool
+    sort_order: int
 
     model_config = {"from_attributes": True}
 
 
-class CreateScheduleRequest(BaseModel):
-    day_of_week: ScheduleDay
-    start_time: time
-    end_time: time
-    location_id: UUID | None = None
-
-
-class ScheduleResponse(BaseModel):
-    id: UUID
-    rule_set_id: UUID
-    day_of_week: ScheduleDay
-    start_time: time
-    end_time: time
-    location_id: UUID | None
-
-    model_config = {"from_attributes": True}
-
-
-class CreateRecipeRequest(BaseModel):
+class CreateWebhookEndpointRequest(BaseModel):
     name: str
-    system_prompt: str
-    output_schema: dict[str, Any]
+    establishment_id: UUID | None = None
+    active: bool = True
 
 
-class RecipeResponse(BaseModel):
-    id: UUID
-    rule_set_id: UUID
-    name: str
-    system_prompt: str
-    output_schema: dict[str, Any]
-    version: int
-
-    model_config = {"from_attributes": True}
-
-
-class CreateRuleRequest(BaseModel):
-    rule_set_id: UUID
-    name: str
-    detection_class: str | None = None
-    confidence_threshold: float = 0.5
-    condition: dict[str, Any]
-    severity_weight: int = 1
-    region_ids: list[UUID] = Field(default_factory=list)
-
-
-class UpdateRuleRequest(BaseModel):
+class UpdateWebhookEndpointRequest(BaseModel):
     name: str | None = None
-    detection_class: str | None = None
-    confidence_threshold: float | None = None
-    condition: dict[str, Any] | None = None
-    severity_weight: int | None = None
-    region_ids: list[UUID] | None = None
+    establishment_id: UUID | None = None
+    active: bool | None = None
 
 
-class RuleResponse(BaseModel):
+class WebhookEndpointResponse(BaseModel):
     id: UUID
-    rule_set_id: UUID
     name: str
-    detection_class: str | None
-    confidence_threshold: float
-    condition: dict[str, Any]
-    severity_weight: int
-    region_ids: list[UUID] = Field(default_factory=list)
+    establishment_id: UUID | None
+    active: bool
+    token: str | None = None  # raw token only on create/rotate
 
     model_config = {"from_attributes": True}
 
 
-class CreateNotificationConfigRequest(BaseModel):
-    channel: NotificationChannel
-    recipient: str
+class InboundWebhookRequest(BaseModel):
+    kind: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    establishment_id: UUID | None = None
+    camera_id: UUID | None = None
 
 
-class NotificationConfigResponse(BaseModel):
+class ContextEventResponse(BaseModel):
     id: UUID
-    channel: NotificationChannel
-    recipient: str
-    is_active: bool
-
-    model_config = {"from_attributes": True}
-
-
-class NotificationDeliveryResponse(BaseModel):
-    id: UUID
-    decision_id: UUID
-    channel: NotificationChannel
-    status: str
-    provider_message_id: str | None
-    error_detail: str | None
+    webhook_id: UUID
+    establishment_id: UUID | None
+    camera_id: UUID | None
+    kind: str
+    payload: dict[str, Any]
+    received_at: datetime
 
     model_config = {"from_attributes": True}

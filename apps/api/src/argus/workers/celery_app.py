@@ -1,4 +1,4 @@
-"""Celery application — Redis broker and task routing."""
+"""Celery application — retained for optional offline jobs; VLM moved to prompt-eval."""
 
 from __future__ import annotations
 
@@ -11,10 +11,6 @@ celery_app = Celery(
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=[
-        "argus.workers.vlm_analyzer",
-        "argus.workers.aggregator",
-        "argus.workers.scheduler",
-        "argus.workers.notifier",
         "argus.integrations.model_rank",
     ],
 )
@@ -26,21 +22,9 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_routes={
-        "vlm.*": {"queue": "vlm"},
-        "aggregate.*": {"queue": "aggregate"},
-        "notify.*": {"queue": "notify"},
-        "schedule.*": {"queue": "schedule"},
         "models.*": {"queue": "vlm"},
     },
     beat_schedule={
-        "activate-scheduled-modes": {
-            "task": "schedule.activate_scheduled_modes",
-            "schedule": 60.0,
-        },
-        "poll-ingest-stream": {
-            "task": "vlm.process_ingest_stream",
-            "schedule": 2.0,
-        },
         "refresh-model-rank": {
             "task": "models.refresh_rank",
             "schedule": max(1.0, settings.model_rank_refresh_ms / 1000.0),

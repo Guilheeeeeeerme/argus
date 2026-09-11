@@ -22,9 +22,21 @@ def _compose() -> dict:
 def test_single_dmz_network() -> None:
     compose = _compose()
     assert compose["networks"]["argus_dmz"]["name"] == "argus_dmz"
-    for service in ("postgres", "redis", "minio", "api", "worker", "admin", "triage"):
+    for service in (
+        "postgres",
+        "redis",
+        "minio",
+        "api",
+        "prompt-eval",
+        "admin",
+        "triage",
+        "stream-gateway",
+        "stream-gateway-sync",
+        "stream-prep",
+    ):
         assert service in compose["services"], f"missing service: {service}"
         assert "argus_dmz" in compose["services"][service]["networks"]
+    assert "worker" not in compose["services"]
 
 
 def test_no_edge_tls_gateway() -> None:

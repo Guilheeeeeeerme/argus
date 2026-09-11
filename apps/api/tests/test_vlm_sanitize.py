@@ -1,38 +1,44 @@
-"""Unit tests for VLM result sanitization and confidence floor."""
+"""Unit tests formerly tied to recipe_builder VLM sanitize — now structured_output."""
 
 from __future__ import annotations
 
-from types import SimpleNamespace
+import sys
+from pathlib import Path
 
-from argus.services.recipe_builder import compute_severity_score, sanitize_vlm_result
+import pytest
+
+_PROMPT_EVAL_SRC = Path(__file__).resolve().parents[3] / "services" / "prompt-eval" / "src"
+if _PROMPT_EVAL_SRC.is_dir() and str(_PROMPT_EVAL_SRC) not in sys.path:
+    sys.path.insert(0, str(_PROMPT_EVAL_SRC))
+
+try:
+    from argus_prompt_eval.structured_output import parse_prompt_eval_result
+except ImportError:  # pragma: no cover
+    parse_prompt_eval_result = None  # type: ignore[assignment]
 
 
-def test_sanitize_drops_unknown_keys_and_clamps_confidence() -> None:
-    cleaned = sanitize_vlm_result(
+pytestmark = pytest.mark.skipif(
+    parse_prompt_eval_result is None,
+    reason="argus_prompt_eval not importable",
+)
+
+
+def test_structured_output_clamps_confidence_and_rejects_junk() -> None:
+    parsed = parse_prompt_eval_result(
         {
-            "is_suspicious": 1,
-            "confidence_score": 4.2,
-            "shell": "rm -rf /",
-            "detection_class": "intrusion",
+            "any_match": True,
+            "summary": "intrusion",
+            "prompt_hits": [
+                {
+                    "prompt_id": "p1",
+                    "matched": True,
+                    "confidence": 4.2,
+                    "rationale": "ok",
+                }
+            ],
         }
     )
-    assert "shell" not in cleaned
-    assert cleaned["confidence_score"] == 1.0
-    assert cleaned["is_suspicious"] is True
+    assert parsed.prompt_hits[0].confidence == 1.0
 
-
-def test_hint_requires_min_confidence(monkeypatch) -> None:
-    from argus import config
-
-    monkeypatch.setattr(config.settings, "vlm_min_confidence_for_hint", 0.8)
-    rules: list = []
-    low = compute_severity_score(
-        {"is_suspicious": True, "confidence_score": 0.2, "severity_hint": 3},
-        rules,
-    )
-    assert low == 0
-    high = compute_severity_score(
-        {"is_suspicious": True, "confidence_score": 0.9, "severity_hint": 3},
-        rules,
-    )
-    assert high == 3
+    with pytest.raises(ValueError):
+        parse_prompt_eval_result({"shell": "rm -rf /", "confidence_score": 1})

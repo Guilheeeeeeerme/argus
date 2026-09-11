@@ -4,7 +4,7 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Surfaces (lightness < 20 for primary) */
+  /* Surfaces (lightness < 20 for primary) — Linear surface-base */
   --bg-page: #080a0a;
   --bg-surface: #111313;
   --bg-overlay: #1a1c1c;
@@ -12,22 +12,34 @@
   --bg-hover: #1c1e1e;
   --bg-active: #222425;
 
+  /* Linear semantic aliases */
+  --surface-base: var(--bg-page);
+  --surface-raised: var(--bg-surface);
+  --surface-overlay: var(--bg-overlay);
+
   /* Borders */
   --border: #2a2c2c;
   --border-strong: #3a3c3c;
+  --border-default: var(--border);
 
-  /* Text — WCAG AA on dark surfaces */
+  /* Text — WCAG AA on dark surfaces (≥ 4.5:1) */
   --text-primary: #e2e4e3;
   --text-secondary: #b2b3b3;
   --text-muted: #8a8c8c;
+  --text-tertiary: var(--text-muted);
   --text-accent: #8b93e0;
   --text-on-accent: #ffffff;
 
-  /* Domain state */
+  /* Domain / triage state */
   --color-normal: #4ade80;
   --color-weird: #facc15;
   --color-warning: #f87171;
   --color-resolved: #a78bfa;
+  --color-open: var(--color-warning);
+  --color-confirmed: var(--color-normal);
+  --color-dismissed: var(--text-muted);
+  --color-false-positive: var(--color-resolved);
+  --color-neutral: var(--text-muted);
 
   /* Actions — Linear accent */
   --color-primary: #5e6ad2;
@@ -76,7 +88,8 @@
   --content-max: 68.75rem;
   --auth-max: 25rem;
   --border-width: 0.0625rem;
-  --outline-width: 0.125rem;
+  --outline-width: 0.125rem; /* 2px — Linear focus */
+  --outline-offset: 0.125rem; /* 2px */
   --control-height-md: 2rem;
   --control-height-sm: 1.75rem;
   --icon-size: 1rem;
@@ -98,15 +111,21 @@
   --bg-surface: #ffffff;
   --bg-overlay: #ffffff;
   --bg-input: #f0f1f1;
-  --bg-hover: #ececec;
+  --bg-hover: #d2d2d3; /* Linear secondary hover */
   --bg-active: #e4e5e5;
 
   --border: #e0e1e1;
   --border-strong: #c8c9c9;
+  --border-default: var(--border);
+
+  --surface-base: var(--bg-page);
+  --surface-raised: var(--bg-surface);
+  --surface-overlay: var(--bg-overlay);
 
   --text-primary: #1a1c1c;
   --text-secondary: #5c5c5c;
   --text-muted: #8a8c8c;
+  --text-tertiary: var(--text-muted);
   --text-accent: #5e6ad2;
   --text-on-accent: #ffffff;
 
@@ -114,6 +133,11 @@
   --color-weird: #ca8a04;
   --color-warning: #dc2626;
   --color-resolved: #7c3aed;
+  --color-open: var(--color-warning);
+  --color-confirmed: var(--color-normal);
+  --color-dismissed: var(--text-muted);
+  --color-false-positive: var(--color-resolved);
+  --color-neutral: var(--text-muted);
 
   --color-primary: #5e6ad2;
   --color-primary-hover: #4f5bc4;
@@ -145,7 +169,7 @@
 
 .argus-btn:focus-visible {
   outline: var(--outline-width) solid var(--color-focus);
-  outline-offset: var(--border-width);
+  outline-offset: var(--outline-offset);
 }
 
 .argus-btn:disabled {
@@ -248,7 +272,7 @@
 .argus-select:focus,
 .argus-textarea:focus {
   outline: var(--outline-width) solid var(--color-focus);
-  outline-offset: var(--border-width);
+  outline-offset: var(--outline-offset);
   border-color: var(--color-primary);
 }
 
@@ -309,10 +333,31 @@
 
 .argus-badge--resolved,
 .argus-badge--true_positive,
-.argus-badge--false_positive,
 .argus-badge--false_negative {
   color: var(--color-resolved);
   background: color-mix(in srgb, var(--color-resolved) 14%, transparent);
+}
+
+/* TriageCase states (MVP) */
+.argus-badge--open {
+  color: var(--color-open);
+  background: color-mix(in srgb, var(--color-open) 14%, transparent);
+}
+
+.argus-badge--confirmed {
+  color: var(--color-confirmed);
+  background: color-mix(in srgb, var(--color-confirmed) 14%, transparent);
+}
+
+.argus-badge--dismissed,
+.argus-badge--neutral {
+  color: var(--color-dismissed);
+  background: color-mix(in srgb, var(--color-dismissed) 14%, transparent);
+}
+
+.argus-badge--false_positive {
+  color: var(--color-false-positive);
+  background: color-mix(in srgb, var(--color-false-positive) 14%, transparent);
 }
 
 /* ——— Header ——— */
@@ -447,7 +492,7 @@
 
 .argus-shell-nav__item:focus-visible {
   outline: var(--outline-width) solid var(--color-focus);
-  outline-offset: var(--border-width);
+  outline-offset: var(--outline-offset);
 }
 
 /* ——— Message ——— */
@@ -940,4 +985,35 @@
 
 .argus-status--error .argus-status__dot {
   background: var(--color-danger);
+}
+
+/* ——— Shared boot / empty shell (admin + triage) ——— */
+.argus-boot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 100dvh;
+  padding: var(--space-5);
+  padding-top: calc(var(--space-5) + var(--safe-top));
+  padding-bottom: calc(var(--space-5) + var(--safe-bottom));
+  color: var(--text-muted);
+  background: var(--surface-base);
+}
+
+.argus-boot__toolbar {
+  position: absolute;
+  top: calc(var(--space-3) + var(--safe-top));
+  right: calc(var(--space-3) + var(--safe-right));
+  display: flex;
+  gap: var(--space-2);
+}
+
+.argus-skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(100%, 20rem);
 }

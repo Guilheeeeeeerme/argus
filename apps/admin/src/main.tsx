@@ -24,12 +24,13 @@ import {
   TRIAGE_ORIGIN,
   Session as AuthSession,
 } from '@shared/auth';
-import { call, returnTo, APP, switchContext, Session, Company, Location, Account } from './api';
+import { call, returnTo, APP, switchContext, Session, Company, Establishment, Account } from './api';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Companies } from './pages/Companies';
 import { Users } from './pages/Users';
-import { Locations } from './pages/Locations';
+import { Establishments } from './pages/Establishments';
+import { Webhooks } from './pages/Webhooks';
 
 function isPlatform(role: string): boolean {
   return role === 'root' || role === 'admin';
@@ -45,7 +46,7 @@ function App({ initial }: { initial: Session }) {
   const { locale, setLocale } = useLocale();
   const [session, setSession] = useState(initial);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [users, setUsers] = useState<Account[]>([]);
   const [message, setMessage] = useState('');
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -58,11 +59,13 @@ function App({ initial }: { initial: Session }) {
         setUsers((await call('/v1/admin/users')) as Account[]);
       }
       if (next.activeCompany) {
-        setLocations(
-          (await call(`/v1/companies/${next.activeCompany.id}/locations`)) as Location[],
+        setEstablishments(
+          (await call(
+            `/v1/companies/${next.activeCompany.id}/establishments`,
+          )) as Establishment[],
         );
       } else {
-        setLocations([]);
+        setEstablishments([]);
       }
     } catch (error) {
       setMessage(String(error));
@@ -85,14 +88,16 @@ function App({ initial }: { initial: Session }) {
     }
   }
 
-  async function switchLocation(id: string) {
+  async function switchEstablishment(id: string) {
     try {
-      const next = await switchContext({ locationId: id || null });
+      const next = await switchContext({ establishmentId: id || null });
       await load(next);
       setMessage(
         id
-          ? t('Active location: {name}', { name: next.activeLocation?.name ?? '' })
-          : t('Location cleared.'),
+          ? t('Active establishment: {name}', {
+              name: next.activeEstablishment?.name ?? '',
+            })
+          : t('Establishment cleared.'),
       );
     } catch (error) {
       setMessage(String(error));
@@ -168,20 +173,20 @@ function App({ initial }: { initial: Session }) {
           )}
           {session.activeCompany && (
             <div className="argus-sidenav__section">
-              <label className="argus-sidenav__section-label" htmlFor="location-switcher">
-                {t('Location')}
+              <label className="argus-sidenav__section-label" htmlFor="establishment-switcher">
+                {t('Establishment')}
               </label>
               <select
-                id="location-switcher"
+                id="establishment-switcher"
                 className="argus-select"
-                aria-label={t('Active location')}
-                value={session.activeLocation?.id ?? ''}
-                onChange={e => void switchLocation(e.target.value)}
+                aria-label={t('Active establishment')}
+                value={session.activeEstablishment?.id ?? ''}
+                onChange={e => void switchEstablishment(e.target.value)}
               >
-                <option value="">{t('No location selected')}</option>
-                {locations.map(location => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
+                <option value="">{t('No establishment selected')}</option>
+                {establishments.map(establishment => (
+                  <option key={establishment.id} value={establishment.id}>
+                    {establishment.name}
                   </option>
                 ))}
               </select>
@@ -216,11 +221,17 @@ function App({ initial }: { initial: Session }) {
           </>
         )}
         {session.activeCompany && (
-          <Locations
-            locations={locations}
-            companyId={session.activeCompany.id}
-            onReload={() => void load()}
-          />
+          <>
+            <Establishments
+              establishments={establishments}
+              companyId={session.activeCompany.id}
+              onReload={() => void load()}
+            />
+            <Webhooks
+              establishments={establishments}
+              companyId={session.activeCompany.id}
+            />
+          </>
         )}
       </div>
 

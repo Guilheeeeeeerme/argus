@@ -94,23 +94,30 @@ def create_admin_app() -> FastAPI:
 
     from argus.api.admin.router import router as admin_router
     from argus.api.triage.router import router as triage_router
+    from argus.services.detections_bridge import run_detections_bridge
     from argus.ws.handlers import router as ws_router
     from argus.ws.pubsub import run_pubsub_listener
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        task = asyncio.create_task(run_pubsub_listener())
+        stop = asyncio.Event()
+        pubsub_task = asyncio.create_task(run_pubsub_listener())
+        bridge_task = asyncio.create_task(run_detections_bridge(stop))
         yield
-        task.cancel()
+        stop.set()
+        pubsub_task.cancel()
+        bridge_task.cancel()
 
     app = create_http_app("api-admin", "ARGUS Admin & Triage API", lifespan=lifespan)
     install_rate_limiting(app)
     from argus.api.dev import router as dev_router
     from argus.api.auth import router as auth_router
+    from argus.api.hooks import router as hooks_router
     from argus.api.internal import router as internal_router
 
     app.include_router(dev_router)
     app.include_router(auth_router)
+    app.include_router(hooks_router)
     app.include_router(internal_router)
     app.include_router(admin_router)
     app.include_router(triage_router)

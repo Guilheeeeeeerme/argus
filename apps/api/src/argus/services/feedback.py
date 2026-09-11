@@ -21,10 +21,10 @@ async def create_feedback_with_embedding(
     session: AsyncSession,
     *,
     company_id: UUID,
-    decision_id: UUID,
+    triage_case_id: UUID,
     disposition: FeedbackDisposition,
     reasoning: str,
-    submitted_by: str,
+    submitted_by: str | None = None,
 ) -> Feedback:
     # Screen at write so poisoned text is never embedded into the RAG store.
     if is_blocked(reasoning):
@@ -32,14 +32,20 @@ async def create_feedback_with_embedding(
     embedding = await generate_embedding(reasoning)
     feedback = Feedback(
         company_id=company_id,
-        decision_id=decision_id,
+        triage_case_id=triage_case_id,
         disposition=disposition,
         reasoning=reasoning,
-        submitted_by=submitted_by,
         embedding=embedding,
     )
     session.add(feedback)
     await session.flush()
+    if submitted_by:
+        logger.info(
+            "feedback created triage_case_id=%s by=%s disposition=%s",
+            triage_case_id,
+            submitted_by,
+            disposition.value,
+        )
     return feedback
 
 

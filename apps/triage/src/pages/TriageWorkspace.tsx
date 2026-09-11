@@ -10,19 +10,21 @@ import {
   Skeleton,
   UserMenu,
   AlertDialog,
+  badgeVariantForTriageState,
 } from '@argus/design-system';
 import { useT, useLocale, SUPPORTED_LOCALES } from '@argus/i18n';
 import { clearToken, MAIN_ORIGIN } from '@shared/auth';
-import { WS, Session, authedFetch, getToken, redirectToLogin, API } from '../api';
-import { DecisionDetail } from './DecisionDetail';
-
-interface Decision {
-  id: string;
-  state: string;
-  evidence_count: number;
-  cumulative_severity: number;
-  updated_at: string;
-}
+import {
+  WS,
+  Session,
+  TriageCase,
+  authedFetch,
+  getToken,
+  redirectToLogin,
+  API,
+  confidencePercent,
+} from '../api';
+import { TriageDetail } from './TriageDetail';
 
 interface TriageWorkspaceProps {
   session: Session;
@@ -33,11 +35,22 @@ const LOCALE_LABELS: Record<(typeof SUPPORTED_LOCALES)[number], string> = {
   'pt-BR': 'Português (Brasil)',
 };
 
+const LIVE_EVENTS = new Set(['detection.created', 'triage.updated']);
+
+function eventType(raw: string): string | null {
+  try {
+    const payload = JSON.parse(raw) as { type?: string; event?: string };
+    return payload.type ?? payload.event ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function TriageWorkspace({ session }: TriageWorkspaceProps) {
   const t = useT();
   const { locale, setLocale } = useLocale();
-  const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [selected, setSelected] = useState<Decision | null>(null);
+  const [cases, setCases] = useState<TriageCase[]>([]);
+  const [selected, setSelected] = useState<TriageCase | null>(null);
   const [message, setMessage] = useState('');
   const [connection, setConnection] = useState<'connecting' | 'live' | 'error'>('connecting');
   const [loading, setLoading] = useState(true);
@@ -47,25 +60,28 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
   useEffect(() => {
     if (!company) return;
 
-    async function loadDecisions() {
-      const response = await authedFetch(`/v1/companies/${company}/decisions`);
+    async function loadCases() {
+      const response = await authedFetch(`/v1/companies/${company}/triage-cases`);
       if (response.status === 401) {
         redirectToLogin();
         return;
       }
-      setDecisions(await response.json());
+      setCases(await response.json());
       setLoading(false);
       setMessage(t('Live triage connected.'));
     }
 
-    void loadDecisions();
+    void loadCases();
 
     const ws = new WebSocket(`${WS}/v1/ws?token=${encodeURIComponent(getToken() ?? '')}`);
     ws.onopen = () => setConnection('live');
-    ws.onmessage = () => {
-      authedFetch(`/v1/companies/${company}/decisions`)
+    ws.onmessage = event => {
+      const type = eventType(String(event.data));
+      if (type === 'ready' || type === 'heartbeat') return;
+      if (type && !LIVE_EVENTS.has(type)) return;
+      authedFetch(`/v1/companies/${company}/triage-cases`)
         .then(x => x.json())
-        .then(setDecisions);
+        .then(setCases);
     };
     ws.onerror = () => {
       setConnection('error');
@@ -79,10 +95,10 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
     return () => ws.close();
   }, [company, t]);
 
-  async function selectDecision(decision: Decision) {
+  async function selectCase(item: TriageCase) {
     if (!company) return;
     setSelected(
-      await authedFetch(`/v1/companies/${company}/decisions/${decision.id}`).then(r => r.json()),
+      await authedFetch(`/v1/companies/${company}/triage-cases/${item.id}`).then(r => r.json()),
     );
   }
 
@@ -102,7 +118,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
     window.location.assign(MAIN_ORIGIN);
   }
 
-  const where = session.location ? session.location.name : session.company_name;
+  const where = session.establishment ? session.establishment.name : session.company_name;
   const statusTone = connection === 'live' ? 'live' : connection === 'error' ? 'error' : 'neutral';
   const statusLabel =
     connection === 'live'
@@ -140,68 +156,65 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
         <Status label={statusLabel} tone={statusTone} />
         <p className="argus-list-row__meta">{session.role}</p>
       </div>
-      <Message
-        text={message}
-        variant={connection === 'error' ? 'error' : 'info'}
-      />
+      <Message text={message} variant={connection === 'error' ? 'error' : 'info'} />
       <div className="argus-triage__grid">
         <Card>
-          <h2>{t('Decision feed')}</h2>
+          <h2>{t('Case feed')}</h2>
           {loading ? (
             <div className="argus-skeleton-stack">
-              <Skeleton height={36} aria-label={t('Loading decisions')} />
+              <Skeleton height={36} aria-label={t('Loading cases')} />
               <Skeleton height={36} />
               <Skeleton height={36} />
             </div>
-          ) : decisions.length === 0 ? (
+          ) : cases.length === 0 ? (
             <EmptyState
-              title={t('No decisions yet')}
+              title={t('No cases yet')}
               description={t('New detections will appear here in real time.')}
             />
           ) : (
-            <div className="argus-decision-list" role="list">
-              {decisions.map(decision => (
-                <button
-                  key={decision.id}
-                  type="button"
-                  role="listitem"
-                  className="argus-decision-btn"
-                  aria-current={selected?.id === decision.id ? 'true' : undefined}
-                  onClick={() => void selectDecision(decision)}
-                >
-                  <Badge variant={decision.state as 'normal' | 'weird' | 'warning' | 'resolved'}>
-                    {decision.state}
-                  </Badge>
-                  <span className="argus-decision-btn__meta">
-                    {t(
-                      decision.evidence_count === 1
-                        ? '{count} evidence · severity {severity}'
-                        : '{count} evidences · severity {severity}',
-                      {
-                        count: decision.evidence_count,
-                        severity: decision.cumulative_severity,
-                      },
-                    )}
-                  </span>
-                </button>
-              ))}
+            <div className="argus-case-list" role="list">
+              {cases.map(item => {
+                const confidence = confidencePercent(item.detection?.confidence);
+                const label = item.detection?.summary ?? item.id.slice(0, 8);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="listitem"
+                    className="argus-case-btn"
+                    aria-current={selected?.id === item.id ? 'true' : undefined}
+                    onClick={() => void selectCase(item)}
+                  >
+                    <Badge variant={badgeVariantForTriageState(item.state)}>{item.state}</Badge>
+                    <span className="argus-case-btn__meta">
+                      {label}
+                      {confidence != null
+                        ? ` · ${t('{confidence}% confidence', { confidence })}`
+                        : ''}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </Card>
         {selected ? (
-          <DecisionDetail
-            decision={selected}
+          <TriageDetail
+            triageCase={selected}
             company={company}
             onResolved={() => {
               setSelected(null);
-              setMessage(t('Decision resolved.'));
+              setMessage(t('Case updated.'));
+              void authedFetch(`/v1/companies/${company}/triage-cases`)
+                .then(x => x.json())
+                .then(setCases);
             }}
             onClose={() => setSelected(null)}
           />
         ) : (
           <Card>
             <EmptyState
-              title={t('Select a decision')}
+              title={t('Select a case')}
               description={t('Choose an item from the feed to review evidence and resolve.')}
             />
           </Card>

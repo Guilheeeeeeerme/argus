@@ -1,0 +1,14 @@
+# go2rtc base config — streams are synced by stream-gateway-sync from the API.
+# Docs: https://github.com/AlexxIT/go2rtc
+
+api:
+  listen: ":1984"
+
+rtsp:
+  listen: ":8554"
+
+webrtc:
+  listen: ":8555"
+
+# Placeholder; sync sidecar registers camera streams via API / config rewrite.
+streams: {}

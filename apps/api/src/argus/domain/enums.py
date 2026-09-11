@@ -14,6 +14,22 @@ PLATFORM_ROLES: frozenset[UserRole] = frozenset({UserRole.ROOT, UserRole.ADMIN})
 COMPANY_WRITE_ROLES: frozenset[UserRole] = frozenset({UserRole.MANAGER})
 
 
+class TriageCaseState(str, enum.Enum):
+    OPEN = "open"
+    CONFIRMED = "confirmed"
+    DISMISSED = "dismissed"
+    FALSE_POSITIVE = "false_positive"
+
+
+class FeedbackDisposition(str, enum.Enum):
+    TRUE_POSITIVE = "true_positive"
+    FALSE_POSITIVE = "false_positive"
+    FALSE_NEGATIVE = "false_negative"
+
+
+# --- Legacy enums (DB types may still exist until a later cleanup migration) ---
+
+
 class DecisionState(str, enum.Enum):
     NORMAL = "normal"
     WEIRD = "weird"
@@ -21,12 +37,6 @@ class DecisionState(str, enum.Enum):
     RESOLVED_TRUE_POSITIVE = "resolved_true_positive"
     RESOLVED_FALSE_POSITIVE = "resolved_false_positive"
     RESOLVED_FALSE_NEGATIVE = "resolved_false_negative"
-
-
-class FeedbackDisposition(str, enum.Enum):
-    TRUE_POSITIVE = "true_positive"
-    FALSE_POSITIVE = "false_positive"
-    FALSE_NEGATIVE = "false_negative"
 
 
 class NotificationChannel(str, enum.Enum):

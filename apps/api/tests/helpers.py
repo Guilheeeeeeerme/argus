@@ -11,16 +11,20 @@ from argus.services.sessions import SessionData, create_session
 async def session_token(
     role: UserRole,
     company_id: str | None = None,
+    establishment_id: str | None = None,
     location_id: str | None = None,
     user_id: str | None = None,
 ) -> str:
+    """Create a session. ``location_id`` is accepted as an alias for establishment."""
+    est = establishment_id or location_id
     return await create_session(
         SessionData(
             user_id=user_id or str(uuid.uuid5(uuid.NAMESPACE_DNS, f"test-{role.value}")),
             email=f"{role.value}@test.local",
             role=role.value,
             company_id=company_id,
-            location_id=location_id,
+            establishment_id=est,
+            location_id=est,
         )
     )
 

@@ -1,32 +1,30 @@
-"""Pydantic schemas for edge ingestion API."""
+"""Pydantic schemas for edge/test ingestion API."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class FramePayload(BaseModel):
-    index: int = Field(ge=0)
-    content: str = Field(description="Base64-encoded JPEG or PNG frame")
-    captured_at: datetime | None = None
-
-
-class IngestSequenceRequest(BaseModel):
-    ingestion_id: UUID
+class InjectFrameReadyRequest(BaseModel):
     company_id: UUID
+    establishment_id: UUID
     camera_id: UUID
-    captured_at: datetime
-    rule_set_id: UUID
-    region_id: UUID | None = None
-    edge_trigger_metadata: dict[str, Any] | None = None
-    frames: list[FramePayload] = Field(min_length=1, max_length=30)
+    sequence_id: str | None = None
+    captured_at: datetime | None = None
+    frame_uris: list[str] = Field(default_factory=list)
+    preproc_meta: dict[str, Any] = Field(default_factory=dict)
 
 
-class IngestAcceptedResponse(BaseModel):
-    ingestion_id: UUID
-    status: Literal["queued", "duplicate"]
+class InjectAcceptedResponse(BaseModel):
+    sequence_id: str
+    status: str = "queued"
     queued_at: datetime
+
+
+# Legacy aliases kept so older tests importing these names still resolve.
+IngestSequenceRequest = InjectFrameReadyRequest
+IngestAcceptedResponse = InjectAcceptedResponse
