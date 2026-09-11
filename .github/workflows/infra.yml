@@ -1,22 +1,15 @@
-name: Notify infra
+# DISABLED: deployments moved to Jenkins at https://jenkins.ferredemo.dev
+# This workflow is retained as a no-op so the Actions UI shows it is intentionally off.
+name: Notify infra (disabled)
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   notify:
-    if: vars.INFRA_ENABLED == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - name: Request deployment
-        env:
-          GH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-        run: |
-          gh api --method POST repos/Guilheeeeeeerme/infra/dispatches \
-            -f event_type=deploy \
-            -f 'client_payload[project]=argus' \
-            -f "client_payload[repository]=$REPOSITORY" \
-            -f "client_payload[sha]=$SHA"
+      - run: |
+          echo "Infra deploy via GitHub Actions is disabled."
+          echo "Use https://jenkins.ferredemo.dev job: argus"
+          exit 0
