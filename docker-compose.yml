@@ -32,6 +32,10 @@ x-api-env: &api-env
   S3_SECRET_ACCESS_KEY: minioadmin
   S3_BUCKET_NAME: argus-frames
   S3_REGION: us-east-1
+  DEV_ROOT_EMAIL: ${DEV_ROOT_EMAIL:-root@argus.local}
+  DEV_ROOT_PASSWORD: ${DEV_ROOT_PASSWORD:-Password123!}
+  SEED_DEMO: ${SEED_DEMO:-1}
+  DEMO_PASSWORD: ${DEMO_PASSWORD:-Password123!}
 
 services:
   postgres:

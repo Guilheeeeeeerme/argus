@@ -22,11 +22,9 @@ ARGUS dev stack:
   Postgres          postgres:5432 (argus/argus)
   Redis             redis:6379
 
-Seed users (password: Password123!)
-  root@argus.local            (root)
-  admin@argus.local           (admin)
-  manager.downtown@argus.local (manager)
-  agent.downtown@argus.local   (agent)
-  manager.airport@argus.local  (manager)
-  agent.airport@argus.local    (agent)
+Platform + demo users (password: Password123! when DEMO_PASSWORD unset)
+  root@argus.local             (ROOT — platform)
+  manager@demo.argus.local     (MANAGER — demo-retail)
+  guest@demo.argus.local       (OPERATOR — demo-retail)
+  Set SEED_DEMO=1 (default in compose) for demo fixtures.
 EOF

@@ -44,7 +44,7 @@ async def _token(role: UserRole, company_id: str | None = SEED_COMPANY_ID) -> st
 async def test_root_lists_companies(client: AsyncClient) -> None:
     response = await client.get("/v1/admin/companies", headers=bearer(await _token(UserRole.ROOT, "")))
     assert response.status_code == 200
-    assert any(t["slug"] == "downtown-retail" for t in response.json())
+    assert any(t["slug"] == "demo-retail" for t in response.json())
 
 
 @pytest.mark.asyncio
