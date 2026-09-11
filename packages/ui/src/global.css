@@ -13,13 +13,23 @@ body {
   min-height: 100dvh;
   font: var(--font);
   font-family: var(--font-family);
+  font-weight: var(--font-weight-regular);
   color: var(--text-primary);
-  background: var(--bg-page);
+  background: var(--surface-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+}
+
+.argus-heading-1 {
+  font-family: var(--font-family);
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.05;
+  color: var(--text-primary);
   text-wrap: balance;
 }
 
@@ -39,7 +49,7 @@ a:hover {
 a:focus-visible {
   outline: var(--outline-width) solid var(--color-focus);
   outline-offset: var(--outline-offset);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 button,
