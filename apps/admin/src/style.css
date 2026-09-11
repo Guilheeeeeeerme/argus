@@ -1,64 +1,56 @@
+/* Admin page layouts — tokens only; primitives live in @argus/design-system */
+
 .argus-admin-sections {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.argus-sketch-editor {
+.argus-establishment-detail {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
   border-top: var(--border-width) solid var(--border);
 }
 
-.argus-sketch-canvas {
-  position: relative;
-  min-height: 15rem;
-  overflow: hidden;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-input);
-  cursor: crosshair;
+.argus-establishment-detail h3 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  text-wrap: balance;
 }
 
-.argus-sketch-canvas img {
-  width: 100%;
-  display: block;
+.argus-establishment-detail h3:first-child {
+  margin-top: 0;
 }
 
-.argus-sketch-empty {
-  margin: 0;
-  padding: var(--space-8);
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.argus-sketch-marker {
-  position: absolute;
-  width: 0.875rem;
-  height: 0.875rem;
-  transform: translate(-50%, -50%);
-  background: var(--color-primary);
-  border: var(--outline-width) solid var(--text-on-accent);
-  border-radius: 50%;
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-}
-
-.argus-sketch-hint {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  align-self: center;
-}
-
-.argus-boot {
-  display: flex;
+.argus-inline-form--stack {
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  min-height: 100dvh;
-  padding: var(--space-5);
-  color: var(--text-muted);
+  align-items: stretch;
+}
+
+.argus-webhook-token {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+}
+
+.argus-webhook-token__label {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.argus-webhook-token__value {
+  display: block;
+  margin-top: var(--space-2);
+  word-break: break-all;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 
 @media (max-width: 47.9375rem) {

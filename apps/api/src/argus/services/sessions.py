@@ -18,20 +18,34 @@ class SessionData:
     email: str
     role: str
     company_id: str | None = None
+    establishment_id: str | None = None
+    # Backward-compatible alias field for older session payloads.
     location_id: str | None = None
 
+    def __post_init__(self) -> None:
+        if self.establishment_id is None and self.location_id is not None:
+            self.establishment_id = self.location_id
+        if self.location_id is None and self.establishment_id is not None:
+            self.location_id = self.establishment_id
+
     def to_redis(self) -> str:
-        return json.dumps(asdict(self))
+        payload = asdict(self)
+        # Persist both keys so older readers keep working during rollout.
+        payload["establishment_id"] = self.establishment_id
+        payload["location_id"] = self.establishment_id
+        return json.dumps(payload)
 
     @classmethod
     def from_redis(cls, raw: str) -> SessionData:
         data = json.loads(raw)
+        establishment_id = data.get("establishment_id") or data.get("location_id")
         return cls(
             user_id=data.get("user_id", ""),
             email=data.get("email", ""),
             role=data.get("role", ""),
             company_id=data.get("company_id"),
-            location_id=data.get("location_id"),
+            establishment_id=establishment_id,
+            location_id=establishment_id,
         )
 
 

@@ -1,30 +1,31 @@
-"""Triage API tests."""
+"""Triage API tests — TriageCase + Detection."""
 
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
 
 os.environ.setdefault("AUTH0_USE_MOCK", "true")
 
 from argus.apps.http import create_admin_app
 from argus.config import get_settings
-from argus.domain.enums import DecisionState, UserRole
-from argus.domain.models import Decision
-from tests.helpers import session_token
-from argus.services.database import dispose_engine, company_session
-from argus.services.redis import close_redis, delete_key
+from argus.domain.enums import TriageCaseState, UserRole
+from argus.domain.models import Detection, TriageCase
+from argus.services.database import company_session, dispose_engine
+from argus.services.redis import close_redis
+from tests.conftest import SEED_CAMERA_ID, SEED_COMPANY_ID, SEED_ESTABLISHMENT_ID
+from tests.helpers import bearer, session_token
 
 get_settings.cache_clear()
 
-SEED_COMPANY_ID = "11111111-1111-4111-8111-111111111111"
-SEED_CAMERA_ID = "33333333-3333-4333-8333-333333333333"
-SEED_REGION_ID = "44444444-4444-4444-8444-444444444444"
+_COMPANY = uuid.UUID(SEED_COMPANY_ID)
+_CAMERA = uuid.UUID(SEED_CAMERA_ID)
+_ESTABLISHMENT = uuid.UUID(SEED_ESTABLISHMENT_ID)
 
 
 @pytest_asyncio.fixture
@@ -41,51 +42,78 @@ async def _cleanup():
     await dispose_engine()
 
 
-async def _watcher_token() -> str:
+async def _operator_token() -> str:
     return await session_token(UserRole.OPERATOR, SEED_COMPANY_ID)
 
 
+async def _seed_open_case() -> tuple[str, str]:
+    now = datetime.now(UTC)
+    async with company_session(_COMPANY, UserRole.MANAGER.value) as session:
+        detection = Detection(
+            company_id=_COMPANY,
+            camera_id=_CAMERA,
+            establishment_id=_ESTABLISHMENT,
+            sequence_id=f"seq-{uuid.uuid4().hex[:8]}",
+            summary="Person in restricted area",
+            confidence=0.91,
+            prompt_hits=[
+                {
+                    "prompt_id": str(uuid.uuid4()),
+                    "matched": True,
+                    "confidence": 0.91,
+                    "rationale": "visible intrusion",
+                }
+            ],
+            clip_uri="s3://argus-clips/demo/clip.mp4",
+            window_started_at=now - timedelta(seconds=30),
+            window_ended_at=now,
+            frame_uris=["s3://argus-frames/demo/0.bin"],
+        )
+        session.add(detection)
+        await session.flush()
+        case = TriageCase(
+            company_id=_COMPANY,
+            detection_id=detection.id,
+            state=TriageCaseState.OPEN,
+        )
+        session.add(case)
+        await session.flush()
+        return str(case.id), str(detection.id)
+
+
 @pytest.mark.asyncio
-async def test_list_decisions(client: AsyncClient) -> None:
+async def test_list_triage_cases(client: AsyncClient) -> None:
+    await _seed_open_case()
     response = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/decisions",
-        headers={"Authorization": f"Bearer {await _watcher_token()}"},
+        f"/v1/companies/{SEED_COMPANY_ID}/triage-cases",
+        headers=bearer(await _operator_token()),
     )
     assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert any(row.get("state") == "open" for row in body)
 
 
 @pytest.mark.asyncio
-async def test_resolve_decision_writes_feedback(client: AsyncClient) -> None:
-    async with company_session(
-        __import__("uuid").UUID(SEED_COMPANY_ID),
-        UserRole.MANAGER.value,
-    ) as session:
-        decision = Decision(
-            company_id=__import__("uuid").UUID(SEED_COMPANY_ID),
-            camera_id=__import__("uuid").UUID(SEED_CAMERA_ID),
-            region_id=__import__("uuid").UUID(SEED_REGION_ID),
-            state=DecisionState.WARNING,
-            cumulative_severity=6,
-            evidence_count=3,
-            window_start=datetime.now(UTC),
-            window_end=datetime.now(UTC),
-        )
-        session.add(decision)
-        await session.flush()
-        decision_id = str(decision.id)
-        updated_at = decision.updated_at.isoformat()
-
+async def test_resolve_triage_case_writes_feedback(client: AsyncClient) -> None:
+    case_id, detection_id = await _seed_open_case()
     response = await client.post(
-        f"/v1/companies/{SEED_COMPANY_ID}/decisions/{decision_id}/resolve",
+        f"/v1/companies/{SEED_COMPANY_ID}/triage-cases/{case_id}/resolve",
         json={
             "disposition": "false_positive",
             "reasoning": "Shadow from display case, not a person.",
-            "updated_at": updated_at,
         },
-        headers={"Authorization": f"Bearer {await _watcher_token()}"},
+        headers=bearer(await _operator_token()),
     )
     assert response.status_code == 200
-    assert response.json()["state"] == "resolved_false_positive"
+    body = response.json()
+    assert body["triage_case_id"] == case_id
+    assert body["state"] == "false_positive"
 
-    open_key = f"decision:open:{SEED_COMPANY_ID}:{SEED_CAMERA_ID}:{SEED_REGION_ID}"
-    await delete_key(open_key)
+    detail = await client.get(
+        f"/v1/companies/{SEED_COMPANY_ID}/triage-cases/{case_id}",
+        headers=bearer(await _operator_token()),
+    )
+    assert detail.status_code == 200
+    assert detail.json()["state"] == "false_positive"
+    assert detail.json()["detection"]["id"] == detection_id

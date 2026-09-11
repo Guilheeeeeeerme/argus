@@ -1,4 +1,10 @@
-"""WebSocket handshake, heartbeat, and message handling."""
+"""WebSocket handshake, heartbeat, and message handling.
+
+Emits/forwards room events including:
+- ready / heartbeat
+- detection.created
+- triage.updated
+"""
 
 from __future__ import annotations
 
@@ -7,14 +13,18 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from argus.domain.enums import UserRole
 from argus.services.sessions import get_session
+from argus.services.ws_events import EVENT_DETECTION_CREATED, EVENT_TRIAGE_UPDATED
 from argus.ws.gateway import manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ws"])
+
+# Re-export for OpenAPI / client docs awareness.
+WS_EVENT_TYPES = (EVENT_DETECTION_CREATED, EVENT_TRIAGE_UPDATED, "ready", "heartbeat")
 
 
 @router.websocket("/v1/ws")
@@ -46,7 +56,11 @@ async def triage_websocket(websocket: WebSocket, token: str | None = None) -> No
                 "type": "ready",
                 "company_id": company_id,
                 "timestamp": datetime.now(UTC).isoformat(),
-                "payload": {"role": session.role, "email": session.email},
+                "payload": {
+                    "role": session.role,
+                    "email": session.email,
+                    "event_types": list(WS_EVENT_TYPES),
+                },
             }
         )
     )

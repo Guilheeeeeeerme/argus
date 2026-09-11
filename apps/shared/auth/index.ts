@@ -20,20 +20,28 @@ export interface CompanyRef {
   slug: string;
 }
 
-export interface LocationRef {
+export interface EstablishmentRef {
   id: string;
   name: string;
   address: string | null;
 }
 
 export type TenantRef = CompanyRef;
-export type MarketRef = LocationRef;
+/** @deprecated Use EstablishmentRef */
+export type MarketRef = EstablishmentRef;
+/** @deprecated Use EstablishmentRef */
+export type LocationRef = EstablishmentRef;
 
 export interface Session {
   token?: string;
   user: User;
   activeCompany: CompanyRef | null;
-  activeLocation: LocationRef | null;
+  activeEstablishment: EstablishmentRef | null;
+}
+
+/** Session field helper — id of the active establishment, if any. */
+export function activeEstablishmentId(session: Session): string | null {
+  return session.activeEstablishment?.id ?? null;
 }
 
 export function allowedReturnOrigins(): string[] {

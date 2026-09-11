@@ -3,77 +3,82 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from argus.domain.enums import DecisionState, FeedbackDisposition
+from argus.domain.enums import TriageCaseState
 
 
-class DecisionSummary(BaseModel):
+class DetectionSummary(BaseModel):
     id: UUID
     camera_id: UUID
-    region_id: UUID | None
-    state: DecisionState
-    cumulative_severity: int
-    evidence_count: int
-    window_start: datetime
-    window_end: datetime
-    updated_at: datetime
-    last_evidence_at: datetime | None
+    establishment_id: UUID
+    sequence_id: str | None = None
+    summary: str | None = None
+    confidence: float | None = None
+    prompt_hits: list[dict[str, Any]] = Field(default_factory=list)
+    clip_uri: str | None = None
+    window_started_at: datetime | None = None
+    window_ended_at: datetime | None = None
+    frame_uris: list[str] | None = None
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
 
-class EvidenceDetail(BaseModel):
+class TriageCaseSummary(BaseModel):
     id: UUID
-    captured_at: datetime
-    severity_score: int
-    vlm_result: dict
-    playback_url: str | None = None
-
-    model_config = {"from_attributes": True}
-
-
-class DecisionDetail(BaseModel):
-    id: UUID
-    camera_id: UUID
-    region_id: UUID | None
-    state: DecisionState
-    cumulative_severity: int
-    evidence_count: int
-    window_start: datetime
-    window_end: datetime
+    detection_id: UUID
+    state: TriageCaseState
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
     updated_at: datetime | None = None
-    awaiting_notify_approval: bool = False
-    evidences: list[EvidenceDetail] = Field(default_factory=list)
+    detection: DetectionSummary | None = None
 
     model_config = {"from_attributes": True}
 
 
-class NotifyActionResponse(BaseModel):
-    decision_id: UUID
-    updated_deliveries: int
-    status: str
+class TriageCaseDetail(BaseModel):
+    id: UUID
+    detection_id: UUID
+    state: TriageCaseState
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+    updated_at: datetime | None = None
+    detection: DetectionSummary | None = None
+    clip_playback_url: str | None = None
+
+    model_config = {"from_attributes": True}
 
 
-class ResolveDecisionRequest(BaseModel):
-    disposition: FeedbackDisposition
-    reasoning: str = ""
-    updated_at: datetime
+ResolveDisposition = Literal["confirmed", "dismissed", "false_positive"]
+
+
+class ResolveTriageCaseRequest(BaseModel):
+    disposition: ResolveDisposition
+    reasoning: str | None = None
 
     @model_validator(mode="after")
-    def require_reasoning_for_fp_fn(self) -> ResolveDecisionRequest:
-        if self.disposition in {
-            FeedbackDisposition.FALSE_POSITIVE,
-            FeedbackDisposition.FALSE_NEGATIVE,
-        } and not self.reasoning.strip():
-            raise ValueError("reasoning required for false_positive/false_negative")
+    def require_reasoning_for_fp(self) -> ResolveTriageCaseRequest:
+        if self.disposition == "false_positive" and not (self.reasoning or "").strip():
+            raise ValueError("reasoning required for false_positive")
         return self
 
 
-class ResolveDecisionResponse(BaseModel):
-    decision_id: UUID
-    state: DecisionState
+class ResolveTriageCaseResponse(BaseModel):
+    triage_case_id: UUID
+    state: TriageCaseState
     resolved_at: datetime
     resolved_by: str
+
+
+class FeedbackResponse(BaseModel):
+    id: UUID
+    triage_case_id: UUID
+    disposition: str
+    reasoning: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

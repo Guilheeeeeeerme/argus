@@ -1,4 +1,4 @@
-"""Local authentication and company/location context routes (opaque Redis sessions)."""
+"""Local authentication and company/establishment context routes (opaque Redis sessions)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from argus.api.deps import get_platform_db
 from argus.core.auth import AuthContext, get_auth_context
 from argus.core.passwords import hash_password
 from argus.domain.enums import UserRole
-from argus.domain.models import Location, Company, CompanyUser
+from argus.domain.models import Company, CompanyUser, Establishment
 from argus.services.database import get_db, set_session_context
 from argus.services.sessions import (
     SessionData,
@@ -48,7 +48,7 @@ class CompanyRef(BaseModel):
     slug: str
 
 
-class LocationRef(BaseModel):
+class EstablishmentRef(BaseModel):
     id: str
     name: str
     address: str | None = None
@@ -58,12 +58,15 @@ class SessionResponse(BaseModel):
     token: str | None = None
     user: UserResponse
     activeCompany: CompanyRef | None = None
-    activeLocation: LocationRef | None = None
+    activeEstablishment: EstablishmentRef | None = None
+    # Backward-compatible alias for older clients.
+    activeLocation: EstablishmentRef | None = None
 
 
 class SwitchContextRequest(BaseModel):
     companyId: str | None = Field(default=None)
-    locationId: str | None = Field(default=None)
+    establishmentId: str | None = Field(default=None)
+    locationId: str | None = Field(default=None)  # alias
 
 
 def _user_response(user: CompanyUser) -> UserResponse:
@@ -77,19 +80,32 @@ def _user_response(user: CompanyUser) -> UserResponse:
 
 async def _session_payload(token: str, data: SessionData) -> SessionResponse:
     company = None
-    location = None
+    establishment = None
+    establishment_id = data.establishment_id or data.location_id
     if data.company_id:
         async for session in get_db():
             await set_session_context(session, company_id=data.company_id, role=data.role)
             company = await session.scalar(select(Company).where(Company.id == data.company_id))
             if company is None:
                 raise HTTPException(status_code=401, detail="Session company not found")
-            if data.location_id:
-                location = await session.scalar(
-                    select(Location).where(Location.id == data.location_id, Location.deleted_at.is_(None))
+            if establishment_id:
+                establishment = await session.scalar(
+                    select(Establishment).where(
+                        Establishment.id == establishment_id,
+                        Establishment.active.is_(True),
+                    )
                 )
-    elif data.location_id:
-        raise HTTPException(status_code=401, detail="Session location without company")
+    elif establishment_id:
+        raise HTTPException(status_code=401, detail="Session establishment without company")
+    establishment_ref = (
+        EstablishmentRef(
+            id=str(establishment.id),
+            name=establishment.name,
+            address=establishment.address,
+        )
+        if establishment
+        else None
+    )
     return SessionResponse(
         token=token,
         user=UserResponse(
@@ -98,12 +114,11 @@ async def _session_payload(token: str, data: SessionData) -> SessionResponse:
             role=data.role,
             companyId=data.company_id,
         ),
-        activeCompany=CompanyRef(id=str(company.id), name=company.name, slug=company.slug) if company else None,
-        activeLocation=(
-            LocationRef(id=str(location.id), name=location.name, address=location.address)
-            if location
-            else None
-        ),
+        activeCompany=CompanyRef(id=str(company.id), name=company.name, slug=company.slug)
+        if company
+        else None,
+        activeEstablishment=establishment_ref,
+        activeLocation=establishment_ref,
     )
 
 
@@ -182,7 +197,7 @@ async def me(auth: AuthContext = Depends(get_auth_context)) -> SessionResponse:
         email=auth.email,
         role=auth.role.value,
         company_id=str(auth.company_id) if auth.company_id else None,
-        location_id=str(auth.location_id) if auth.location_id else None,
+        establishment_id=str(auth.establishment_id) if auth.establishment_id else None,
     )
     return await _session_payload(auth.token, data)
 
@@ -198,26 +213,29 @@ async def switch_context(
         email=auth.email,
         role=auth.role.value,
         company_id=str(auth.company_id) if auth.company_id else None,
-        location_id=str(auth.location_id) if auth.location_id else None,
+        establishment_id=str(auth.establishment_id) if auth.establishment_id else None,
     )
     if body.companyId is not None:
         company = await session.scalar(select(Company).where(Company.id == body.companyId))
         if company is None:
             raise HTTPException(status_code=404, detail="Company not found")
         data.company_id = str(company.id)
+        data.establishment_id = None
         data.location_id = None
-    if body.locationId is not None:
+    establishment_id = body.establishmentId or body.locationId
+    if establishment_id is not None:
         if data.company_id is None:
             raise HTTPException(status_code=409, detail="Select a company first")
-        location = await session.scalar(
-            select(Location).where(
-                Location.id == body.locationId,
-                Location.company_id == data.company_id,
-                Location.deleted_at.is_(None),
+        establishment = await session.scalar(
+            select(Establishment).where(
+                Establishment.id == establishment_id,
+                Establishment.company_id == data.company_id,
+                Establishment.active.is_(True),
             )
         )
-        if location is None:
-            raise HTTPException(status_code=404, detail="Location not found")
-        data.location_id = str(location.id)
+        if establishment is None:
+            raise HTTPException(status_code=404, detail="Establishment not found")
+        data.establishment_id = str(establishment.id)
+        data.location_id = data.establishment_id
     await update_session(auth.token, data)
     return await _session_payload(auth.token, data)

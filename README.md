@@ -1,6 +1,8 @@
 # Argus
 
-Multi-company surveillance platform: an admin application (SSO host), a real-time triage micro-frontend, and an AI vision pipeline that turns camera streams into operator-ready decisions.
+Multi-company vision platform (MVP): an admin application (SSO host), a
+near-realtime triage micro-frontend, and an AI pipeline that turns camera
+streams into operator-ready **TriageCases**.
 
 ## Live
 
@@ -11,73 +13,106 @@ Multi-company surveillance platform: an admin application (SSO host), a real-tim
 | API | https://api.argus.ferredemo.dev |
 | Storage (signed URLs) | https://api.storage.argus.ferredemo.dev |
 
+## Architecture (MVP)
+
+```
+stream-gateway (go2rtc)
+        │
+        ▼
+   stream-prep          frames → MinIO (TTL) → Redis frames:ready
+        │
+        ▼
+   prompt-eval          Gemini PromptSet eval; negatives discarded
+        │               positives → Detection + clip + TriageCase
+        │               Redis detections:positive
+        ▼
+   api                  CRUD, inbound webhooks, WS fan-out
+        │
+        ├── admin MFE   company / establishment / camera / PromptSet
+        └── triage MFE  TriageCase HITL (open → confirmed|dismissed|false_positive)
+```
+
+| Piece | Role |
+| --- | --- |
+| **stream-prep** | Sample + preprocess frames from go2rtc; publish `frames:ready` |
+| **prompt-eval** | Multimodal PromptSet evaluation; positive Detection + clip ≤ 10 min |
+| **api** | CRUD, Bearer webhooks → `context:events`, WS `detection.created` / `triage.updated` |
+| **admin** | SSO login host + admin shell + company/establishment switcher |
+| **triage** | Operator workspace (near-realtime case rail) |
+
+Supporting data plane: Postgres (RLS + pgvector), Redis (sessions, streams,
+pub/sub), MinIO (ephemeral frames + evidence clips).
+
+Product detail: [`docs/SPEC.md`](docs/SPEC.md). AI module map:
+[`docs/ai-engineering.md`](docs/ai-engineering.md). Service handoffs:
+[`docs/services/`](docs/services/).
+
 ## Features
 
-- **Postgres row-level security multi-tenancy** — every query is scoped at the database level through session context; company APIs read the tenant from the Redis session only, never from client-supplied claims.
-- **SSO across micro-frontends** — opaque Redis-backed sessions with hash-token handoff and origin allow-listing; the triage MFE never shows a company switcher and inherits platform-user context switches on refresh.
-- **Roles** — `root`/`admin` (platform, can switch company/location), `manager` and `operator` (single company).
-- **Physical model** — locations with addresses and floor-plan sketches, edge agents bound N:N, cameras with RTSP stream configuration and placements.
-- **AI analysis pipeline** — Celery workers run VLM detection over extracted frames against rule sets with shifts, recipes and detection bindings; decisions follow a state machine with alarms.
-- **Real-time triage** — WebSocket event rail authenticated with session tokens.
+- **Postgres RLS multi-tenancy** — queries scoped via session context; company
+  APIs read the tenant from the Redis session, never from client-supplied claims.
+- **SSO across MFEs** — opaque Redis sessions with hash-token handoff and origin
+  allow-listing; triage inherits platform context switches on refresh.
+- **Roles** — `root`/`admin` (platform, can switch company/establishment),
+  `manager` and `operator` (single company).
+- **Physical model** — establishments and cameras with RTSP config synced to
+  stream-gateway.
+- **PromptSet evaluation** — Gemini-first VLM over prepared frames; negatives
+  discarded; positives open a TriageCase with evidence clip.
+- **Context webhooks** — inbound Bearer-token endpoints publish `context:events`
+  for grounding.
+- **Near-realtime triage** — WebSocket `detection.created` / `triage.updated`.
 - **S3-compatible storage** — private MinIO bucket with signed download URLs.
-- **Edge M2M auth** — agent devices authenticate with client-credentials JWTs, decoupled from user sessions.
 
-## Architecture
+## Out of MVP scope
 
-```
-Admin (Vite)      = SSO login host + admin shell + company/location switcher
-Triage MFE (Vite) = operator workspace (WS live updates)
-Worker            = Celery on Redis — VLM analysis, aggregation, notifier, scheduler
-
-Browser / MFE
-    │  Authorization: Bearer <opaque-session-token>
-    ▼
-FastAPI API
-    ├── Redis     → sessions + Celery broker + pub/sub (WS events)
-    ├── Postgres  → companies, users, locations, cameras, decisions (pgvector) — RLS scoped
-    └── MinIO     → frame/object storage with signed URLs
-         ▼
-    Celery worker → VLM analysis → decisions → notifications
-```
+Agent edge devices, sketch/ROI editors, RuleSet/Recipe, SMS notifications, and
+production Auth0. See `docs/SPEC.md` non-goals and
+`docs/sketch-editor-mfe.md`.
 
 ## Tech stack
 
 | Layer | Technology |
 | --- | --- |
 | API | Python 3.12, FastAPI, SQLAlchemy (async), Alembic |
+| Pipeline | stream-prep, prompt-eval (Python services) |
 | Database | PostgreSQL 16 with RLS + pgvector |
-| Async | Celery, Redis (broker, sessions, pub/sub) |
-| Storage | MinIO (S3 API, boto3) with signed URLs |
+| Async | Redis (streams, sessions, pub/sub) |
+| Storage | MinIO (S3 API) with signed URLs + frame TTL |
+| Media | go2rtc stream-gateway |
 | Frontends | React, Vite, shared `@argus/design-system` package |
-| Auth | Opaque Redis sessions, PyJWT client-credentials for edge devices |
+| Auth | Opaque Redis sessions (Auth0 mock/scaffold only) |
 
 ## Guardrails & LLM spend
 
-All LLM calls follow the Promptdesk guardrails standard (`apps/api/docs/guardrails.md`).
+LLM calls follow the Promptdesk guardrails standard (`apps/api/docs/guardrails.md`).
+Concept → module mapping: `docs/ai-engineering.md` (`guardrails`,
+`provider_router`).
 
 | OWASP risk (2026) | Mitigation |
 | --- | --- |
-| LLM01 Prompt injection | Untrusted feedback is screened at write and before LLM; remaining content is fenced in the user message. |
-| LLM02 Sensitive disclosure | Keys never in prompts. Frames/prompts leave to Gemini/OpenAI by design — require DPA; prompt rules are defense-in-depth only. |
-| LLM03 Excessive agency | No tools; WARNING notify requires triage HITL approve; severity uses allowlisted JSON + confidence floor. |
-| LLM06 Unbounded consumption | Per-tenant + global Redis call budgets; optional token/cost halt; API per-IP rate limit. |
+| LLM01 Prompt injection | Untrusted feedback/webhook text screened; remaining content fenced in the user message. |
+| LLM02 Sensitive disclosure | Keys never in prompts. Frames/prompts leave to Gemini/OpenAI by design — require DPA. |
+| LLM03 Excessive agency | No tools; dispositions require triage HITL; structured JSON + confidence floor. |
+| LLM06 Unbounded consumption | Per-tenant + global Redis call budgets; optional cost halt; API per-IP rate limit. |
 
-Providers and models:
-
-- `LLM_PROVIDER_ORDER` (default `gemini,openai`): Gemini first, OpenAI optional fallback; providers without a key are skipped; `GEMINI_BASE_URL` and `OPENAI_BASE_URL` are honored (point at Headroom for compression).
-- Cheapest-first model rank (`integrations/model_rank.py`, Redis-cached, refreshed by the `models.refresh_rank` beat task every `MODEL_RANK_REFRESH_MS`, default 12h = twice daily): retries escalate through `rank[attempt]`, cross-provider failover only after all attempts of the earlier provider fail.
-- VLM analysis is ingest-driven, not scheduled; embeddings remain OpenAI-only (`text-embedding-3-small`) with a deterministic local fallback.
+Providers: `LLM_PROVIDER_ORDER` (default `gemini,openai`); Gemini first with
+optional OpenAI fallback. Embeddings for RAG remain embedding-model based with
+a deterministic local fallback when needed.
 
 ## Local development
 
-This repository is development-oriented: `docker-compose.yml` runs a full local stack with dedicated Postgres, Redis, and MinIO for isolated DX. Production does not use this Compose file.
+This repository is development-oriented: `docker-compose.yml` runs a full local
+stack with dedicated Postgres, Redis, and MinIO. Production does not use this
+Compose file.
 
 ```bash
 cp .env.example .env
 ./scripts/up.sh -d
 ```
 
-Hot reload is automatic for the API (uvicorn) and frontends (Vite); restart the worker after Celery changes. No `/etc/hosts` entries are required.
+Hot reload is automatic for the API (uvicorn) and frontends (Vite). No
+`/etc/hosts` entries are required.
 
 | Service | URL |
 | --- | --- |
@@ -85,19 +120,27 @@ Hot reload is automatic for the API (uvicorn) and frontends (Vite); restart the 
 | Triage MFE | http://localhost:8181 |
 | API | http://localhost:8800 (`/health`, `/health/db`) |
 
-Seeded data (2 companies with locations, agents, cameras and rule sets) is idempotent and runs on API start; seed credentials are listed in the seed output. Wipe with `docker compose down -v`.
+Seeded data is idempotent and runs on API start; wipe with
+`docker compose down -v`.
 
 ## Repository layout
 
 ```
-apps/api          FastAPI + Celery + Alembic (RLS multi-tenancy)
+apps/api          FastAPI + Alembic (RLS multi-tenancy, webhooks, WS)
 apps/admin        Admin app / SSO host + switcher
 apps/triage       Triage operator MFE
 apps/shared       Shared token + SSO helpers
 packages/ui       @argus/design-system (tokens, theme, components)
-docs/services     Service specs (stream-to-image, decision engine, notifications)
+docs/             SPEC, AI map, service handoffs, realtime triage UX
+docs/services/    stream-prep, prompt-eval, api
 ```
 
 ## Deployment
 
-Production images, shared data plane (Postgres/Redis/MinIO), DNS, TLS, and rollout are owned by the private `infra` repository. This app only notifies infra on push to `main` (`.github/workflows/infra.yml`) when repository variable `INFRA_ENABLED=true` and secret `INFRA_DISPATCH_TOKEN` are set. Infra builds reproducible release bundles (application SHA + infrastructure SHA) and rolls them out with health-checked Compose deployments. Production boots without development fixtures: a bootstrap job creates the platform root account and provisions the storage bucket. Redis DB index `/1` is a production isolation detail on the shared Redis; local Compose keeps its own Redis on `/0`.
+Production images, shared data plane (Postgres/Redis/MinIO), DNS, TLS, and
+rollout are owned by the private `infra` repository. This app only notifies
+infra on push to `main` (`.github/workflows/infra.yml`) when repository
+variable `INFRA_ENABLED=true` and secret `INFRA_DISPATCH_TOKEN` are set.
+Infra builds reproducible release bundles and rolls them out with
+health-checked Compose deployments. Redis DB index `/1` is a production
+isolation detail on the shared Redis; local Compose keeps its own Redis on `/0`.

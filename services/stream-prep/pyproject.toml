@@ -1,0 +1,23 @@
+[project]
+name = "argus-stream-prep"
+version = "0.1.0"
+description = "Argus stream-prep: sample, preprocess, and publish frame sequences"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.28.0",
+  "redis>=5.2.0",
+  "boto3>=1.35.0",
+  "Pillow>=10.4.0",
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.6.0",
+]
+
+[project.scripts]
+argus-stream-prep = "argus_stream_prep.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
