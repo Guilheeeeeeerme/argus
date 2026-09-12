@@ -9,8 +9,10 @@
   --bg-surface: #111313;
   --bg-overlay: #1a1c1c;
   --bg-input: #141616;
-  --bg-hover: #1c1e1e;
-  --bg-active: #222425;
+  --bg-hover: color-mix(in srgb, #d2d2d3 10%, #080a0a);
+  --bg-active: color-mix(in srgb, #d2d2d3 16%, #080a0a);
+  /* Linear secondary / list hover token (#D2D2D3), mixed for dark chrome */
+  --hover-secondary: var(--bg-hover);
 
   /* Linear semantic aliases */
   --surface-base: var(--bg-page);
@@ -22,7 +24,7 @@
   --border-strong: #3a3c3c;
   --border-default: var(--border);
 
-  /* Text — WCAG AA on dark surfaces (≥ 4.5:1) */
+  /* Text — WCAG AA on dark surfaces (≥ 4.5:1); heading-1 ref #E2E4E3 */
   --text-primary: #e2e4e3;
   --text-secondary: #b2b3b3;
   --text-muted: #8a8c8c;
@@ -48,51 +50,62 @@
   --color-danger-hover: #f2555a;
   --color-focus: #5e6ad2;
 
-  /* Spacing — 4px grid */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  /* Spacing — 4px grid; preferred Linear scale + default gap 5px */
+  --space-1: 0.25rem; /* 4px */
+  --space-gap: 0.3125rem; /* 5px — default gap */
+  --gap: var(--space-gap);
+  --space-2: 0.5rem; /* 8px */
+  --space-11: 0.6875rem; /* 11px */
+  --space-3: 0.75rem; /* 12px */
+  --space-13: 0.8125rem; /* 13px */
+  --space-14: 0.875rem; /* 14px */
+  --space-4: 1rem; /* 16px */
+  --space-19: 1.1875rem; /* 19px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
   --space-xs: var(--space-1);
   --space-sm: var(--space-2);
   --space-md: var(--space-4);
   --space-lg: var(--space-6);
   --space-xl: var(--space-8);
 
-  /* Radius — Linear scale */
+  /* Radius — Linear scale: 6px, 8px (default 6px) */
   --radius-sm: 0.375rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
 
-  /* Typography — Inter */
+  /* Typography — Inter; body 17px/400; heading-1 60px/700 */
   --font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-size-caption: 0.75rem;
-  --font-size-sm: 0.8125rem;
-  --font-size-md: 0.875rem;
-  --font-size-body: 0.9375rem;
-  --font-size-lg: 1.0625rem;
-  --font-size-title: 1.25rem;
-  --font-size-display: 3.75rem;
+  --font-size-caption: 0.5625rem; /* 9px */
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.8125rem; /* 13px */
+  --font-size-md: 0.875rem; /* 14px */
+  --font-size-body-sm: 0.9375rem; /* 15px */
+  --font-size-body-md: 1rem; /* 16px */
+  --font-size-body: 1.0625rem; /* 17px */
+  --font-size-lg: 1.0625rem; /* 17px */
+  --font-size-title: 1.25rem; /* app chrome page title */
+  --font-size-display: 3.75rem; /* 60px heading-1 */
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 700;
   --line-height: 1.5;
-  --font: var(--font-size-md) / var(--line-height) var(--font-family);
+  --font: var(--font-size-body) / var(--line-height) var(--font-family);
 
-  /* Layout */
-  --header-height: 3.25rem;
+  /* Layout — 1920px base viewport */
+  --viewport-base: 120rem;
+  --header-height: 3.9375rem; /* ~63px Linear header */
   --sidebar-width: 13rem;
   --content-max: 68.75rem;
   --auth-max: 25rem;
-  --border-width: 0.0625rem;
-  --outline-width: 0.125rem; /* 2px — Linear focus */
+  --border-width: 0.0625rem; /* 1px */
+  --outline-width: 0.125rem; /* 2px — Linear focus #5E6AD2 */
   --outline-offset: 0.125rem; /* 2px */
   --control-height-md: 2rem;
   --control-height-sm: 1.75rem;
   --icon-size: 1rem;
+  --size-status-dot: 0.5rem;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -109,23 +122,24 @@
 
   --bg-page: #f4f5f5;
   --bg-surface: #ffffff;
-  --bg-overlay: #ffffff;
+  --bg-overlay: #e3e3e6;
   --bg-input: #f0f1f1;
-  --bg-hover: #d2d2d3; /* Linear secondary hover */
+  --bg-hover: #d2d2d3; /* Linear secondary / list hover */
   --bg-active: #e4e5e5;
+  --hover-secondary: #d2d2d3;
 
-  --border: #e0e1e1;
+  --border: #b0b1b1; /* border-default */
   --border-strong: #c8c9c9;
   --border-default: var(--border);
 
   --surface-base: var(--bg-page);
-  --surface-raised: var(--bg-surface);
+  --surface-raised: #d2d2d3;
   --surface-overlay: var(--bg-overlay);
 
-  --text-primary: #1a1c1c;
+  --text-primary: #2d2e30;
   --text-secondary: #5c5c5c;
-  --text-muted: #8a8c8c;
-  --text-tertiary: var(--text-muted);
+  --text-muted: #444749;
+  --text-tertiary: #444749;
   --text-accent: #5e6ad2;
   --text-on-accent: #ffffff;
 
@@ -155,7 +169,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
+  gap: var(--gap);
   border: var(--border-width) solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -163,7 +177,6 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
   line-height: 1.2;
-  transition: background 150ms ease-out, opacity 150ms ease-out, border-color 150ms ease-out;
   white-space: nowrap;
 }
 
@@ -184,7 +197,7 @@
 
 .argus-btn--sm {
   min-height: var(--control-height-sm);
-  padding: 0.3125rem var(--space-2);
+  padding: var(--gap) var(--space-2);
   font-size: var(--font-size-sm);
 }
 
@@ -198,13 +211,13 @@
 }
 
 .argus-btn--secondary {
-  background: var(--bg-hover);
+  background: var(--bg-input);
   color: var(--text-primary);
   border-color: var(--border);
 }
 
 .argus-btn--secondary:hover:not(:disabled) {
-  background: var(--bg-active);
+  background: var(--hover-secondary);
 }
 
 .argus-btn--danger {
@@ -222,20 +235,30 @@
 }
 
 .argus-btn--ghost:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--hover-secondary);
   color: var(--text-primary);
 }
 
 .argus-btn--icon {
+  box-sizing: border-box;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
   min-width: var(--control-height-md);
   padding-inline: var(--space-2);
+}
+
+.argus-icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  display: block;
+  flex-shrink: 0;
 }
 
 /* ——— Field ——— */
 .argus-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3125rem;
+  gap: var(--gap);
   margin-bottom: var(--space-4);
 }
 
@@ -261,10 +284,10 @@
 
 .argus-select {
   appearance: none;
-  padding-inline-end: 2.25rem;
+  padding-inline-end: var(--space-8);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath stroke='%238a8c8c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m4.5 6.5 3.5 3.5 3.5-3.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.625rem center;
+  background-position: right var(--space-11) center;
   background-size: var(--icon-size) var(--icon-size);
 }
 
@@ -307,12 +330,11 @@
 .argus-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.125rem var(--space-2);
+  padding: var(--gap) var(--space-2);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-caption);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
   line-height: 1.4;
 }
 
@@ -375,7 +397,7 @@
 .argus-header h1 {
   margin: 0;
   font-size: var(--font-size-title);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   text-wrap: balance;
 }
@@ -411,7 +433,6 @@
   margin: 0;
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -436,7 +457,7 @@
 .argus-sidenav__section {
   display: flex;
   flex-direction: column;
-  gap: 0.3125rem;
+  gap: var(--gap);
 }
 
 .argus-sidenav__section-label {
@@ -447,20 +468,20 @@
 
 .argus-sidenav__section .argus-select {
   font-size: var(--font-size-sm);
-  padding-block: 0.375rem;
+  padding-block: var(--gap);
 }
 
 .argus-sidenav__footer {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--gap);
 }
 
 .argus-shell-nav {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--gap);
 }
 
 .argus-shell-nav__item {
@@ -481,7 +502,7 @@
 }
 
 .argus-shell-nav__item:hover {
-  background: var(--bg-hover);
+  background: var(--hover-secondary);
   color: var(--text-primary);
 }
 
@@ -530,7 +551,7 @@
 }
 
 .argus-list-row:hover {
-  background: var(--bg-hover);
+  background: var(--hover-secondary);
   margin-inline: calc(var(--space-3) * -1);
   padding-inline: var(--space-3);
   border-radius: var(--radius-sm);
@@ -541,7 +562,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--gap);
 }
 
 .argus-list-row__title {
@@ -556,7 +577,7 @@
 
 .argus-list-row__actions {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--gap);
   flex-wrap: wrap;
 }
 
@@ -565,10 +586,11 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--gap);
   padding: var(--space-6) 0;
   color: var(--text-muted);
   font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
   text-wrap: pretty;
 }
 
@@ -600,10 +622,6 @@
 @media (prefers-reduced-motion: reduce) {
   .argus-skeleton {
     animation: none;
-  }
-
-  .argus-btn {
-    transition: none;
   }
 }
 
@@ -641,14 +659,15 @@
 .argus-dialog__body {
   margin: 0 0 var(--space-5);
   color: var(--text-secondary);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
   text-wrap: pretty;
 }
 
 .argus-dialog__actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--gap);
   flex-wrap: wrap;
 }
 
@@ -765,7 +784,7 @@
 .argus-user-menu__panel {
   position: absolute;
   inset-inline-end: 0;
-  top: calc(100% + 0.3125rem);
+  top: calc(100% + var(--gap));
   z-index: 50;
   width: 14rem;
   padding-block: var(--space-1);
@@ -789,7 +808,7 @@
 
 .argus-user-menu__label {
   display: block;
-  margin-bottom: 0.3125rem;
+  margin-bottom: var(--gap);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-medium);
   color: var(--text-muted);
@@ -797,7 +816,7 @@
 
 .argus-user-menu__select {
   font-size: var(--font-size-sm);
-  padding-block: 0.375rem;
+  padding-block: var(--gap);
 }
 
 .argus-user-menu__item {
@@ -814,8 +833,13 @@
 }
 
 .argus-user-menu__item:hover {
-  background: var(--bg-hover);
+  background: var(--hover-secondary);
   color: var(--text-primary);
+}
+
+.argus-user-menu__item:focus-visible {
+  outline: var(--outline-width) solid var(--color-focus);
+  outline-offset: var(--outline-offset);
 }
 
 @media (min-width: 48rem) {
@@ -903,17 +927,24 @@
 
 .argus-auth__brand {
   margin: 0 0 var(--space-2);
-  font-size: clamp(2rem, 8vw, var(--font-size-display));
+  font-size: var(--font-size-display);
   font-weight: var(--font-weight-bold);
   line-height: 1.05;
   color: var(--text-primary);
   text-wrap: balance;
 }
 
+@media (max-width: 30rem) {
+  .argus-auth__brand {
+    font-size: clamp(2rem, 12vw, var(--font-size-display));
+  }
+}
+
 .argus-auth__subtitle {
   margin: 0 0 var(--space-5);
   color: var(--text-secondary);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
   text-wrap: pretty;
 }
 
@@ -966,15 +997,15 @@
 .argus-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--gap);
   font-size: var(--font-size-sm);
   color: var(--text-muted);
 }
 
 .argus-status__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
+  width: var(--size-status-dot);
+  height: var(--size-status-dot);
+  border-radius: var(--radius-lg);
   background: var(--text-muted);
   flex-shrink: 0;
 }

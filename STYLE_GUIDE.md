@@ -30,15 +30,15 @@ Import from `@argus/design-system` only.
 | Surface | `--bg-page` / `--surface-base` | `#080A0A` dark base |
 | Surface | `--bg-surface` / `--surface-raised` | Cards / raised |
 | Surface | `--bg-overlay` / `--surface-overlay` | Dialogs / menus |
-| Surface | `--bg-input` / `--bg-hover` | Controls & hover (light hover `#D2D2D3`) |
+| Surface | `--bg-input` / `--hover-secondary` | Controls; list/secondary hover `#D2D2D3` |
 | Border | `--border` / `--border-default` | 1px separators |
-| Text | `--text-primary` (`#E2E4E3`) / `--text-secondary` / `--text-muted` | AA contrast |
+| Text | `--text-primary` (`#E2E4E3` dark) / `--text-secondary` / `--text-muted` | AA contrast |
 | Triage | `--color-open` / `--confirmed` / `--dismissed` / `--false-positive` | Case states |
 | Action | `--color-primary` (`#5E6AD2`) / `--color-danger` | Linear accent |
 | Focus | `--color-focus`, `--outline-width/offset` (2px) | Focus ring |
-| Spacing | `--space-1`…`--space-8` (4px grid) | Default gap `--space-1` (4px) / `--space-2` (8px) |
+| Spacing | `--space-*` (4px grid) + `--gap` (5px default) | Prefer 5/11/12/13/14/16/19/20 |
 | Radius | `--radius-sm/md` = 6px, `--radius-lg` = 8px | |
-| Type | Inter 400/500/700; display 60px; body ~15–17px | |
+| Type | Inter 400/500/700; heading-1 60px; body 17px | |
 
 ## Components
 
