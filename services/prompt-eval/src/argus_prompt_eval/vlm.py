@@ -21,6 +21,8 @@ from argus_prompt_eval.config import settings
 logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_SECONDS = 60
+# Cap output tokens so one request cannot emit an unbounded response (LLM06).
+MAX_OUTPUT_TOKENS = 2_048
 
 
 @runtime_checkable
@@ -70,7 +72,10 @@ class GeminiVLMClient:
         payload = {
             "system_instruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"role": "user", "parts": user_parts}],
-            "generationConfig": {"responseMimeType": "application/json"},
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "maxOutputTokens": MAX_OUTPUT_TOKENS,
+            },
         }
         response = httpx.post(
             f"{root}/{used_model}:generateContent",
@@ -101,6 +106,7 @@ class OpenAIVLMClient:
         client = OpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url or None,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
         user_content: list[dict[str, Any]] = []
         if user_context:
@@ -115,14 +121,14 @@ class OpenAIVLMClient:
             }
         )
         for uri in frame_uris:
-            # Prefer data URLs so OpenAI does not need MinIO network reachability.
+            # Always inline. Handing a raw URL to the provider would make its
+            # fetcher a confused deputy for any host we did not allowlist, and
+            # would leak which frames we request to that host (LLM01/LLM10).
             if uri.startswith("data:"):
                 image_url = uri
-            elif uri.startswith("s3://"):
+            else:
                 mime_type, data = _inline_frame(uri)
                 image_url = f"data:{mime_type};base64,{data}"
-            else:
-                image_url = uri
             user_content.append(
                 {"type": "image_url", "image_url": {"url": image_url}}
             )
@@ -134,6 +140,7 @@ class OpenAIVLMClient:
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
+            max_completion_tokens=MAX_OUTPUT_TOKENS,
         )
         raw = response.choices[0].message.content or "{}"
         return json.loads(raw)

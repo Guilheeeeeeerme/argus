@@ -127,12 +127,13 @@ async def analyze_with_failover(
     user_context: str = "",
 ) -> tuple[str, dict[str, Any]]:
     """Try providers in order; raise after all fail or budget denial."""
-    denial = await check_llm_allowance(redis, company_id)
-    if denial is not None:
-        raise RuntimeError(f"LLM budget denied: {denial}")
-
     errors: list[str] = []
     for name, client in resolve_llm_chain():
+        # Every failover attempt is a separate billable call, so charge each
+        # one rather than the request as a whole (OWASP LLM06).
+        denial = await check_llm_allowance(redis, company_id)
+        if denial is not None:
+            raise RuntimeError(f"LLM budget denied: {denial}")
         try:
             result = client.analyze(
                 system_prompt=system_prompt,

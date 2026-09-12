@@ -141,17 +141,50 @@ def get_registry() -> GuardrailRegistry:
     raise RegistryError("No guardrail registry.yml found")
 
 
+_PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+
+# The payload must never be able to emit the fence markers itself: webhook
+# context containing END_UNTRUSTED_VLM_CONTEXT would otherwise close the data
+# block early and have its remaining text read as instructions (LLM01).
+_FENCE_MARKERS = re.compile(r"(BEGIN|END)_UNTRUSTED_VLM_CONTEXT")
+
+# Invisible to a human reviewer, visible to the model: Unicode tag block
+# (smuggled ASCII), zero-width characters, and bidi overrides. These are the
+# encoding axis of prompt injection in OWASP LLM01.
+_INVISIBLE = re.compile(
+    "[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff"
+    "\U000e0000-\U000e007f]"
+)
+
+
 def render_prompt(prompt_id: str, values: dict[str, str]) -> str:
+    """Substitute placeholders in a single pass.
+
+    Sequential per-key replacement would let an earlier value inject a literal
+    ``{{other_key}}`` that a later iteration then expands (LLM01).
+    """
     template = get_registry().get_prompt(prompt_id)
-    rendered = template
-    for key, value in values.items():
-        rendered = rendered.replace("{{" + key + "}}", value)
-    return rendered
+
+    def substitute(match: re.Match[str]) -> str:
+        return values.get(match.group(1), match.group(0))
+
+    return _PLACEHOLDER.sub(substitute, template)
+
+
+def neutralize(payload: str) -> str:
+    """Strip invisible characters and defang fence markers in untrusted text."""
+    return _FENCE_MARKERS.sub(
+        r"\1_UNTRUSTED_VLM_CONTEXT_NEUTRALIZED", _INVISIBLE.sub("", payload)
+    )
 
 
 def fence(payload: str) -> str:
     """Wrap untrusted payload in registry fence markers (data, not instructions)."""
-    return get_registry().get_prompt(FENCE_PROMPT_ID).replace("{{payload}}", payload)
+    return (
+        get_registry()
+        .get_prompt(FENCE_PROMPT_ID)
+        .replace("{{payload}}", neutralize(payload))
+    )
 
 
 def screen(text: str) -> list[PolicyHit]:

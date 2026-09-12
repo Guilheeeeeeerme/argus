@@ -17,6 +17,8 @@ from argus.services.storage import download_bytes
 logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_SECONDS = 60
+# Cap output tokens so one request cannot emit an unbounded response (LLM06).
+MAX_OUTPUT_TOKENS = 2_048
 
 
 def _gemini_api_root() -> str:
@@ -49,13 +51,16 @@ class GeminiVLMClient:
             }
         )
         for uri in frame_uris:
-            mime_type, data = _inline_frame(uri)
+            mime_type, data = inline_frame(uri)
             user_parts.append({"inline_data": {"mime_type": mime_type, "data": data}})
 
         payload = {
             "system_instruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"role": "user", "parts": user_parts}],
-            "generationConfig": {"responseMimeType": "application/json"},
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "maxOutputTokens": MAX_OUTPUT_TOKENS,
+            },
         }
         response = httpx.post(
             f"{_gemini_api_root()}/{used_model}:generateContent",
@@ -82,7 +87,7 @@ def _response_text_parts(body: dict[str, Any]) -> str:
     return joined
 
 
-def _inline_frame(uri: str) -> tuple[str, str]:
+def inline_frame(uri: str) -> tuple[str, str]:
     """Resolve a frame URI to inline (mime_type, base64) data.
 
     Allowed schemes: ``data:``, ``s3://`` (via storage client credentials),
@@ -176,3 +181,7 @@ def _download_frame_allowlisted(url: str) -> tuple[str, bytes]:
     if not mime_type.startswith("image/"):
         mime_type = "image/jpeg"
     return mime_type, response.content
+
+
+# Existing call sites and tests reference the private name.
+_inline_frame = inline_frame

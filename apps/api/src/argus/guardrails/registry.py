@@ -181,9 +181,21 @@ def get_registry() -> GuardrailRegistry:
     return registry
 
 
+_PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+
+
 def render_prompt(prompt_id: str, values: dict[str, str] | None = None) -> str:
+    """Substitute placeholders in a single pass.
+
+    Sequential per-key replacement would let an earlier value inject a literal
+    ``{{other_key}}`` that a later iteration then expands, so a DB-sourced
+    prompt fragment could reach into another slot (LLM01).
+    """
     template = get_registry().get_prompt(prompt_id)
-    rendered = template
-    for key, value in (values or {}).items():
-        rendered = rendered.replace("{{" + key + "}}", value)
-    return rendered
+    supplied = values or {}
+
+    def substitute(match: re.Match[str]) -> str:
+        name = match.group(1)
+        return supplied.get(name, match.group(0))
+
+    return _PLACEHOLDER.sub(substitute, template)
