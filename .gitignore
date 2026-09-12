@@ -11,3 +11,17 @@ dist/
 .tokensave/
 *.log
 celerybeat-schedule*
+
+# ---- AI / agent tooling state ----
+.agents/
+.aider*
+.claude/
+.codex/
+.cursor/
+.devin/
+.playwright-mcp/
+.serena/
+.superpowers/
+.tokensave/
+.windsurf/
+skills-lock.json
