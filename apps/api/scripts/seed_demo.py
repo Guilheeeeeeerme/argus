@@ -150,7 +150,6 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
                         id=user_id,
                         company_id=company.id,
                         email=email,
-                        name=name,
                         role=role,
                         password_hash=password_hash,
                     )
