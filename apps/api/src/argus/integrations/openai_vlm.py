@@ -6,8 +6,14 @@ import json
 from typing import Any, Protocol, runtime_checkable
 
 from argus.config import settings
+from argus.integrations.gemini_vlm import inline_frame
 
 BIOMETRICS_PROHIBITION = "NEVER identify individuals"
+
+# Hard ceilings on a single provider call; without them one request can hang a
+# worker and emit unbounded output tokens (OWASP LLM06).
+REQUEST_TIMEOUT_SECONDS = 60
+MAX_OUTPUT_TOKENS = 2_048
 
 
 @runtime_checkable
@@ -40,6 +46,7 @@ class OpenAIVLMClient:
         client = OpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url or None,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
         user_content: list[dict[str, Any]] = []
         if user_context:
@@ -54,10 +61,18 @@ class OpenAIVLMClient:
             }
         )
         for uri in frame_uris:
+            # Always inline. Handing a raw URL to the provider would make its
+            # fetcher a confused deputy for any host we did not allowlist, and
+            # would leak which frames we request to that host (LLM01/LLM10).
+            if uri.startswith("data:"):
+                image_url = uri
+            else:
+                mime_type, data = inline_frame(uri)
+                image_url = f"data:{mime_type};base64,{data}"
             user_content.append(
                 {
                     "type": "image_url",
-                    "image_url": {"url": uri},
+                    "image_url": {"url": image_url},
                 }
             )
 
@@ -68,6 +83,7 @@ class OpenAIVLMClient:
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
+            max_completion_tokens=MAX_OUTPUT_TOKENS,
         )
         raw = response.choices[0].message.content or "{}"
         return json.loads(raw)
