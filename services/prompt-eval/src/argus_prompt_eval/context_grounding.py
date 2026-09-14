@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus_prompt_eval.config import settings
 from argus_prompt_eval.db import ContextEvent, Feedback
-from argus_prompt_eval.guardrails import fence, is_blocked, screen
+from argus_prompt_eval.guardrails import fence, is_blocked, neutralize, screen
 from argus_prompt_eval.rag import retrieve_fp_feedback
 from argus_prompt_eval.temporal_window import ensure_aware
 
@@ -104,7 +104,9 @@ async def ground_context(
         query_embedding=query_embedding,
     )
 
-    raw_block = (
+    # Neutralize before screening so invisible-character obfuscation cannot
+    # carry a payload past the policy patterns (LLM01 encoding axis).
+    raw_block = neutralize(
         "Context events:\n"
         f"{_format_events(events)}\n"
         "Prior operator feedback:\n"
