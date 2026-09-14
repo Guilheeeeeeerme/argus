@@ -131,6 +131,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
   return (
     <AppShell
       brand="ARGUS"
+      brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
       meta={`${t('Triage')} · ${where}`}
       wide
       actions={

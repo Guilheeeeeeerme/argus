@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 
 interface AppShellProps {
   brand: string;
+  brandMark?: ReactNode;
   meta?: string;
   actions?: ReactNode;
   sidebar?: ReactNode;
@@ -11,6 +12,7 @@ interface AppShellProps {
 
 export function AppShell({
   brand,
+  brandMark,
   meta,
   actions,
   sidebar,
@@ -23,6 +25,7 @@ export function AppShell({
       <div className="argus-shell__column">
         <header className="argus-shell__top">
           <div className="argus-shell__brand">
+            {brandMark ? <span className="argus-shell__brand-mark">{brandMark}</span> : null}
             <span className="argus-shell__brand-name">{brand}</span>
             {meta ? <span className="argus-shell__brand-meta">{meta}</span> : null}
           </div>

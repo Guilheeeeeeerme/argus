@@ -429,6 +429,25 @@
   border-bottom: var(--border-width) solid var(--border);
 }
 
+.argus-sidenav__brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.argus-sidenav__brand-mark {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.argus-sidenav__brand-mark img {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
 .argus-sidenav__brand-name {
   margin: 0;
   font-size: var(--font-size-caption);
@@ -720,9 +739,22 @@
 
 .argus-shell__brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
   min-width: 0;
+}
+
+.argus-shell__brand-mark {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.argus-shell__brand-mark img {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
 }
 
 .argus-shell__brand-name {

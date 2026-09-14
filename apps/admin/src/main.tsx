@@ -121,6 +121,7 @@ function App({ initial }: { initial: Session }) {
   return (
     <AppShell
       brand="ARGUS"
+      brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
       meta={t('Administration')}
       actions={
         <>
@@ -141,7 +142,12 @@ function App({ initial }: { initial: Session }) {
         </>
       }
       sidebar={
-        <Sidenav brand="ARGUS" subtitle={t('Administration')} aria-label={t('Tenant context')}>
+        <Sidenav
+          brand="ARGUS"
+          brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
+          subtitle={t('Administration')}
+          aria-label={t('Tenant context')}
+        >
           {isPlatform(session.user.role) && (
             <div className="argus-sidenav__section">
               <label className="argus-sidenav__section-label" htmlFor="company-switcher">

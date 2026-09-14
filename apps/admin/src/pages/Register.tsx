@@ -62,7 +62,10 @@ export function Register({ onRegister }: { onRegister: (session: Session) => voi
           <ThemeToggle />
         </div>
         <Card>
-          <h1 className="argus-auth__brand">ARGUS</h1>
+          <h1 className="argus-auth__brand">
+            <img src="/brand.svg" alt="" width={28} height={28} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
+            ARGUS
+          </h1>
           <p className="argus-auth__subtitle">{t('Create your account.')}</p>
           <form onSubmit={submit}>
             <Input
