@@ -17,7 +17,7 @@ Multi-company vision platform (MVP): admin SSO host, near-realtime triage micro-
 
 ## Technical docs (GitHub Pages)
 
-**https://guilheeeeeeerme.github.io/promptdesk/** — shared ecosystem docs (`/en/argus/…`). Hosted from the PromptDesk Pages site (infra repo is private).
+**https://guilheeeeeeerme.github.io/ferredemo-docs/** — shared ecosystem docs (`/en/argus/…`). Hosted in dedicated repo [`ferredemo-docs`](https://github.com/Guilheeeeeeerme/ferredemo-docs).
 
 ## AI engineering (audit-honest)
 
