@@ -77,8 +77,33 @@ def upgrade() -> None:
         """
     )
     for table in TABLES:
-        op.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO argus_app")
+        op.execute(
+            f"""
+            DO $$
+            BEGIN
+              IF to_regclass('argus.{table}') IS NOT NULL THEN
+                EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON argus.{table} TO argus_app';
+              ELSIF to_regclass('public.{table}') IS NOT NULL THEN
+                EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.{table} TO argus_app';
+              END IF;
+            END
+            $$
+            """
+        )
     op.execute("GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO argus_app")
+    op.execute(
+        """
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'argus') THEN
+            GRANT USAGE ON ALL SEQUENCES IN SCHEMA argus TO argus_app;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA argus
+              GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO argus_app;
+          END IF;
+        END
+        $$
+        """
+    )
 
 
 def downgrade() -> None:
