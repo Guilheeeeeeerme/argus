@@ -3,8 +3,10 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from argus.llm_headroom import resolve_gemini_base_url, resolve_openai_base_url
 
 ServiceRole = Literal[
     "api-admin",
@@ -64,7 +66,7 @@ class Settings(BaseSettings):
         alias="S3_SECRET_ACCESS_KEY",
         default="minioadmin",
     )
-    s3_bucket_name: str = Field(alias="S3_BUCKET_NAME", default="argus-frames")
+    s3_bucket_name: str = Field(alias="S3_BUCKET_NAME", default="argus")
     s3_region: str = Field(alias="S3_REGION", default="us-east-1")
 
     auth0_domain: str = Field(alias="AUTH0_DOMAIN", default="dev.local")
@@ -110,6 +112,7 @@ class Settings(BaseSettings):
         default="https://generativelanguage.googleapis.com",
     )
     gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-2.5-flash-lite")
+    llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
     llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini,openai")
     model_rank_refresh_ms: int = Field(alias="MODEL_RANK_REFRESH_MS", default=43200000)
     model_rank_top_n: int = Field(alias="MODEL_RANK_TOP_N", default=3)
@@ -139,6 +142,21 @@ class Settings(BaseSettings):
     api_port: int = Field(alias="API_PORT", default=8000)
 
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
+
+    @model_validator(mode="after")
+    def _resolve_llm_base_urls(self) -> "Settings":
+        flag = "true" if self.llm_use_headroom else "false"
+        object.__setattr__(
+            self,
+            "gemini_base_url",
+            resolve_gemini_base_url(flag, self.gemini_base_url),
+        )
+        object.__setattr__(
+            self,
+            "openai_base_url",
+            resolve_openai_base_url(flag, self.openai_base_url),
+        )
+        return self
 
     @computed_field  # type: ignore[prop-decorator]
     @property

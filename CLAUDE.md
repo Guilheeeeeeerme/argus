@@ -13,7 +13,7 @@ Agent behavioral rules (including RTK): see [AGENTS.md](./AGENTS.md). UI: [STYLE
 | API | https://api.argus.ferredemo.dev |
 | Storage | https://api.storage.argus.ferredemo.dev |
 
-Production deploys are owned by the **infra** repo (Jenkins job `argus`).
+Production deploys are owned by the **infra** repo (Jenkins job `argus`). Prod Postgres is Supabase (schema `argus`, roles `argus` / `argus_app`); local Compose still uses Docker Postgres.
 
 ## Layout
 
@@ -42,9 +42,14 @@ Pipeline: `stream-gateway` → `stream-prep` → `prompt-eval` → `api` → adm
 ## Local
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local.docker   # standalone Compose Postgres
+cp .env.example .env                # then overwrite DB URLs for remote, or:
+bash ../infra/scripts/supabase_dev_tunnel.sh -f
+python3 ../infra/scripts/write_local_supabase_env.py   # writes .env → tunnel :15432
 ./scripts/up.sh -d
 ```
+
+**DB switch:** `.env` = remote Supabase Free (via tunnel/IPv6); `.env.local.docker` = hidden internal Compose Postgres. `statement_cache_size=0` is already set in the API for asyncpg.
 
 Typical ports: admin `:8180`, triage `:8181`, API `:8800`. Redis DB `/0` locally vs `/1` in prod.
 

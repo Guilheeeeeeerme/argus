@@ -9,7 +9,6 @@ from typing import BinaryIO
 import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
-from botocore.exceptions import ClientError
 
 from argus.config import settings
 
@@ -26,19 +25,13 @@ def _s3_client() -> BaseClient:
 
 
 async def ensure_bucket_exists(bucket: str | None = None) -> bool:
+    """Verify the pre-provisioned bucket exists (do not create on Supabase)."""
     bucket_name = bucket or settings.s3_bucket_name
     client = _s3_client()
 
     def _check() -> bool:
-        try:
-            client.head_bucket(Bucket=bucket_name)
-            return True
-        except ClientError as exc:
-            code = exc.response.get("Error", {}).get("Code")
-            if code in {"404", "NoSuchBucket", "NotFound"}:
-                client.create_bucket(Bucket=bucket_name)
-                return True
-            raise
+        client.head_bucket(Bucket=bucket_name)
+        return True
 
     return await asyncio.to_thread(_check)
 

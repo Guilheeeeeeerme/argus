@@ -53,8 +53,29 @@ def upgrade() -> None:
         $$
         """
     )
-    op.execute("GRANT CONNECT ON DATABASE argus TO argus_app")
+    # Portable across local DB name `argus` and Supabase DB name `postgres`.
+    op.execute(
+        """
+        DO $$
+        BEGIN
+          EXECUTE format('GRANT CONNECT ON DATABASE %I TO argus_app', current_database());
+        END
+        $$
+        """
+    )
     op.execute("GRANT USAGE ON SCHEMA public TO argus_app")
+    op.execute(
+        """
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'argus') THEN
+            GRANT USAGE ON SCHEMA argus TO argus_app;
+            GRANT USAGE ON ALL SEQUENCES IN SCHEMA argus TO argus_app;
+          END IF;
+        END
+        $$
+        """
+    )
     for table in TABLES:
         op.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO argus_app")
     op.execute("GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO argus_app")

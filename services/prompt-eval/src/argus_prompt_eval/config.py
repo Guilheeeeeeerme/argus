@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from argus_prompt_eval.llm_headroom import (
+    resolve_gemini_base_url,
+    resolve_openai_base_url,
+)
 
 
 class Settings(BaseSettings):
@@ -42,6 +47,7 @@ class Settings(BaseSettings):
     openai_base_url: str = Field(alias="OPENAI_BASE_URL", default="")
     openai_model: str = Field(alias="OPENAI_MODEL", default="gpt-4o")
 
+    llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
     llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini,openai")
     llm_rate_limit_per_minute: int = Field(alias="LLM_RATE_LIMIT_PER_MINUTE", default=20)
     llm_daily_budget: int = Field(alias="LLM_DAILY_BUDGET", default=500)
@@ -76,6 +82,21 @@ class Settings(BaseSettings):
     consumer_block_ms: int = Field(alias="CONSUMER_BLOCK_MS", default=2000)
 
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
+
+    @model_validator(mode="after")
+    def _resolve_llm_base_urls(self) -> "Settings":
+        flag = "true" if self.llm_use_headroom else "false"
+        object.__setattr__(
+            self,
+            "gemini_base_url",
+            resolve_gemini_base_url(flag, self.gemini_base_url),
+        )
+        object.__setattr__(
+            self,
+            "openai_base_url",
+            resolve_openai_base_url(flag, self.openai_base_url),
+        )
+        return self
 
 
 @lru_cache

@@ -29,6 +29,8 @@ def get_engine() -> AsyncEngine:
             pool_pre_ping=True,
             pool_size=10,
             max_overflow=20,
+            # Supavisor (even session mode) rejects prepared statement reuse.
+            connect_args={"statement_cache_size": 0},
         )
     return _engine
 
