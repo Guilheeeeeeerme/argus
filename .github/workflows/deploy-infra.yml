@@ -1,0 +1,25 @@
+# Ask the infra repo to build (GHCR) + deploy this commit on the VPS.
+# infra/.github/workflows/deploy.yml validates that the SHA is main's head.
+name: Deploy via infra
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-infra
+  cancel-in-progress: true
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: repository_dispatch → infra
+        env:
+          GH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository_owner }}/infra/dispatches \
+            -f event_type=deploy \
+            -F 'client_payload[project]=argus' \
+            -F 'client_payload[repository]=${{ github.repository }}' \
+            -F 'client_payload[sha]=${{ github.sha }}'
