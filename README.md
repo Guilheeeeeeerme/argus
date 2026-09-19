@@ -45,10 +45,7 @@ Brand mark: [`branding/argus.svg`](branding/argus.svg) — geometric many-eyed w
 ## Quick start
 
 ```bash
-# Standalone local DB: cp .env.example .env.local.docker && cp .env.local.docker .env
-# Remote Supabase (tunnel): bash ../infra/scripts/supabase_dev_tunnel.sh -f
-#                          python3 ../infra/scripts/write_local_supabase_env.py
-cp .env.example .env
+cp .env.example .env.local.docker && cp .env.local.docker .env   # Compose Postgres
 ./scripts/up.sh -d
 ```
 
@@ -62,4 +59,8 @@ cp .env.example .env
 
 - Agent map: [`CLAUDE.md`](CLAUDE.md) · [`AGENTS.md`](AGENTS.md) · [`STYLE_GUIDE.md`](STYLE_GUIDE.md)
 - Spec: [`docs/SPEC.md`](docs/SPEC.md)
-- Production deploy: private **infra** repo (Jenkins)
+- Production deploy: private **infra** repo (GitHub Actions → GHCR → VPS; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md))
+
+## Deployment
+
+Push to `main` → infra GitHub Actions builds to GHCR and deploys. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
