@@ -13,7 +13,7 @@ Agent behavioral rules (including RTK): see [AGENTS.md](./AGENTS.md). UI: [STYLE
 | API | https://api.argus.ferredemo.dev |
 | Storage | https://api.storage.argus.ferredemo.dev |
 
-Production deploys are owned by the **infra** repo (GitHub Actions `Deploy app` → GHCR → VPS). Prod Postgres is the VPS container `postgres-argus` (roles `argus` / `argus_app`); local Compose uses its own Docker Postgres. Argus never uses Supabase.
+Production deploys are owned by the **infra** repo (GitHub Actions `Deploy app` → GHCR → VPS). Prod Postgres is the VPS container `postgres-argus` (roles `argus` / `argus_app`); local Compose uses its own Docker Postgres. Argus never uses Supabase. Step-by-step: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 ## Layout
 

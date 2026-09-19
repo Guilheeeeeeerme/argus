@@ -59,4 +59,8 @@ cp .env.example .env.local.docker && cp .env.local.docker .env   # Compose Postg
 
 - Agent map: [`CLAUDE.md`](CLAUDE.md) · [`AGENTS.md`](AGENTS.md) · [`STYLE_GUIDE.md`](STYLE_GUIDE.md)
 - Spec: [`docs/SPEC.md`](docs/SPEC.md)
-- Production deploy: private **infra** repo (Jenkins)
+- Production deploy: private **infra** repo (GitHub Actions → GHCR → VPS; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md))
+
+## Deployment
+
+Push to `main` → infra GitHub Actions builds to GHCR and deploys. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
