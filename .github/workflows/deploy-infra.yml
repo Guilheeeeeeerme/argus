@@ -18,6 +18,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
         run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::INFRA_DISPATCH_TOKEN is missing (repo secret: fine-grained PAT with contents:write on infra for repository_dispatch). See infra docs/github-secrets-setup.md"
+            exit 1
+          fi
           gh api repos/${{ github.repository_owner }}/infra/dispatches \
             -f event_type=deploy \
             -F 'client_payload[project]=argus' \

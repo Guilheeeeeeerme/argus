@@ -13,7 +13,7 @@ Agent behavioral rules (including RTK): see [AGENTS.md](./AGENTS.md). UI: [STYLE
 | API | https://api.argus.ferredemo.dev |
 | Storage | https://api.storage.argus.ferredemo.dev |
 
-Production deploys are owned by the **infra** repo (GitHub Actions `Deploy app` → GHCR → VPS). Prod Postgres is the VPS container `postgres-argus` (roles `argus` / `argus_app`); local Compose uses its own Docker Postgres. Argus never uses Supabase. Step-by-step: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+Production deploys are owned by the **infra** repo (GitHub Actions is the sole supported control plane — do not use Jenkins; VPS removal is CONFIRM-gated in infra after GHA is proven — `Deploy app` → GHCR → VPS). Prod Postgres is the VPS container `postgres-argus` (roles `argus` / `argus_app`); local Compose uses its own Docker Postgres. Argus never uses Supabase. Step-by-step: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 ## Layout
 
@@ -63,7 +63,7 @@ PYTHONPATH=src pytest tests/
 alembic upgrade head
 ```
 
-CI / Jenkins subset (via infra): `tests/test_http_cors.py`, `tests/test_compose_contract.py`.
+CI pre-deploy subset (via infra `app_test.sh`): `tests/test_http_cors.py`, `tests/test_compose_contract.py`.
 
 ## Conventions
 

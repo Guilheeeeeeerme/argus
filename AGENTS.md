@@ -48,7 +48,7 @@ Coding-agent rules for this repository. Project map: [CLAUDE.md](./CLAUDE.md), [
 ## Scope
 
 - Work inside this monorepo (`apps/`, `packages/`, `services/`, `docs/`, `scripts/`).
-- Production Compose/Jenkins lives in **infra** — do not invent a parallel prod deploy path in this repo.
+- Production Compose and GitHub Actions workflows live in **infra** — GHA + GHCR is the sole supported production control plane (do not use Jenkins; VPS Jenkins removal is CONFIRM-gated in infra after GHA is proven). Do not invent a parallel prod deploy path in this repo.
 - Prefer targeted reads and the smallest sufficient change. Do not run broad refactors or full test matrices unless asked.
 
 ## Hard rules
