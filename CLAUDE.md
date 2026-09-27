@@ -63,7 +63,7 @@ PYTHONPATH=src pytest tests/
 alembic upgrade head
 ```
 
-CI / Jenkins subset (via infra): `tests/test_http_cors.py`, `tests/test_compose_contract.py`.
+CI pre-deploy subset (via infra `app_test.sh`): `tests/test_http_cors.py`, `tests/test_compose_contract.py`.
 
 ## Conventions
 
