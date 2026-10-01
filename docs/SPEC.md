@@ -21,7 +21,10 @@ stream-gateway (go2rtc)     — restreams stable media endpoints
 stream-prep                 — sample + preprocess frames → MinIO (TTL)
    │  Redis: frames:ready
    ▼
-prompt-eval                 — VLM multi-prompt eval; discard negatives
+edge-cv (optional)          — motion + tracks + sensor fusion
+   │  Redis: candidates:ready (EDGE_CV_ENABLED=true)
+   ▼
+prompt-eval                 — VLM + consensus; discard negatives
    │  Redis: detections:positive  (+ ContextEvent via context:events)
    ▼
 API + Triage MFE            — TriageCase HITL; Feedback → RAG
@@ -30,7 +33,11 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 1. A **Camera** at an **Establishment** is restreamed by **stream-gateway**.
 2. **stream-prep** samples frames, runs media preprocessing, stores ephemeral
    images in object storage (TTL), and publishes `frames:ready`.
-3. **prompt-eval** consumes `frames:ready` (and optional `context:events`),
+3. With `EDGE_CV_ENABLED=true`, **edge-cv** consumes `frames:ready` and
+   `context:events`, publishing ranked keyframes on `candidates:ready`.
+   **prompt-eval** consumes those candidates and gates results using sensor,
+   edge and VLM consensus. With the flag false it consumes `frames:ready`
+   directly. It also consumes optional `context:events` and
    evaluates the active **PromptSet**, discards negatives, and on positive hits
    creates a **Detection** (clip ≤ 10 minutes) + open **TriageCase**.
 4. Operators review cases in the triage MFE (`open` → `confirmed` /
@@ -71,7 +78,7 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 
 ## Redis contracts
 
-### `frames:ready` (stream-prep → prompt-eval)
+### `frames:ready` (stream-prep → edge-cv / legacy prompt-eval)
 
 | Field | Notes |
 |-------|-------|
@@ -81,9 +88,26 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 | `sequence_id` | Frame sequence / window id |
 | `captured_at` | Capture timestamp |
 | `frame_uris[]` | Temporary frame object URIs (MinIO) |
-| `preproc_meta` | Preprocessing metadata from stream-prep |
+| `preproc_meta` | Preprocessing metadata; `frames[].captured_at` preserves per-frame event time |
 
-### `context:events` (API webhooks → prompt-eval)
+### `candidates:ready` (edge-cv → prompt-eval)
+
+| Field | Notes |
+|-------|-------|
+| `company_id`, `establishment_id`, `camera_id` | Original scoped frame identity |
+| `sequence_id`, `captured_at` | Original sequence and capture time |
+| `frame_uris[]` | At most K=3 ranked keyframe URIs; VLM uses one |
+| `preproc_meta` | Selected-frame metadata |
+| `edge_score`, `motion_score` | Finite normalized scores |
+| `tracks[]` | Allowed-class track observations |
+| `sensor_ids[]`, `sensors[]` | Scoped sensors matched by event time |
+| `temporal_span_seconds` | Keyframe span |
+
+Lists/objects are JSON-encoded Redis values. Group `edge-cv` reads frames and
+context independently; group `prompt-eval` reads candidates when enabled.
+See [edge-fusion-architecture.md](edge-fusion-architecture.md) for defaults and rollback.
+
+### `context:events` (API webhooks → edge-cv / prompt-eval)
 
 | Field | Notes |
 |-------|-------|
@@ -93,6 +117,10 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 | `kind` | Event kind |
 | `payload` | Opaque JSON payload |
 | `received_at` | Ingest timestamp |
+| `occurred_at` | Aware event timestamp; defaults to ingestion time |
+| `role` | `trigger`, `filter`, `context` (default) |
+| `confidence?` | Finite normalized sensor confidence |
+| `context_event_id` | Persisted event identifier |
 | `webhook_id` | Source WebhookEndpoint |
 
 ### `detections:positive` (prompt-eval → API / WS consumers)
@@ -119,7 +147,7 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 
 ## Non-goals (MVP)
 
-- **Agent** (edge device / M2M agent model)
+- **Agent** (edge device / M2M agent model; VPS-colocated edge-cv is a service, not this entity)
 - **Sketch** / floor-plan editor MFE
 - **ROI** (drawn regions of interest)
 - **RuleSet** / Rule / shift scheduling

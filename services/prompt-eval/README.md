@@ -83,3 +83,31 @@ cd services/prompt-eval
 pip install -r requirements.txt
 PYTHONPATH=src:../../apps/api/src python -m argus_prompt_eval
 ```
+
+## Optional edge fusion
+
+`EDGE_CV_ENABLED=false` (default) keeps the existing `frames:ready` path.
+With `true`, prompt-eval consumes `candidates:ready` instead, in the same
+`prompt-eval` consumer group, and continues consuming `context:events`.
+Restart with the flag disabled to roll back.
+
+Candidates retain `company_id`, `establishment_id`, `camera_id`, `sequence_id`,
+`captured_at`, `frame_uris` and optional `preproc_meta`. They add `edge_score`,
+`motion_score`, JSON arrays `tracks`, `sensor_ids`, `sensors`, and
+`temporal_span_seconds`. Frames are ordered by descending track confidence;
+only the first frame reaches the VLM. Structural JSON (`sensors`, `edge_tracks`,
+`edge_score`) is screened and fenced as untrusted context. Malformed scores,
+nonfinite values and mismatched sensor tenants are discarded before evaluation.
+Sensor timestamps must be aware and within `EDGE_SENSOR_WINDOW_SECONDS` (default
+5 seconds) of a selected frame; `preproc_meta.frames` follows selected frame
+ordering. Full selected frames remain available for evidence retention.
+
+A filter sensor vetoes when `payload.reject=true` or `payload.accepted=false`.
+The strongest trigger confidence supplies the sensor score (missing confidence
+or no trigger contributes zero). Matched VLM hits must first pass the existing
+prompt confidence floor and negative-discard rules. The consensus gate then uses
+`0.25 * sensor + 0.35 * edge + 0.40 * model >= 0.55`, or an existing prompt hit
+with edge score at least `0.4`. `CONSENSUS_THRESHOLD` and
+`CONSENSUS_EDGE_MINIMUM` override these two thresholds. Negatives never persist a
+Detection/TriageCase or publish `detections:positive`. Provider routing, budgets,
+frame URI validation and guardrails remain in the existing VLM path.

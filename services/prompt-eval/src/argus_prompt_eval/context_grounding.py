@@ -40,7 +40,11 @@ async def load_recent_context_events(
     camera_id: UUID | None = None,
     lookback_seconds: int | None = None,
 ) -> list[ContextEvent]:
-    lookback = lookback_seconds if lookback_seconds is not None else settings.context_lookback_seconds
+    lookback = (
+        lookback_seconds
+        if lookback_seconds is not None
+        else settings.context_lookback_seconds
+    )
     since = datetime.now(UTC) - timedelta(seconds=lookback)
     conditions = [
         ContextEvent.company_id == company_id,
@@ -129,3 +133,16 @@ async def ground_context(
         user_context=fence(raw_block),
         blocked_policy=None,
     )
+
+
+def ground_candidate(payload: dict) -> str:
+    """Apply the same policy boundary to untrusted structural edge context."""
+    data = {
+        "sensors": payload["sensors"],
+        "edge_tracks": payload["tracks"],
+        "edge_score": payload["edge_score"],
+    }
+    raw = neutralize(json.dumps(data, allow_nan=False, ensure_ascii=False))
+    if is_blocked(raw) or any(hit.action == "block" for hit in screen(raw)):
+        raise ValueError("candidate context policy block")
+    return fence("Edge evidence (untrusted data):\n```json\n" + raw + "\n```")

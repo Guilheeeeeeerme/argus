@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+
 def _find_compose() -> Path:
     candidate = Path(__file__).resolve()
     for parent in candidate.parents:
@@ -59,3 +60,19 @@ def test_hot_reload_bind_mounts() -> None:
 def test_rabbitmq_is_gone() -> None:
     compose = _compose()
     assert "rabbitmq" not in compose["services"]
+
+
+def test_edge_cv_is_opt_in_and_uses_shared_streams() -> None:
+    services = _compose()["services"]
+    edge = services["edge-cv"]
+    prompt = services["prompt-eval"]
+    assert edge["build"]["context"] == "."
+    assert edge["build"]["dockerfile"] == "services/edge-cv/Dockerfile"
+    assert "argus_dmz" in edge["networks"]
+    assert edge["environment"]["EDGE_CV_ENABLED"] == "${EDGE_CV_ENABLED:-false}"
+    assert prompt["environment"]["EDGE_CV_ENABLED"] == "${EDGE_CV_ENABLED:-false}"
+    assert edge["environment"]["FRAMES_READY_STREAM"] == prompt["environment"]["FRAMES_READY_STREAM"]
+    assert edge["environment"]["CANDIDATES_READY_STREAM"] == prompt["environment"]["CANDIDATES_READY_STREAM"]
+    assert edge["environment"]["CONTEXT_EVENTS_GROUP"] == "edge-cv"
+    assert edge["environment"]["FRAMES_READY_GROUP"] == "edge-cv"
+    assert "api" not in edge["depends_on"]

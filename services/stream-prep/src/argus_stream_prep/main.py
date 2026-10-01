@@ -83,7 +83,12 @@ def _publish_window(
             frame_ttl_seconds=settings.frame_ttl_seconds,
         )
         frame_uris.append(uri)
-        metas.append(prepared.meta.to_dict())
+        meta = prepared.meta.to_dict()
+        sample_time = sample.captured_at
+        if sample_time.tzinfo is None:
+            sample_time = sample_time.replace(tzinfo=timezone.utc)
+        meta["captured_at"] = sample_time.isoformat()
+        metas.append(meta)
 
     captured_at = window.captured_at
     if captured_at.tzinfo is None:

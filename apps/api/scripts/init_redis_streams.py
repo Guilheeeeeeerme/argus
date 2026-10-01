@@ -15,6 +15,9 @@ from redis.exceptions import ResponseError  # noqa: E402
 from argus.services.redis import close_redis, get_redis  # noqa: E402
 
 STREAMS = (
+    ("frames:ready", "edge-cv"),
+    ("context:events", "edge-cv"),
+    ("candidates:ready", "prompt-eval"),
     ("frames:ready", "prompt-eval"),
     ("context:events", "prompt-eval"),
     ("detections:positive", "api-bridge"),

@@ -6,6 +6,9 @@ path. Product entities and Redis contracts live in `docs/SPEC.md`.
 | Concept | Service | Python module |
 |---------|---------|---------------|
 | Media preprocessing | stream-prep | `argus_stream_prep.preprocessing` |
+| Edge motion / tracking / keyframes | edge-cv | `pipeline`, `detector` |
+| Sensor time correlation | shared API / edge-cv | `argus.services.sensor_fusion` |
+| Weighted sensor / edge / VLM consensus | prompt-eval | `consensus` |
 | Temporal windowing | stream-prep + prompt-eval | `temporal_window` |
 | Multimodal VLM prompting | prompt-eval | `vlm` |
 | Structured output | prompt-eval | `structured_output` |

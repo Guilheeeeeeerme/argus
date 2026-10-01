@@ -49,7 +49,9 @@ class Settings(BaseSettings):
 
     llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
     llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini,openai")
-    llm_rate_limit_per_minute: int = Field(alias="LLM_RATE_LIMIT_PER_MINUTE", default=20)
+    llm_rate_limit_per_minute: int = Field(
+        alias="LLM_RATE_LIMIT_PER_MINUTE", default=20
+    )
     llm_daily_budget: int = Field(alias="LLM_DAILY_BUDGET", default=500)
     llm_global_daily_budget: int = Field(alias="LLM_GLOBAL_DAILY_BUDGET", default=5000)
     llm_daily_token_budget: int = Field(alias="LLM_DAILY_TOKEN_BUDGET", default=0)
@@ -64,6 +66,20 @@ class Settings(BaseSettings):
     # Dev-only mock VLM when no provider keys are set.
     auth0_use_mock: bool = Field(alias="AUTH0_USE_MOCK", default=False)
 
+    edge_cv_enabled: bool = Field(alias="EDGE_CV_ENABLED", default=False)
+    candidates_stream: str = Field(
+        alias="CANDIDATES_READY_STREAM", default="candidates:ready"
+    )
+    sensor_fusion_window_seconds: float = Field(
+        alias="EDGE_SENSOR_WINDOW_SECONDS", default=5, ge=0, allow_inf_nan=False
+    )
+    consensus_threshold: float = Field(
+        alias="CONSENSUS_THRESHOLD", default=0.55, ge=0, le=1
+    )
+    consensus_edge_minimum: float = Field(
+        alias="CONSENSUS_EDGE_MINIMUM", default=0.4, ge=0, le=1
+    )
+
     frames_stream: str = Field(alias="FRAMES_READY_STREAM", default="frames:ready")
     frames_group: str = Field(alias="FRAMES_READY_GROUP", default="prompt-eval")
     context_stream: str = Field(alias="CONTEXT_EVENTS_STREAM", default="context:events")
@@ -74,9 +90,7 @@ class Settings(BaseSettings):
 
     confidence_floor: float = Field(alias="PROMPT_EVAL_CONFIDENCE_FLOOR", default=0.5)
     max_clip_seconds: int = Field(alias="MAX_CLIP_SECONDS", default=600)
-    context_lookback_seconds: int = Field(
-        alias="CONTEXT_LOOKBACK_SECONDS", default=900
-    )
+    context_lookback_seconds: int = Field(alias="CONTEXT_LOOKBACK_SECONDS", default=900)
     rag_limit: int = Field(alias="RAG_LIMIT", default=5)
     consumer_batch_size: int = Field(alias="CONSUMER_BATCH_SIZE", default=5)
     consumer_block_ms: int = Field(alias="CONSUMER_BLOCK_MS", default=2000)
@@ -84,7 +98,7 @@ class Settings(BaseSettings):
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
 
     @model_validator(mode="after")
-    def _resolve_llm_base_urls(self) -> "Settings":
+    def _resolve_llm_base_urls(self) -> Settings:
         flag = "true" if self.llm_use_headroom else "false"
         object.__setattr__(
             self,
