@@ -8,6 +8,9 @@ from argus.services.redis import xadd
 
 FRAMES_READY_STREAM = "frames:ready"
 CONTEXT_EVENTS_STREAM = "context:events"
+CANDIDATES_READY_STREAM = "candidates:ready"
+CANDIDATES_READY_CONSUMER_GROUP = "prompt-eval"
+EDGE_CV_CONSUMER_GROUP = "edge-cv"
 DETECTIONS_POSITIVE_STREAM = "detections:positive"
 DETECTIONS_POSITIVE_GROUP = "api-bridge"
 

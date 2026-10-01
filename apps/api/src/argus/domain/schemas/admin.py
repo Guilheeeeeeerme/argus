@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 
 
 class CreateCompanyRequest(BaseModel):
@@ -176,6 +176,9 @@ class WebhookEndpointResponse(BaseModel):
 
 class InboundWebhookRequest(BaseModel):
     kind: str
+    confidence: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    role: Literal["trigger", "filter", "context"] = "context"
+    occurred_at: AwareDatetime | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
     establishment_id: UUID | None = None
     camera_id: UUID | None = None

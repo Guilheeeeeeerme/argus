@@ -6,10 +6,10 @@ Schema for prompt hits; invalid shapes are rejected, never stored as detections.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
-
 
 PROMPT_HITS_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -36,7 +36,7 @@ PROMPT_HITS_JSON_SCHEMA: dict[str, Any] = {
 
 class PromptHit(BaseModel):
     prompt_id: str
-    matched: bool
+    matched: bool = Field(strict=True)
     confidence: float = Field(ge=0.0, le=1.0)
     rationale: str = ""
 
@@ -44,13 +44,18 @@ class PromptHit(BaseModel):
     @classmethod
     def _clamp_confidence(cls, value: Any) -> float:
         try:
-            return max(0.0, min(1.0, float(value)))
-        except (TypeError, ValueError):
-            return 0.0
+            if isinstance(value, bool):
+                raise TypeError("boolean confidence")
+            score = float(value)
+            if not math.isfinite(score):
+                raise ValueError("nonfinite confidence")
+            return max(0.0, min(1.0, score))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("invalid confidence") from exc
 
 
 class PromptEvalResult(BaseModel):
-    any_match: bool
+    any_match: bool = Field(strict=True)
     summary: str = ""
     prompt_hits: list[PromptHit] = Field(default_factory=list)
 

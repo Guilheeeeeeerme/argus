@@ -142,6 +142,9 @@ services:
       MAX_CLIP_SECONDS: ${MAX_CLIP_SECONDS:-600}
       CONTEXT_LOOKBACK_SECONDS: ${CONTEXT_LOOKBACK_SECONDS:-900}
       PROMPT_EVAL_CONFIDENCE_FLOOR: ${PROMPT_EVAL_CONFIDENCE_FLOOR:-0.5}
+      EDGE_CV_ENABLED: ${EDGE_CV_ENABLED:-false}
+      CANDIDATES_READY_STREAM: candidates:ready
+      EDGE_SENSOR_WINDOW_SECONDS: ${EDGE_SENSOR_WINDOW_SECONDS:-5}
       FRAMES_READY_STREAM: frames:ready
       FRAMES_READY_GROUP: prompt-eval
       CONTEXT_EVENTS_STREAM: context:events
@@ -160,6 +163,41 @@ services:
         condition: service_completed_successfully
       api:
         condition: service_started
+    restart: unless-stopped
+
+  edge-cv:
+    build:
+      context: .
+      dockerfile: services/edge-cv/Dockerfile
+      network: host
+    container_name: argus-edge-cv
+    environment:
+      EDGE_CV_ENABLED: ${EDGE_CV_ENABLED:-false}
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_BUCKET_NAME: argus-frames
+      S3_REGION: us-east-1
+      FRAMES_READY_STREAM: frames:ready
+      FRAMES_READY_GROUP: edge-cv
+      CONTEXT_EVENTS_STREAM: context:events
+      CONTEXT_EVENTS_GROUP: edge-cv
+      CANDIDATES_READY_STREAM: candidates:ready
+      EDGE_IDLE_FPS: ${EDGE_IDLE_FPS:-0.5}
+      EDGE_BURST_FPS: ${EDGE_BURST_FPS:-3}
+      EDGE_BURST_SECONDS: ${EDGE_BURST_SECONDS:-10}
+      EDGE_MOTION_THRESHOLD: ${EDGE_MOTION_THRESHOLD:-0.02}
+      EDGE_MAX_KEYFRAMES: ${EDGE_MAX_KEYFRAMES:-3}
+      EDGE_SENSOR_WINDOW_SECONDS: ${EDGE_SENSOR_WINDOW_SECONDS:-5}
+      EDGE_TENSORRT_ENABLED: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks: [argus_dmz]
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   admin:
