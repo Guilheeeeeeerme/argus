@@ -104,6 +104,36 @@ def _publish_window(
     )
 
 
+def _publish_latest(
+    cfg: StreamConfig,
+    *,
+    jpeg_bytes: bytes,
+    captured_at: datetime,
+    storage: FrameStorage,
+    redis_out: RedisOut,
+    settings: Settings,
+) -> None:
+    """Overwrite ``latest.jpg`` and the Redis pointer for one camera (best effort)."""
+    if captured_at.tzinfo is None:
+        captured_at = captured_at.replace(tzinfo=timezone.utc)
+    stamp = captured_at.isoformat()
+    uri = storage.upload_latest(
+        company_id=cfg.company_id,
+        establishment_id=cfg.establishment_id,
+        camera_id=cfg.camera_id,
+        jpeg_bytes=jpeg_bytes,
+        captured_at=stamp,
+    )
+    redis_out.set_latest_frame(
+        camera_id=cfg.camera_id,
+        uri=uri,
+        captured_at=stamp,
+        company_id=cfg.company_id,
+        establishment_id=cfg.establishment_id,
+        ttl_seconds=settings.latest_frame_ttl_seconds,
+    )
+
+
 def run_loop(settings: Settings | None = None) -> None:
     """Poll stream configs, sample frames, window, upload, and XADD."""
     settings = settings or get_settings()
@@ -143,11 +173,13 @@ def run_loop(settings: Settings | None = None) -> None:
     last_sample_at: dict[str, float] = {}
 
     logger.info(
-        "stream-prep started gateway=%s api=%s fps=%.2f window=%d",
+        "stream-prep started gateway=%s api=%s fps=%.2f window=%d latest_frame=%s ttl=%ds",
         settings.stream_gateway_url,
         settings.api_internal_url,
         settings.sample_fps,
         settings.window_size,
+        settings.latest_frame_enabled,
+        settings.latest_frame_ttl_seconds,
     )
 
     while not stop:
@@ -174,9 +206,24 @@ def run_loop(settings: Settings | None = None) -> None:
                     raw,
                     contrast_normalize=settings.contrast_normalize,
                 )
+                captured_at = datetime.now(timezone.utc)
+                if settings.latest_frame_enabled:
+                    try:
+                        _publish_latest(
+                            cfg,
+                            jpeg_bytes=jpeg,
+                            captured_at=captured_at,
+                            storage=storage,
+                            redis_out=redis_out,
+                            settings=settings,
+                        )
+                    except Exception as exc:  # noqa: BLE001 — never block the pipeline
+                        logger.warning(
+                            "latest frame publish failed for camera %s: %s", cfg.camera_id, exc
+                        )
                 sample = FrameSample(
                     payload=PreparedFrame(jpeg_bytes=jpeg, meta=meta),
-                    captured_at=datetime.now(timezone.utc),
+                    captured_at=captured_at,
                     camera_id=cfg.camera_id,
                     company_id=cfg.company_id,
                     establishment_id=cfg.establishment_id,
