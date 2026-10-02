@@ -13,7 +13,7 @@ Agent behavioral rules (including RTK): see [AGENTS.md](./AGENTS.md). UI: [STYLE
 | API | https://api.argus.ferredemo.dev |
 | Storage | https://api.storage.argus.ferredemo.dev |
 
-Production deploys are owned by the **infra** repo (GitHub Actions is the sole supported control plane — do not use Jenkins; VPS removal is CONFIRM-gated in infra after GHA is proven — `Deploy app` → GHCR → VPS). Prod Postgres is the VPS container `postgres-argus` (roles `argus` / `argus_app`); local Compose uses its own Docker Postgres. Argus never uses Supabase. Step-by-step: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+Production deploys are owned by the **infra** repo (GitHub Actions is the sole supported control plane — do not use Jenkins; VPS removal is CONFIRM-gated in infra after GHA is proven — `Deploy app` → GHCR → VPS). Production Postgres remains on the existing Supabase database (schema `argus`, runtime role `argus_app`). Alembic uses `ADMIN_DATABASE_URL`; migrations run before rollout through infra GitHub Actions. Local Compose uses its own Docker Postgres. Step-by-step: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 ## Layout
 
@@ -47,7 +47,7 @@ cp .env.local.docker .env
 ./scripts/up.sh -d
 ```
 
-**DB:** local = Compose Postgres (`.env.local.docker`); prod = VPS `postgres-argus` (infra repo). No remote tunnel.
+**DB:** local = Compose Postgres (`.env.local.docker`); prod = existing Supabase Postgres, schema `argus`. Application hosting remains on the VPS.
 
 Typical ports: admin `:8180`, triage `:8181`, API `:8800`. Redis DB `/0` locally vs `/1` in prod.
 
