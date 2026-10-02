@@ -25,6 +25,7 @@ Coding-agent rules for this repository. Project map: [CLAUDE.md](./CLAUDE.md), [
 - **Env**: copy `.env.example` → `.env`. Do not commit `.env`. Keep Redis DB index conventions (`/0` local, `/1` prod).
 - **Auth0**: MVP uses mock (`AUTH0_USE_MOCK`); do not switch to production Auth0 without an explicit task.
 - Local `docker-compose.yml` / `scripts/up.sh` are for development only — prod is infra-owned.
+- Production database remains on existing Supabase Postgres, schema `argus`; do not rewrite its URLs to VPS Postgres. Run reviewed Alembic migrations via infra before rollout.
 
 ## Verification
 

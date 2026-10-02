@@ -4,7 +4,8 @@ The optional `edge-cv` service runs beside the other services on the VPS, using
 CPU inference. It is a service, not an on-prem device agent. go2rtc remains the
 only media protocol translator; no vendor RTSP URL enters prompt-eval.
 Production Compose and GHCR deployment remain owned by the sibling infra repo.
-This change wires local Compose only.
+This change wires local Compose only. Production database migrations target the
+existing Supabase `argus` schema through infra before application rollout.
 
 ## Architecture choices
 

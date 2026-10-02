@@ -65,7 +65,9 @@ async def run_async_migrations() -> None:
         connect_args={"statement_cache_size": 0},
     )
 
-    async with connectable.connect() as connection:
+    # Schema discovery above starts a SQLAlchemy transaction before Alembic's
+    # context; own its commit here so successful migrations are not rolled back.
+    async with connectable.begin() as connection:
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()
