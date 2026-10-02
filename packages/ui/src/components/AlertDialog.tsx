@@ -8,6 +8,8 @@ interface AlertDialogProps {
   confirmLabel: string;
   cancelLabel: string;
   tone?: 'danger' | 'primary';
+  /** Confirm request in flight: confirm shows a spinner, cancel/Escape/backdrop are locked. */
+  busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -19,6 +21,7 @@ export function AlertDialog({
   confirmLabel,
   cancelLabel,
   tone = 'danger',
+  busy = false,
   onConfirm,
   onCancel,
 }: AlertDialogProps) {
@@ -29,17 +32,21 @@ export function AlertDialog({
   useEffect(() => {
     if (!open) return;
     cancelRef.current?.focus();
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || busy) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
     };
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open, onCancel]);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, busy, onCancel]);
 
   if (!open) return null;
 
@@ -48,13 +55,14 @@ export function AlertDialog({
       className="argus-dialog-backdrop"
       role="presentation"
       onMouseDown={e => {
-        if (e.target === e.currentTarget) onCancel();
+        if (!busy && e.target === e.currentTarget) onCancel();
       }}
     >
       <div
         className="argus-dialog"
         role="alertdialog"
         aria-modal="true"
+        aria-busy={busy || undefined}
         aria-labelledby={titleId}
         aria-describedby={descId}
       >
@@ -65,10 +73,14 @@ export function AlertDialog({
           {description}
         </p>
         <div className="argus-dialog__actions">
-          <Button ref={cancelRef} variant="ghost" onClick={onCancel}>
+          <Button ref={cancelRef} variant="ghost" onClick={onCancel} disabled={busy}>
             {cancelLabel}
           </Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>
+          <Button
+            variant={tone === 'danger' ? 'danger' : 'primary'}
+            onClick={onConfirm}
+            loading={busy}
+          >
             {confirmLabel}
           </Button>
         </div>
@@ -81,10 +93,12 @@ interface DialogProps {
   open: boolean;
   title: string;
   children: ReactNode;
+  /** Request in flight: Escape and backdrop clicks are ignored. */
+  busy?: boolean;
   onClose: () => void;
 }
 
-export function Dialog({ open, title, children, onClose }: DialogProps) {
+export function Dialog({ open, title, children, busy = false, onClose }: DialogProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -95,18 +109,22 @@ export function Dialog({ open, title, children, onClose }: DialogProps) {
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
     focusable?.focus();
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+      previouslyFocused?.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || busy) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-      previouslyFocused?.focus();
-    };
-  }, [open, onClose]);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, busy, onClose]);
 
   if (!open) return null;
 
@@ -115,7 +133,7 @@ export function Dialog({ open, title, children, onClose }: DialogProps) {
       className="argus-dialog-backdrop"
       role="presentation"
       onMouseDown={e => {
-        if (e.target === e.currentTarget) onClose();
+        if (!busy && e.target === e.currentTarget) onClose();
       }}
     >
       <div
@@ -123,6 +141,7 @@ export function Dialog({ open, title, children, onClose }: DialogProps) {
         className="argus-dialog"
         role="dialog"
         aria-modal="true"
+        aria-busy={busy || undefined}
         aria-labelledby={titleId}
       >
         <h2 id={titleId} className="argus-dialog__title">
