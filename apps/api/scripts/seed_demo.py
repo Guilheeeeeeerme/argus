@@ -44,7 +44,7 @@ USER_MANAGER_ID = uuid.UUID("99999999-9999-4999-8999-999999999999")
 USER_GUEST_ID = uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 WEBHOOK_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
-SANDBOX_ACCOUNT_ID = uuid.uuid5(ACCOUNT_DEMO_ID, "sandbox-account")
+SANDBOX_ACCOUNT_ID = uuid.uuid5(ACCOUNT_DEMO_ID, "sandbox-company")
 
 DEFAULT_PASSWORD = "Password123!"
 DEMO_WEBHOOK_TOKEN = "demo-webhook-token-change-me"
@@ -67,14 +67,14 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
     if account is None:
         account = Account(
             id=ACCOUNT_DEMO_ID,
-            name="Demo Account",
+            name="Demo Company",
             slug="demo-company",
         )
         session.add(account)
         await session.flush()
     ids["account_id"] = str(account.id)
 
-    if account.name == "Demo Account":
+    if account.name == "Demo Company":
         account.name = "Argus Public Camera Demo"
     account.settings = {
         **(account.settings or {}),
@@ -118,7 +118,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             )
             session.add(unit)
             await session.flush()
-        elif unit.name == "Demo Unit":
+        elif unit.name == "Demo Establishment":
             unit.name = item["site"]
             unit.address = "US-101, San Luis Obispo, California"
             unit.timezone = "America/Los_Angeles"
