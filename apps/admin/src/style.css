@@ -69,3 +69,21 @@
     padding: var(--space-4) var(--space-5);
   }
 }
+
+/* ——— Router shell ——— */
+.argus-admin-context .argus-field {
+  margin-bottom: var(--space-3);
+}
+
+.argus-admin-context__pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.argus-auth__brand-mark {
+  vertical-align: middle;
+  margin-right: var(--space-2);
+}
