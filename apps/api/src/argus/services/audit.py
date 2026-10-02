@@ -13,14 +13,14 @@ from argus.domain.models import AuditRecord
 async def write_audit_record(
     session: AsyncSession,
     *,
-    company_id: UUID,
+    account_id: UUID,
     event_type: str,
     payload: dict[str, Any],
     actor: str | None = None,
     triage_case_id: UUID | None = None,
 ) -> AuditRecord:
     record = AuditRecord(
-        company_id=company_id,
+        account_id=account_id,
         triage_case_id=triage_case_id,
         event_type=event_type,
         payload=payload,

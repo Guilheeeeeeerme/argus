@@ -9,7 +9,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 
 from argus.core.passwords import verify_password
 from argus.domain.enums import UserRole
-from argus.domain.models import Camera, ContextEvent, Establishment, WebhookEndpoint
+from argus.domain.models import Camera, ContextEvent, Unit, WebhookEndpoint
 from argus.domain.schemas.admin import ContextEventResponse, InboundWebhookRequest
 from argus.services.database import get_db, set_session_context
 from argus.services.redis import xadd
@@ -35,8 +35,9 @@ async def ingest_webhook(
     if not raw_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
 
+    response: ContextEventResponse | None = None
     async for session in get_db():
-        await set_session_context(session, company_id=None, role=UserRole.ROOT.value)
+        await set_session_context(session, account_id=None, role=UserRole.ROOT.value)
         endpoint = await session.get(WebhookEndpoint, endpoint_id)
         if endpoint is None or not endpoint.active:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook endpoint not found")
@@ -44,34 +45,34 @@ async def ingest_webhook(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
         await set_session_context(
-            session, company_id=endpoint.company_id, role=UserRole.MANAGER.value
+            session, account_id=endpoint.account_id, role=UserRole.MANAGER.value
         )
 
-        establishment_id = body.establishment_id or endpoint.establishment_id
-        if establishment_id is None:
+        unit_id = body.unit_id or endpoint.unit_id
+        if unit_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="establishment_id required",
+                detail="unit_id required",
             )
-        establishment = await session.get(Establishment, establishment_id)
-        if establishment is None or establishment.company_id != endpoint.company_id:
-            raise HTTPException(status_code=404, detail="Establishment not found")
+        unit = await session.get(Unit, unit_id)
+        if unit is None or unit.account_id != endpoint.account_id:
+            raise HTTPException(status_code=404, detail="Unit not found")
 
         camera_id = body.camera_id
         if camera_id is not None:
             camera = await session.get(Camera, camera_id)
             if (
                 camera is None
-                or camera.company_id != endpoint.company_id
-                or camera.establishment_id != establishment_id
+                or camera.account_id != endpoint.account_id
+                or camera.unit_id != unit_id
             ):
                 raise HTTPException(status_code=404, detail="Camera not found")
 
         now = datetime.now(UTC)
         event = ContextEvent(
-            company_id=endpoint.company_id,
+            account_id=endpoint.account_id,
             webhook_id=endpoint.id,
-            establishment_id=establishment_id,
+            unit_id=unit_id,
             camera_id=camera_id,
             kind=body.kind,
             payload=body.payload,
@@ -83,8 +84,8 @@ async def ingest_webhook(
         await xadd(
             CONTEXT_EVENTS_STREAM,
             {
-                "company_id": str(endpoint.company_id),
-                "establishment_id": str(establishment_id),
+                "account_id": str(endpoint.account_id),
+                "unit_id": str(unit_id),
                 "camera_id": str(camera_id) if camera_id else "",
                 "kind": body.kind,
                 "payload": body.payload,
@@ -96,14 +97,17 @@ async def ingest_webhook(
                 "context_event_id": str(event.id),
             },
         )
-        return ContextEventResponse(
+        # Do not return inside the loop: get_db() commits after the yield.
+        response = ContextEventResponse(
             id=event.id,
             webhook_id=event.webhook_id,
-            establishment_id=event.establishment_id,
+            unit_id=event.unit_id,
             camera_id=event.camera_id,
             kind=event.kind,
             payload=event.payload,
             received_at=event.received_at,
         )
 
-    raise HTTPException(status_code=500, detail="Database unavailable")
+    if response is None:
+        raise HTTPException(status_code=500, detail="Database unavailable")
+    return response

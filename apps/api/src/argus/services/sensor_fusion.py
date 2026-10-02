@@ -36,7 +36,7 @@ class SensorFusionBuffer:
             return
         if any(
             not isinstance(event.get(key), str) or not event[key].strip()
-            for key in ("company_id", "establishment_id")
+            for key in ("account_id", "unit_id")
         ):
             return
         camera = event.get("camera_id")
@@ -68,19 +68,19 @@ class SensorFusionBuffer:
     def match(
         self,
         *,
-        company_id: str,
-        establishment_id: str,
+        account_id: str,
+        unit_id: str,
         camera_id: str,
         timestamp: datetime | str,
     ) -> list[dict]:
         target = _timestamp(timestamp)
-        if target is None or not company_id or not establishment_id:
+        if target is None or not account_id or not unit_id:
             return []
         return [
             deepcopy(event)
             for occurred_at, event in self._events
-            if event["company_id"] == company_id
-            and event["establishment_id"] == establishment_id
+            if event["account_id"] == account_id
+            and event["unit_id"] == unit_id
             and (not event.get("camera_id") or event["camera_id"] == camera_id)
             and abs((occurred_at - target).total_seconds()) <= self.window_seconds
         ]

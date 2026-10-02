@@ -17,7 +17,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from argus.domain.enums import UserRole
 from argus.services.sessions import get_session
-from argus.services.memberships import has_company_membership
+from argus.services.memberships import has_account_membership
 from argus.services.ws_events import EVENT_DETECTION_CREATED, EVENT_TRIAGE_UPDATED
 from argus.ws.gateway import manager
 
@@ -41,16 +41,16 @@ async def triage_websocket(websocket: WebSocket, token: str | None = None) -> No
     if session.role not in {UserRole.MANAGER.value, UserRole.OPERATOR.value}:
         await websocket.close(code=4003, reason="Insufficient role")
         return
-    if not session.company_id:
-        await websocket.close(code=4003, reason="Missing company_id")
+    if not session.account_id:
+        await websocket.close(code=4003, reason="Missing account_id")
         return
 
-    if not await has_company_membership(session.user_id, session.company_id):
-        await websocket.close(code=4003, reason="Company access denied")
+    if not await has_account_membership(session.user_id, session.account_id):
+        await websocket.close(code=4003, reason="Account access denied")
         return
     websocket.state.token = token
-    company_id = session.company_id
-    connected = await manager.connect(websocket, company_id=company_id, sub=session.user_id)
+    account_id = session.account_id
+    connected = await manager.connect(websocket, account_id=account_id, sub=session.user_id)
     if not connected:
         await websocket.close(code=4008, reason="Connection limit exceeded")
         return
@@ -59,7 +59,7 @@ async def triage_websocket(websocket: WebSocket, token: str | None = None) -> No
         json.dumps(
             {
                 "type": "ready",
-                "company_id": company_id,
+                "account_id": account_id,
                 "timestamp": datetime.now(UTC).isoformat(),
                 "payload": {
                     "role": session.role,
@@ -70,7 +70,7 @@ async def triage_websocket(websocket: WebSocket, token: str | None = None) -> No
         )
     )
 
-    heartbeat_task = asyncio.create_task(_heartbeat_loop(websocket, company_id))
+    heartbeat_task = asyncio.create_task(_heartbeat_loop(websocket, account_id))
     try:
         while True:
             raw = await websocket.receive_text()
@@ -81,9 +81,9 @@ async def triage_websocket(websocket: WebSocket, token: str | None = None) -> No
             if msg.get("type") == "pong":
                 continue
             if msg.get("type") == "subscribe":
-                payload_tid = msg.get("payload", {}).get("company_id")
-                if payload_tid and payload_tid != company_id:
-                    await websocket.close(code=4003, reason="Company mismatch")
+                payload_tid = msg.get("payload", {}).get("account_id")
+                if payload_tid and payload_tid != account_id:
+                    await websocket.close(code=4003, reason="Account mismatch")
                     break
     except WebSocketDisconnect:
         pass
@@ -92,12 +92,12 @@ async def triage_websocket(websocket: WebSocket, token: str | None = None) -> No
         await manager.disconnect(websocket)
 
 
-async def _heartbeat_loop(websocket: WebSocket, company_id: str) -> None:
+async def _heartbeat_loop(websocket: WebSocket, account_id: str) -> None:
     while True:
         await asyncio.sleep(30)
         envelope = {
             "type": "heartbeat",
-            "company_id": company_id,
+            "account_id": account_id,
             "timestamp": datetime.now(UTC).isoformat(),
             "payload": {},
         }

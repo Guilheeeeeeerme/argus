@@ -49,13 +49,19 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 async def set_session_context(
     session: AsyncSession,
     *,
-    company_id: UUID | None = None,
+    account_id: UUID | None = None,
     role: str | None = None,
+    company_id: UUID | None = None,
 ) -> None:
-    """Inject PostgreSQL GUCs consumed by RLS policies (uses set_config, not SET LOCAL)."""
+    """Inject PostgreSQL GUCs consumed by RLS policies (uses set_config, not SET LOCAL).
+
+    ``company_id`` is a deprecated alias of ``account_id`` kept for one release.
+    """
+    if account_id is None and company_id is not None:
+        account_id = company_id
     await session.execute(
-        text("SELECT set_config('app.current_company_id', :value, true)"),
-        {"value": str(company_id) if company_id is not None else ""},
+        text("SELECT set_config('app.current_account_id', :value, true)"),
+        {"value": str(account_id) if account_id is not None else ""},
     )
     if role is not None:
         await session.execute(
@@ -65,20 +71,23 @@ async def set_session_context(
 
 
 @asynccontextmanager
-async def company_session(
-    company_id: UUID | None,
+async def account_session(
+    account_id: UUID | None,
     role: str,
 ) -> AsyncGenerator[AsyncSession, None]:
     """Transactional session with RLS context applied."""
     factory = get_session_factory()
     async with factory() as session:
-        await set_session_context(session, company_id=company_id, role=role)
+        await set_session_context(session, account_id=account_id, role=role)
         try:
             yield session
             await session.commit()
         except Exception:
             await session.rollback()
             raise
+
+
+company_session = account_session  # deprecated alias (one release)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

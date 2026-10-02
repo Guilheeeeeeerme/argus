@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for ARGUS MVP multi-company surveillance data."""
+"""SQLAlchemy ORM models for ARGUS MVP multi-account surveillance data."""
 
 from __future__ import annotations
 
@@ -19,12 +19,17 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 
-from argus.domain.base import Base, CompanyScopedMixin, TimestampMixin, pg_enum
-from argus.domain.enums import FeedbackDisposition, TriageCaseState, UserRole
+from argus.domain.base import AccountScopedMixin, Base, TimestampMixin, pg_enum
+from argus.domain.enums import AccountKind, FeedbackDisposition, TriageCaseState, UserRole
 
 __all__ = [
+    "Account",
+    "AccountUser",
+    "AccountUserMembership",
+    "Unit",
+    # deprecated aliases (one release)
     "Company",
     "CompanyUser",
     "CompanyUserMembership",
@@ -41,14 +46,20 @@ __all__ = [
 ]
 
 
-class Company(Base, TimestampMixin):
-    __tablename__ = "companies"
+class Account(Base, TimestampMixin):
+    __tablename__ = "accounts"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(63), unique=True, nullable=False)
+    kind: Mapped[AccountKind] = mapped_column(
+        pg_enum(AccountKind, "account_kind"),
+        nullable=False,
+        default=AccountKind.COMPANY,
+        server_default="company",
+    )
     aggregation_window_secs: Mapped[int] = mapped_column(
         Integer, nullable=False, default=300, server_default="300"
     )
@@ -68,22 +79,22 @@ class Company(Base, TimestampMixin):
         nullable=False,
     )
 
-    establishments: Mapped[list["Establishment"]] = relationship(back_populates="company")
-    users: Mapped[list["CompanyUser"]] = relationship(back_populates="company")
+    units: Mapped[list["Unit"]] = relationship(back_populates="account")
+    users: Mapped[list["AccountUser"]] = relationship(back_populates="account")
 
 
-class CompanyUser(Base, TimestampMixin):
-    __tablename__ = "company_users"
+class AccountUser(Base, TimestampMixin):
+    __tablename__ = "account_users"
     __table_args__ = (
-        UniqueConstraint("email", name="uq_company_users_email"),
+        UniqueConstraint("email", name="uq_account_users_email"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    company_id: Mapped[uuid.UUID | None] = mapped_column(
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("companies.id", ondelete="SET NULL"),
+        ForeignKey("accounts.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -95,31 +106,39 @@ class CompanyUser(Base, TimestampMixin):
         nullable=False,
     )
 
-    company: Mapped[Company | None] = relationship(back_populates="users")
+    account: Mapped[Account | None] = relationship(back_populates="users")
 
-    memberships: Mapped[list["CompanyUserMembership"]] = relationship(
+    memberships: Mapped[list["AccountUserMembership"]] = relationship(
         lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
     )
 
+    company_id = synonym("account_id")  # deprecated alias (one release)
+
     @property
-    def company_ids(self) -> list[uuid.UUID]:
-        return [membership.company_id for membership in self.memberships]
+    def account_ids(self) -> list[uuid.UUID]:
+        return [membership.account_id for membership in self.memberships]
+
+    @property
+    def company_ids(self) -> list[uuid.UUID]:  # deprecated alias (one release)
+        return self.account_ids
 
 
-class CompanyUserMembership(Base):
-    __tablename__ = "company_user_memberships"
+class AccountUserMembership(Base):
+    __tablename__ = "account_user_memberships"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("company_users.id", ondelete="CASCADE"), primary_key=True
+        UUID(as_uuid=True), ForeignKey("account_users.id", ondelete="CASCADE"), primary_key=True
     )
-    company_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), primary_key=True,
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), primary_key=True,
         index=True,
     )
 
+    company_id = synonym("account_id")  # deprecated alias (one release)
 
-class Establishment(Base, CompanyScopedMixin, TimestampMixin):
-    __tablename__ = "establishments"
+
+class Unit(Base, AccountScopedMixin, TimestampMixin):
+    __tablename__ = "units"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -133,22 +152,23 @@ class Establishment(Base, CompanyScopedMixin, TimestampMixin):
         Boolean, nullable=False, default=True, server_default="true"
     )
 
-    company: Mapped[Company] = relationship(back_populates="establishments")
-    cameras: Mapped[list["Camera"]] = relationship(back_populates="establishment")
+    account: Mapped[Account] = relationship(back_populates="units")
+    cameras: Mapped[list["Camera"]] = relationship(back_populates="unit")
 
 
-class Camera(Base, CompanyScopedMixin, TimestampMixin):
+class Camera(Base, AccountScopedMixin, TimestampMixin):
     __tablename__ = "cameras"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    establishment_id: Mapped[uuid.UUID] = mapped_column(
+    unit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("establishments.id", ondelete="CASCADE"),
+        ForeignKey("units.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
+    establishment_id = synonym("unit_id")  # deprecated alias (one release)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     stream_url: Mapped[str | None] = mapped_column(Text(), nullable=True)
     stream_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -158,11 +178,11 @@ class Camera(Base, CompanyScopedMixin, TimestampMixin):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    establishment: Mapped[Establishment] = relationship(back_populates="cameras")
+    unit: Mapped[Unit] = relationship(back_populates="cameras")
     prompt_sets: Mapped[list["PromptSet"]] = relationship(back_populates="camera")
 
 
-class PromptSet(Base, CompanyScopedMixin, TimestampMixin):
+class PromptSet(Base, AccountScopedMixin, TimestampMixin):
     __tablename__ = "prompt_sets"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -182,7 +202,7 @@ class PromptSet(Base, CompanyScopedMixin, TimestampMixin):
     )
 
 
-class Prompt(Base, CompanyScopedMixin, TimestampMixin):
+class Prompt(Base, AccountScopedMixin, TimestampMixin):
     __tablename__ = "prompts"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -205,7 +225,7 @@ class Prompt(Base, CompanyScopedMixin, TimestampMixin):
     prompt_set: Mapped[PromptSet] = relationship(back_populates="prompts")
 
 
-class Detection(Base, CompanyScopedMixin):
+class Detection(Base, AccountScopedMixin):
     __tablename__ = "detections"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -217,12 +237,13 @@ class Detection(Base, CompanyScopedMixin):
         nullable=False,
         index=True,
     )
-    establishment_id: Mapped[uuid.UUID] = mapped_column(
+    unit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("establishments.id", ondelete="CASCADE"),
+        ForeignKey("units.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
+    establishment_id = synonym("unit_id")  # deprecated alias (one release)
     sequence_id: Mapped[str] = mapped_column(String(255), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
@@ -242,7 +263,7 @@ class Detection(Base, CompanyScopedMixin):
     )
 
 
-class TriageCase(Base, CompanyScopedMixin, TimestampMixin):
+class TriageCase(Base, AccountScopedMixin, TimestampMixin):
     __tablename__ = "triage_cases"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -273,7 +294,7 @@ class TriageCase(Base, CompanyScopedMixin, TimestampMixin):
     feedback: Mapped[list["Feedback"]] = relationship(back_populates="triage_case")
 
 
-class Feedback(Base, CompanyScopedMixin, TimestampMixin):
+class Feedback(Base, AccountScopedMixin, TimestampMixin):
     __tablename__ = "feedback"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -295,18 +316,19 @@ class Feedback(Base, CompanyScopedMixin, TimestampMixin):
     triage_case: Mapped[TriageCase] = relationship(back_populates="feedback")
 
 
-class WebhookEndpoint(Base, CompanyScopedMixin, TimestampMixin):
+class WebhookEndpoint(Base, AccountScopedMixin, TimestampMixin):
     __tablename__ = "webhook_endpoints"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    establishment_id: Mapped[uuid.UUID | None] = mapped_column(
+    unit_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("establishments.id", ondelete="CASCADE"),
+        ForeignKey("units.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
+    establishment_id = synonym("unit_id")  # deprecated alias (one release)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     active: Mapped[bool] = mapped_column(
@@ -316,7 +338,7 @@ class WebhookEndpoint(Base, CompanyScopedMixin, TimestampMixin):
     context_events: Mapped[list["ContextEvent"]] = relationship(back_populates="webhook")
 
 
-class ContextEvent(Base, CompanyScopedMixin):
+class ContextEvent(Base, AccountScopedMixin):
     __tablename__ = "context_events"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -328,12 +350,13 @@ class ContextEvent(Base, CompanyScopedMixin):
         nullable=False,
         index=True,
     )
-    establishment_id: Mapped[uuid.UUID | None] = mapped_column(
+    unit_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("establishments.id", ondelete="SET NULL"),
+        ForeignKey("units.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
+    establishment_id = synonym("unit_id")  # deprecated alias (one release)
     camera_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("cameras.id", ondelete="SET NULL"),
@@ -351,7 +374,7 @@ class ContextEvent(Base, CompanyScopedMixin):
     webhook: Mapped[WebhookEndpoint] = relationship(back_populates="context_events")
 
 
-class AuditRecord(Base, CompanyScopedMixin, TimestampMixin):
+class AuditRecord(Base, AccountScopedMixin, TimestampMixin):
     """Generic audit trail skeleton (no FK to dropped decision tables)."""
 
     __tablename__ = "audit_records"
@@ -368,3 +391,11 @@ class AuditRecord(Base, CompanyScopedMixin, TimestampMixin):
     event_type: Mapped[str] = mapped_column(String(63), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     actor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+# Deprecated class aliases (one release): infra bootstrap and external scripts
+# still import the Company/Establishment names.
+Company = Account
+CompanyUser = AccountUser
+CompanyUserMembership = AccountUserMembership
+Establishment = Unit

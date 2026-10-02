@@ -18,9 +18,9 @@ def test_demo_seed_is_complete_idempotent_and_preserves_edits():
     from argus.domain.base import Base
     from argus.domain.models import (
         Camera,
-        Company,
-        CompanyUser,
-        CompanyUserMembership,
+        Account,
+        AccountUser,
+        AccountUserMembership,
         Prompt,
     )
     from sqlalchemy import func, select, text
@@ -54,7 +54,7 @@ def test_demo_seed_is_complete_idempotent_and_preserves_edits():
             factory = async_sessionmaker(engine, expire_on_commit=False)
             async with factory() as session:
                 first = await seed.seed_demo(session)
-                user = await session.get(CompanyUser, seed.USER_MANAGER_ID)
+                user = await session.get(AccountUser, seed.USER_MANAGER_ID)
                 saved_password = user.password_hash
                 camera = await session.get(Camera, seed.CAMERA_DEMO_ID)
                 camera.stream_url = "rtsp://operator-edited.example.test/live"
@@ -65,11 +65,11 @@ def test_demo_seed_is_complete_idempotent_and_preserves_edits():
                 assert first == second
                 assert not any("password" in key or "token" in key for key in second)
                 for model, count in [
-                    (Company, 2),
+                    (Account, 2),
                     (Camera, 3),
                     (Prompt, 6),
-                    (CompanyUser, 2),
-                    (CompanyUserMembership, 3),
+                    (AccountUser, 2),
+                    (AccountUserMembership, 3),
                 ]:
                     assert (
                         await session.scalar(select(func.count()).select_from(model))

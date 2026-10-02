@@ -7,14 +7,14 @@ from sqlalchemy import select
 
 from argus.config import settings
 from argus.domain.enums import UserRole
-from argus.domain.models import CompanyUser
+from argus.domain.models import AccountUser
 from argus.integrations.auth0 import create_mock_m2m_token
 from argus.services.database import get_db, set_session_context
 from argus.services.sessions import SessionData, create_session
 
 router = APIRouter(prefix="/v1/dev", tags=["development"])
 
-DEMO_COMPANY_ID = "11111111-1111-4111-8111-111111111111"
+DEMO_ACCOUNT_ID = "11111111-1111-4111-8111-111111111111"
 DEMO_CAMERA_ID = "33333333-3333-4333-8333-333333333333"
 
 _PERSONA_ROLES = {
@@ -34,9 +34,9 @@ async def create_dev_session(persona: str) -> dict[str, str | None]:
     role = _PERSONA_ROLES.get(persona)
     if role is not None:
         async for session in get_db():
-            await set_session_context(session, company_id=None, role=UserRole.ROOT.value)
+            await set_session_context(session, account_id=None, role=UserRole.ROOT.value)
             user = await session.scalar(
-                select(CompanyUser).where(CompanyUser.role == role).order_by(CompanyUser.email)
+                select(AccountUser).where(AccountUser.role == role).order_by(AccountUser.email)
             )
         if user is None:
             raise HTTPException(status_code=404, detail="No seeded user for persona; run seed")
@@ -44,21 +44,21 @@ async def create_dev_session(persona: str) -> dict[str, str | None]:
             user_id=str(user.id),
             email=user.email,
             role=user.role.value,
-            company_id=str(user.company_id) if user.company_id else None,
+            account_id=str(user.account_id) if user.account_id else None,
         )
         token = await create_session(data)
         return {
             "persona": persona,
             "role": user.role.value,
-            "company_id": str(user.company_id) if user.company_id else None,
+            "account_id": str(user.account_id) if user.account_id else None,
             "token": token,
         }
 
     if persona == "edge":
         token = create_mock_m2m_token(
             sub="edge-device-demo-001@clients",
-            company_id=DEMO_COMPANY_ID,
+            account_id=DEMO_ACCOUNT_ID,
             camera_id=DEMO_CAMERA_ID,
         )
-        return {"persona": persona, "role": "edge", "company_id": DEMO_COMPANY_ID, "token": token}
+        return {"persona": persona, "role": "edge", "account_id": DEMO_ACCOUNT_ID, "token": token}
     raise HTTPException(status_code=404, detail="Unknown development persona")

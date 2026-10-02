@@ -36,8 +36,8 @@ def _publish_aws(event: dict[str, Any]) -> None:
         )
 
 
-async def publish_event(*, event_type: str, company_id: str, payload: dict[str, Any]) -> None:
-    event = {"type": event_type, "company_id": company_id, "payload": payload}
+async def publish_event(*, event_type: str, account_id: str, payload: dict[str, Any]) -> None:
+    event = {"type": event_type, "account_id": account_id, "payload": payload}
     if settings.event_transport == "log":
         logger.info("ARGUS_EVENT %s", json.dumps(event, sort_keys=True))
         return

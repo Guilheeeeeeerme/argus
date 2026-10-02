@@ -6,12 +6,12 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class InjectFrameReadyRequest(BaseModel):
-    company_id: UUID
-    establishment_id: UUID
+    account_id: UUID = Field(validation_alias=AliasChoices("account_id", "company_id"))
+    unit_id: UUID = Field(validation_alias=AliasChoices("unit_id", "establishment_id"))
     camera_id: UUID
     sequence_id: str | None = None
     captured_at: datetime | None = None

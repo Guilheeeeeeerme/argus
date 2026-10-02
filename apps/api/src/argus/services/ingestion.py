@@ -15,8 +15,8 @@ class IngestionService:
     async def accept_frames_ready(
         self,
         *,
-        company_id: UUID,
-        establishment_id: UUID,
+        account_id: UUID,
+        unit_id: UUID,
         camera_id: UUID,
         frame_uris: list[str] | None = None,
         sequence_id: str | None = None,
@@ -27,8 +27,8 @@ class IngestionService:
         seq = sequence_id or str(uuid4())
         await enqueue_frames_ready(
             {
-                "company_id": str(company_id),
-                "establishment_id": str(establishment_id),
+                "account_id": str(account_id),
+                "unit_id": str(unit_id),
                 "camera_id": str(camera_id),
                 "sequence_id": seq,
                 "captured_at": (captured_at or now).isoformat(),

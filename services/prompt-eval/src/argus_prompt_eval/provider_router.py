@@ -64,13 +64,13 @@ def resolve_llm_chain(s: Settings | None = None) -> list[tuple[str, VLMClient]]:
 
 async def check_llm_allowance(
     redis: Redis,
-    company_id: UUID | str | None = None,
+    account_id: UUID | str | None = None,
     *,
     s: Settings | None = None,
 ) -> str | None:
     """INCR fixed-window counters; returns denial reason or None when allowed."""
     target = s or settings
-    tenant = str(company_id) if company_id else "global"
+    tenant = str(account_id) if account_id else "global"
 
     minute_bucket = int(time.time() // 60)
     rate_key = f"{RATE_LIMIT_KEY_PREFIX}{tenant}:{minute_bucket}"
@@ -120,7 +120,7 @@ async def check_llm_allowance(
 async def analyze_with_failover(
     *,
     redis: Redis,
-    company_id: UUID,
+    account_id: UUID,
     system_prompt: str,
     frame_uris: list[str],
     output_schema: dict[str, Any],
@@ -131,7 +131,7 @@ async def analyze_with_failover(
     for name, client in resolve_llm_chain():
         # Every failover attempt is a separate billable call, so charge each
         # one rather than the request as a whole (OWASP LLM06).
-        denial = await check_llm_allowance(redis, company_id)
+        denial = await check_llm_allowance(redis, account_id)
         if denial is not None:
             raise RuntimeError(f"LLM budget denied: {denial}")
         try:

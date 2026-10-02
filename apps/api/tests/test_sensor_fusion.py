@@ -32,8 +32,8 @@ def test_invalid_sensor_fields_rejected(fields):
 
 def event(**fields):
     return {
-        "company_id": "tenant",
-        "establishment_id": "site",
+        "account_id": "tenant",
+        "unit_id": "site",
         "camera_id": "cam",
         "occurred_at": "2026-01-01T12:00:00+00:00",
         "kind": "door",
@@ -49,8 +49,8 @@ def buffer(**kwargs):
 
 def match(buf, **kwargs):
     return buf.match(
-        company_id="tenant",
-        establishment_id="site",
+        account_id="tenant",
+        unit_id="site",
         camera_id="cam",
         timestamp=kwargs.pop("timestamp", "2026-01-01T12:00:00Z"),
         **kwargs,
@@ -62,8 +62,8 @@ def test_matches_time_boundaries_and_scopes():
     for fields in [
         {},
         {"camera_id": ""},
-        {"company_id": "other"},
-        {"establishment_id": "other"},
+        {"account_id": "other"},
+        {"unit_id": "other"},
         {"camera_id": "other"},
         {"occurred_at": "2026-01-01T11:59:55Z"},
         {"occurred_at": "2026-01-01T12:00:05Z"},
@@ -87,8 +87,8 @@ def test_legacy_received_time_and_bounded_retention():
 @pytest.mark.parametrize(
     "fields",
     [
-        {"company_id": ""},
-        {"establishment_id": ""},
+        {"account_id": ""},
+        {"unit_id": ""},
         {"occurred_at": "bad"},
         {"occurred_at": "2026-01-01T12:00:00"},
         {"confidence": "nan"},
@@ -124,20 +124,20 @@ async def test_ingestion_publishes_sensor_fields_with_authenticated_scope(
     from uuid import uuid4
 
     from argus.api import hooks
-    from argus.domain.models import Camera, Establishment, WebhookEndpoint
+    from argus.domain.models import Camera, Unit, WebhookEndpoint
 
-    company, site, camera, endpoint_id = [uuid4() for _ in range(4)]
+    account, site, camera, endpoint_id = [uuid4() for _ in range(4)]
     endpoint = SimpleNamespace(
         id=endpoint_id,
-        company_id=company,
-        establishment_id=site,
+        account_id=account,
+        unit_id=site,
         token_hash="hash",
         active=True,
     )
     rows = {
         WebhookEndpoint: endpoint,
-        Establishment: SimpleNamespace(company_id=company),
-        Camera: SimpleNamespace(company_id=company, establishment_id=site),
+        Unit: SimpleNamespace(account_id=account),
+        Camera: SimpleNamespace(account_id=account, unit_id=site),
     }
 
     class Session:
@@ -174,8 +174,8 @@ async def test_ingestion_publishes_sensor_fields_with_authenticated_scope(
     )
     stream, fields = published[0]
     assert stream == "context:events"
-    assert fields["company_id"] == str(company)
-    assert fields["establishment_id"] == str(site)
+    assert fields["account_id"] == str(account)
+    assert fields["unit_id"] == str(site)
     assert fields["camera_id"] == str(camera)
     assert fields["context_event_id"] == str(result.id)
     assert fields["role"] == ("trigger" if explicit else "context")

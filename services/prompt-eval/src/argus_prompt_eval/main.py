@@ -19,7 +19,7 @@ from uuid import UUID
 from argus_prompt_eval.config import settings
 from argus_prompt_eval.consensus import ConsensusEngine
 from argus_prompt_eval.context_grounding import ground_candidate, ground_context
-from argus_prompt_eval.db import _USING_SHARED_MODELS, company_session
+from argus_prompt_eval.db import _USING_SHARED_MODELS, account_session
 from argus_prompt_eval.evidence_retention import retain_evidence
 from argus_prompt_eval.negative_discard import discard_sequence, should_discard
 from argus_prompt_eval.persist import find_positive, persist_positive
@@ -85,8 +85,8 @@ async def _handle_frames_ready(
     stream = (
         settings.candidates_stream if candidate is not None else settings.frames_stream
     )
-    company_id = UUID(payload["company_id"])
-    establishment_id = UUID(payload["establishment_id"])
+    account_id = UUID(payload["account_id"])
+    unit_id = UUID(payload["unit_id"])
     camera_id = UUID(payload["camera_id"])
     sequence_id = str(payload["sequence_id"])
     frame_uris = list(payload["frame_uris"])
@@ -104,9 +104,9 @@ async def _handle_frames_ready(
         return
 
     redis = get_redis()
-    async with company_session(company_id) as session:
+    async with account_session(account_id) as session:
         existing = await find_positive(
-            session, company_id=company_id, camera_id=camera_id, sequence_id=sequence_id
+            session, account_id=account_id, camera_id=camera_id, sequence_id=sequence_id
         )
         if existing is not None:
             detection, triage = existing
@@ -115,8 +115,8 @@ async def _handle_frames_ready(
             return
         grounded = await ground_context(
             session,
-            company_id=company_id,
-            establishment_id=establishment_id,
+            account_id=account_id,
+            unit_id=unit_id,
             camera_id=camera_id,
         )
         if grounded.blocked_policy is not None:
@@ -131,9 +131,9 @@ async def _handle_frames_ready(
         evaluated = await evaluate_prompt_set(
             session,
             redis,
-            company_id=company_id,
+            account_id=account_id,
             camera_id=camera_id,
-            establishment_id=establishment_id,
+            unit_id=unit_id,
             frame_uris=frame_uris[:1] if candidate is not None else frame_uris,
             user_context=grounded.user_context
             + ("\n" + candidate_context if candidate_context else ""),
@@ -197,7 +197,7 @@ async def _handle_frames_ready(
                 )
             ]
         evidence = retain_evidence(
-            company_id=company_id,
+            account_id=account_id,
             camera_id=camera_id,
             sequence_id=sequence_id,
             frame_uris=evidence_uris,
@@ -206,8 +206,8 @@ async def _handle_frames_ready(
         )
         detection, triage = await persist_positive(
             session,
-            company_id=company_id,
-            establishment_id=establishment_id,
+            account_id=account_id,
+            unit_id=unit_id,
             camera_id=camera_id,
             sequence_id=sequence_id,
             result=result,
@@ -241,8 +241,8 @@ async def _publish_positive(detection, triage, **metadata) -> None:
             "prompt_hits": detection.prompt_hits,
             "confidence": float(detection.confidence),
             "summary": detection.summary,
-            "company_id": str(detection.company_id),
-            "establishment_id": str(detection.establishment_id),
+            "account_id": str(detection.account_id),
+            "unit_id": str(detection.unit_id),
             "camera_id": str(detection.camera_id),
             "sequence_id": detection.sequence_id,
             "state": "open",
@@ -264,9 +264,9 @@ async def _handle_context_event(message_id: str, fields: dict[str, str]) -> None
     """
     parsed = parse_context_event(fields)
     logger.debug(
-        "context event kind=%s establishment=%s camera=%s",
+        "context event kind=%s unit=%s camera=%s",
         parsed.get("kind"),
-        parsed.get("establishment_id"),
+        parsed.get("unit_id"),
         parsed.get("camera_id"),
     )
     await xack(settings.context_stream, settings.context_group, message_id)

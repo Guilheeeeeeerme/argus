@@ -23,14 +23,14 @@ TOKEN_BUDGET_EXCEEDED = "token_budget_exceeded"
 COST_BUDGET_EXCEEDED = "cost_budget_exceeded"
 
 
-async def check_llm_allowance(company_id: UUID | str | None = None) -> str | None:
+async def check_llm_allowance(account_id: UUID | str | None = None) -> str | None:
     """INCR fixed-window counters; returns the denial reason or None when allowed.
 
-    Counters are per-company when ``company_id`` is provided, plus a global
+    Counters are per-account when ``account_id`` is provided, plus a global
     daily ceiling. Optional token/cost budgets halt when configured (>0).
     """
     redis = get_redis()
-    tenant = str(company_id) if company_id else "global"
+    tenant = str(account_id) if account_id else "global"
 
     minute_bucket = int(time.time() // 60)
     rate_key = f"{RATE_LIMIT_KEY_PREFIX}{tenant}:{minute_bucket}"

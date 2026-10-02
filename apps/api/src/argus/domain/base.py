@@ -6,7 +6,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column, synonym
 
 
 class Base(DeclarativeBase):
@@ -32,10 +32,18 @@ class TimestampMixin:
     )
 
 
-class CompanyScopedMixin:
-    company_id: Mapped[uuid.UUID] = mapped_column(
+class AccountScopedMixin:
+    account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("companies.id", ondelete="CASCADE"),
+        ForeignKey("accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
+
+    # Deprecated alias kept for one release (infra bootstrap, external scripts).
+    @declared_attr
+    def company_id(cls):  # noqa: N805 - declarative mixin
+        return synonym("account_id")
+
+
+CompanyScopedMixin = AccountScopedMixin  # deprecated alias (one release)

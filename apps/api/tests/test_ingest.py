@@ -23,8 +23,8 @@ from argus.services.stream import FRAMES_READY_STREAM  # noqa: E402
 get_settings.cache_clear()
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "sample_ingest_payload.json"
-SEED_COMPANY_ID = "11111111-1111-4111-8111-111111111111"
-SEED_ESTABLISHMENT_ID = "22222222-2222-4222-8222-222222222222"
+SEED_ACCOUNT_ID = "11111111-1111-4111-8111-111111111111"
+SEED_UNIT_ID = "22222222-2222-4222-8222-222222222222"
 SEED_CAMERA_ID = "33333333-3333-4333-8333-333333333333"
 
 
@@ -69,8 +69,8 @@ async def test_valid_payload_writes_to_redis_stream(
     assert entries
     _msg_id, fields = entries[0]
     assert fields["sequence_id"] == sequence_id
-    assert fields["company_id"] == SEED_COMPANY_ID
-    assert fields["establishment_id"] == SEED_ESTABLISHMENT_ID
+    assert fields["account_id"] == SEED_ACCOUNT_ID
+    assert fields["unit_id"] == SEED_UNIT_ID
     assert fields["camera_id"] == SEED_CAMERA_ID
 
 
@@ -78,7 +78,7 @@ async def test_valid_payload_writes_to_redis_stream(
 async def test_missing_required_fields_rejected(client: AsyncClient) -> None:
     response = await client.post(
         "/v1/ingest/sequences",
-        json={"company_id": SEED_COMPANY_ID},
+        json={"account_id": SEED_ACCOUNT_ID},
     )
     assert response.status_code == 422
 

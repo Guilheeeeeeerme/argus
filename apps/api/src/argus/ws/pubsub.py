@@ -30,11 +30,11 @@ async def run_pubsub_listener() -> None:
             channel = message.get("channel", "")
             if isinstance(channel, bytes):
                 channel = channel.decode()
-            company_id = channel.rsplit(":", 1)[-1]
+            account_id = channel.rsplit(":", 1)[-1]
             data = message.get("data")
             if isinstance(data, bytes):
                 data = data.decode()
             envelope = json.loads(data)
-            await manager.broadcast(company_id, envelope)
+            await manager.broadcast(account_id, envelope)
         except Exception:
             logger.exception("Failed to forward pub/sub message")

@@ -69,8 +69,8 @@ class RuntimeTests(unittest.TestCase):
             Settings(), detector, lambda uri: np.zeros((64, 64, 3), dtype=np.uint8)
         )
         fields = {
-            "company_id": "a",
-            "establishment_id": "b",
+            "account_id": "a",
+            "unit_id": "b",
             "camera_id": "c",
             "sequence_id": "new",
             "captured_at": "2026-10-01T12:01:00+00:00",

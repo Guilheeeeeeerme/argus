@@ -16,8 +16,8 @@ def test_window_preserves_individual_capture_times():
         for i in (0, 4)
     ]
     window = SimpleNamespace(
-        company_id="tenant",
-        establishment_id="site",
+        account_id="tenant",
+        unit_id="site",
         camera_id="camera",
         sequence_id="sequence",
         captured_at=samples[-1].captured_at,

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from argus.api.deps import get_company_db, require_role
+from argus.api.deps import get_account_db, require_role
 from argus.core.auth import AuthContext
 from argus.domain.enums import TriageCaseState, UserRole
 from argus.domain.models import Camera, Detection, TriageCase
@@ -17,19 +17,19 @@ from argus.domain.schemas.triage import CameraOverviewItem
 from argus.services.latest_frames import get_latest_frame, get_latest_frames
 from argus.services.storage import download_bytes
 
-router = APIRouter(prefix="/companies/{company_id}", tags=["triage-cameras"])
+router = APIRouter(prefix="/accounts/{account_id}", tags=["triage-cameras"])
 
 _TRIAGE_ROLES = (UserRole.OPERATOR, UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
 
 
 @router.get(
-    "/establishments/{establishment_id}/cameras/overview",
+    "/units/{unit_id}/cameras/overview",
     response_model=list[CameraOverviewItem],
 )
 async def camera_overview(
-    company_id: UUID,
-    establishment_id: UUID,
-    session: AsyncSession = Depends(get_company_db),
+    account_id: UUID,
+    unit_id: UUID,
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_TRIAGE_ROLES)),
 ) -> list[CameraOverviewItem]:
     cameras = list(
@@ -37,8 +37,8 @@ async def camera_overview(
             await session.scalars(
                 select(Camera)
                 .where(
-                    Camera.establishment_id == establishment_id,
-                    Camera.company_id == company_id,
+                    Camera.unit_id == unit_id,
+                    Camera.account_id == account_id,
                     Camera.deleted_at.is_(None),
                     Camera.is_active.is_(True),
                 )
@@ -55,8 +55,8 @@ async def camera_overview(
                 select(Detection.camera_id, func.count(TriageCase.id))
                 .join(TriageCase, TriageCase.detection_id == Detection.id)
                 .where(
-                    Detection.establishment_id == establishment_id,
-                    Detection.company_id == company_id,
+                    Detection.unit_id == unit_id,
+                    Detection.account_id == account_id,
                     TriageCase.state == TriageCaseState.OPEN,
                 )
                 .group_by(Detection.camera_id)
@@ -82,22 +82,22 @@ async def camera_overview(
 
 @router.get("/cameras/{camera_id}/latest-frame")
 async def camera_latest_frame(
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
     request: Request,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_TRIAGE_ROLES)),
 ) -> Response:
     """Newest JPEG for a camera, proxied from object storage.
 
     ``ETag`` is the frame's ``captured_at``; ``If-None-Match`` → 304 so a 2 s
     poll costs nothing while the frame has not changed. 404 when stream-prep has
-    not published a frame recently (TTL) or the camera is not in this company.
+    not published a frame recently (TTL) or the camera is not in this account.
     """
     owned = await session.scalar(
         select(Camera.id).where(
             Camera.id == camera_id,
-            Camera.company_id == company_id,
+            Camera.account_id == account_id,
             Camera.deleted_at.is_(None),
         )
     )
@@ -105,7 +105,7 @@ async def camera_latest_frame(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
 
     frame = await get_latest_frame(camera_id)
-    if frame is None or (frame.company_id and frame.company_id != str(company_id)):
+    if frame is None or (frame.account_id and frame.account_id != str(account_id)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Latest frame not found")
 
     etag = f'W/"{frame.captured_at}"'

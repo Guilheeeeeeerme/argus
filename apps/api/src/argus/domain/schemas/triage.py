@@ -24,9 +24,9 @@ class CameraOverviewItem(BaseModel):
 class DetectionSummary(BaseModel):
     id: UUID
     camera_id: UUID
-    establishment_id: UUID
+    unit_id: UUID
     camera_name: str | None = None
-    establishment_name: str | None = None
+    unit_name: str | None = None
     sequence_id: str | None = None
     summary: str | None = None
     confidence: float | None = None

@@ -1,4 +1,4 @@
-"""Admin API tests — companies, establishments, auth context."""
+"""Admin API tests — accounts, units, auth context."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ from argus.domain.enums import UserRole
 from argus.services.database import dispose_engine
 from argus.services.redis import close_redis
 from tests.conftest import (
-    SEED_COMPANY_ID,
-    SEED_ESTABLISHMENT_ID,
+    SEED_ACCOUNT_ID,
+    SEED_UNIT_ID,
     SEED_PASSWORD,
     SEED_ROOT_EMAIL,
 )
@@ -37,27 +37,27 @@ async def client():
     await dispose_engine()
 
 
-async def _token(role: UserRole, company_id: str | None = SEED_COMPANY_ID) -> str:
-    return await session_token(role, company_id or None)
+async def _token(role: UserRole, account_id: str | None = SEED_ACCOUNT_ID) -> str:
+    return await session_token(role, account_id or None)
 
 
 @pytest.mark.asyncio
-async def test_root_lists_companies(client: AsyncClient) -> None:
-    response = await client.get("/v1/admin/companies", headers=bearer(await _token(UserRole.ROOT, "")))
+async def test_root_lists_accounts(client: AsyncClient) -> None:
+    response = await client.get("/v1/admin/accounts", headers=bearer(await _token(UserRole.ROOT, "")))
     assert response.status_code == 200
     assert any(t["slug"] == "demo-company" for t in response.json())
 
 
 @pytest.mark.asyncio
-async def test_admin_role_can_list_companies(client: AsyncClient) -> None:
-    response = await client.get("/v1/admin/companies", headers=bearer(await _token(UserRole.ADMIN, "")))
+async def test_admin_role_can_list_accounts(client: AsyncClient) -> None:
+    response = await client.get("/v1/admin/accounts", headers=bearer(await _token(UserRole.ADMIN, "")))
     assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_manager_cannot_create_company(client: AsyncClient) -> None:
+async def test_manager_cannot_create_account(client: AsyncClient) -> None:
     response = await client.post(
-        "/v1/admin/companies",
+        "/v1/admin/accounts",
         json={"name": "Blocked", "slug": "blocked"},
         headers=bearer(await _token(UserRole.MANAGER)),
     )
@@ -68,16 +68,16 @@ async def test_manager_cannot_create_company(client: AsyncClient) -> None:
 async def test_cross_tenant_access_denied(client: AsyncClient) -> None:
     other = str(uuid.uuid4())
     response = await client.get(
-        f"/v1/companies/{other}/establishments",
+        f"/v1/accounts/{other}/units",
         headers=bearer(await _token(UserRole.MANAGER)),
     )
     assert response.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_manager_lists_establishments(client: AsyncClient) -> None:
+async def test_manager_lists_units(client: AsyncClient) -> None:
     response = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/establishments",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/units",
         headers=bearer(await _token(UserRole.MANAGER)),
     )
     assert response.status_code == 200
@@ -114,41 +114,39 @@ async def test_root_can_switch_active_tenant(client: AsyncClient) -> None:
     token = login.json()["token"]
     response = await client.patch(
         "/v1/auth/context",
-        json={"companyId": SEED_COMPANY_ID},
+        json={"accountId": SEED_ACCOUNT_ID},
         headers=bearer(token),
     )
     assert response.status_code == 200
-    assert response.json()["activeCompany"]["id"] == SEED_COMPANY_ID
+    assert response.json()["activeAccount"]["id"] == SEED_ACCOUNT_ID
 
     me = await client.get("/v1/auth/me", headers=bearer(token))
     assert me.status_code == 200
-    assert me.json()["activeCompany"]["id"] == SEED_COMPANY_ID
+    assert me.json()["activeAccount"]["id"] == SEED_ACCOUNT_ID
 
 
 @pytest.mark.asyncio
-async def test_root_can_switch_active_location_alias(client: AsyncClient) -> None:
-    """activeLocation remains an API alias for establishment."""
+async def test_root_can_switch_active_unit(client: AsyncClient) -> None:
     login = await client.post(
         "/v1/auth/login",
         json={"email": SEED_ROOT_EMAIL, "password": SEED_PASSWORD},
     )
     token = login.json()["token"]
-    await client.patch("/v1/auth/context", json={"companyId": SEED_COMPANY_ID}, headers=bearer(token))
-    establishments = (
+    await client.patch("/v1/auth/context", json={"accountId": SEED_ACCOUNT_ID}, headers=bearer(token))
+    units = (
         await client.get(
-            f"/v1/companies/{SEED_COMPANY_ID}/establishments", headers=bearer(token)
+            f"/v1/accounts/{SEED_ACCOUNT_ID}/units", headers=bearer(token)
         )
     ).json()
-    establishment_id = establishments[0]["id"]
+    unit_id = units[0]["id"]
     response = await client.patch(
         "/v1/auth/context",
-        json={"locationId": establishment_id},
+        json={"unitId": unit_id},
         headers=bearer(token),
     )
     assert response.status_code == 200
-    assert response.json()["activeLocation"]["id"] == establishment_id
-    assert response.json()["activeEstablishment"]["id"] == establishment_id
-    assert response.json()["activeLocation"]["address"]
+    assert response.json()["activeUnit"]["id"] == unit_id
+    assert response.json()["activeUnit"]["address"]
 
 
 @pytest.mark.asyncio
@@ -157,7 +155,7 @@ async def test_root_can_manage_users_but_manager_cannot(client: AsyncClient) -> 
     created = await client.post(
         "/v1/admin/users",
         json={
-            "company_id": SEED_COMPANY_ID,
+            "account_id": SEED_ACCOUNT_ID,
             "email": email,
             "password": SEED_PASSWORD,
             "role": "manager",
@@ -169,7 +167,7 @@ async def test_root_can_manage_users_but_manager_cannot(client: AsyncClient) -> 
     denied = await client.post(
         "/v1/admin/users",
         json={
-            "company_id": SEED_COMPANY_ID,
+            "account_id": SEED_ACCOUNT_ID,
             "email": "blocked@demo.local",
             "role": "manager",
         },
@@ -183,18 +181,18 @@ async def test_root_can_manage_users_but_manager_cannot(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_manager_can_update_establishment(client: AsyncClient) -> None:
+async def test_manager_can_update_unit(client: AsyncClient) -> None:
     headers = bearer(await _token(UserRole.MANAGER))
-    establishments = (
-        await client.get(f"/v1/companies/{SEED_COMPANY_ID}/establishments", headers=headers)
+    units = (
+        await client.get(f"/v1/accounts/{SEED_ACCOUNT_ID}/units", headers=headers)
     ).json()
-    establishment = establishments[0]
+    unit = units[0]
     response = await client.patch(
-        f"/v1/companies/{SEED_COMPANY_ID}/establishments/{establishment['id']}",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/units/{unit['id']}",
         json={
-            "name": establishment["name"],
+            "name": unit["name"],
             "address": "New Address 42",
-            "timezone": establishment["timezone"],
+            "timezone": unit["timezone"],
         },
         headers=headers,
     )
@@ -203,27 +201,27 @@ async def test_manager_can_update_establishment(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_manager_gets_establishment_by_id(client: AsyncClient) -> None:
+async def test_manager_gets_unit_by_id(client: AsyncClient) -> None:
     headers = bearer(await _token(UserRole.MANAGER))
     response = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/units/{SEED_UNIT_ID}",
         headers=headers,
     )
     assert response.status_code == 200
-    assert response.json()["id"] == SEED_ESTABLISHMENT_ID
+    assert response.json()["id"] == SEED_UNIT_ID
 
     missing = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/establishments/{uuid.uuid4()}",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/units/{uuid.uuid4()}",
         headers=headers,
     )
     assert missing.status_code == 404
-    assert missing.json()["error"]["message"] == "Establishment not found"
+    assert missing.json()["error"]["message"] == "Unit not found"
 
 
 @pytest.mark.asyncio
-async def test_operator_cannot_get_establishment(client: AsyncClient) -> None:
+async def test_operator_cannot_get_unit(client: AsyncClient) -> None:
     response = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/units/{SEED_UNIT_ID}",
         headers=bearer(await _token(UserRole.OPERATOR)),
     )
     assert response.status_code == 403
@@ -232,7 +230,7 @@ async def test_operator_cannot_get_establishment(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_camera_list_sorted_and_include_inactive(client: AsyncClient) -> None:
     headers = bearer(await _token(UserRole.MANAGER))
-    base = f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}/cameras"
+    base = f"/v1/accounts/{SEED_ACCOUNT_ID}/units/{SEED_UNIT_ID}/cameras"
     suffix = uuid.uuid4().hex[:6]
     zeta = (await client.post(base, json={"name": f"Zeta {suffix}"}, headers=headers)).json()
     alpha = (await client.post(base, json={"name": f"Alpha {suffix}"}, headers=headers)).json()
@@ -243,7 +241,7 @@ async def test_camera_list_sorted_and_include_inactive(client: AsyncClient) -> N
     assert names.index(alpha["name"]) < names.index(zeta["name"])
 
     disabled = await client.patch(
-        f"/v1/companies/{SEED_COMPANY_ID}/cameras/{zeta['id']}",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/cameras/{zeta['id']}",
         json={"is_active": False},
         headers=headers,
     )
@@ -258,7 +256,7 @@ async def test_camera_list_sorted_and_include_inactive(client: AsyncClient) -> N
     assert next(c for c in with_inactive if c["id"] == zeta["id"])["is_active"] is False
 
     for camera in (zeta, alpha):
-        await client.delete(f"/v1/companies/{SEED_COMPANY_ID}/cameras/{camera['id']}", headers=headers)
+        await client.delete(f"/v1/accounts/{SEED_ACCOUNT_ID}/cameras/{camera['id']}", headers=headers)
     after_delete = (await client.get(f"{base}?include_inactive=true", headers=headers)).json()
     assert zeta["id"] not in {camera["id"] for camera in after_delete}
 
@@ -266,7 +264,7 @@ async def test_camera_list_sorted_and_include_inactive(client: AsyncClient) -> N
 @pytest.mark.asyncio
 async def test_camera_update_keeps_or_clears_credentials(client: AsyncClient) -> None:
     headers = bearer(await _token(UserRole.MANAGER))
-    base = f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}/cameras"
+    base = f"/v1/accounts/{SEED_ACCOUNT_ID}/units/{SEED_UNIT_ID}/cameras"
     created = (
         await client.post(
             base,
@@ -279,7 +277,7 @@ async def test_camera_update_keeps_or_clears_credentials(client: AsyncClient) ->
             headers=headers,
         )
     ).json()
-    camera_url = f"/v1/companies/{SEED_COMPANY_ID}/cameras/{created['id']}"
+    camera_url = f"/v1/accounts/{SEED_ACCOUNT_ID}/cameras/{created['id']}"
 
     renamed = await client.patch(camera_url, json={"name": "Renamed"}, headers=headers)
     assert renamed.status_code == 200
@@ -296,10 +294,10 @@ async def test_camera_update_keeps_or_clears_credentials(client: AsyncClient) ->
 
 
 @pytest.mark.asyncio
-async def test_operator_can_list_establishments_for_triage_picker(client: AsyncClient) -> None:
+async def test_operator_can_list_units_for_triage_picker(client: AsyncClient) -> None:
     response = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/establishments",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/units",
         headers=bearer(await _token(UserRole.OPERATOR)),
     )
     assert response.status_code == 200
-    assert any(unit["id"] == SEED_ESTABLISHMENT_ID for unit in response.json())
+    assert any(unit["id"] == SEED_UNIT_ID for unit in response.json())

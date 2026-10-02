@@ -15,7 +15,7 @@ from argus.services.database import dispose_engine  # noqa: E402
 from argus.services.llm_budget import BUDGET_EXCEEDED, check_llm_allowance  # noqa: E402
 from argus.services.redis import close_redis, get_redis  # noqa: E402
 
-SEED_COMPANY_ID = "11111111-1111-4111-8111-111111111111"
+SEED_ACCOUNT_ID = "11111111-1111-4111-8111-111111111111"
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -29,10 +29,10 @@ async def _cleanup():
 async def test_check_llm_allowance_denies_over_budget() -> None:
     redis = get_redis()
     today = datetime.now(UTC).strftime("%Y%m%d")
-    key = f"llm:budget:{SEED_COMPANY_ID}:{today}"
+    key = f"llm:budget:{SEED_ACCOUNT_ID}:{today}"
     await redis.set(key, int(settings.llm_daily_budget) + 1)
     try:
-        assert await check_llm_allowance(SEED_COMPANY_ID) == BUDGET_EXCEEDED
+        assert await check_llm_allowance(SEED_ACCOUNT_ID) == BUDGET_EXCEEDED
     finally:
         await redis.delete(key)
 

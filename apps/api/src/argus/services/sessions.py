@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 from argus.services.redis import get_redis
 
@@ -17,35 +17,48 @@ class SessionData:
     user_id: str
     email: str
     role: str
-    company_id: str | None = None
-    establishment_id: str | None = None
-    # Backward-compatible alias field for older session payloads.
-    location_id: str | None = None
+    account_id: str | None = None
+    unit_id: str | None = None
 
-    def __post_init__(self) -> None:
-        if self.establishment_id is None and self.location_id is not None:
-            self.establishment_id = self.location_id
-        if self.location_id is None and self.establishment_id is not None:
-            self.location_id = self.establishment_id
+    # Deprecated aliases (one release): sessions written before the Account/Unit rename
+    # live up to 7 days in Redis, and in-process callers may still use the old names.
+    @property
+    def company_id(self) -> str | None:
+        return self.account_id
+
+    @company_id.setter
+    def company_id(self, value: str | None) -> None:
+        self.account_id = value
+
+    @property
+    def establishment_id(self) -> str | None:
+        return self.unit_id
+
+    @establishment_id.setter
+    def establishment_id(self, value: str | None) -> None:
+        self.unit_id = value
 
     def to_redis(self) -> str:
-        payload = asdict(self)
-        # Persist both keys so older readers keep working during rollout.
-        payload["establishment_id"] = self.establishment_id
-        payload["location_id"] = self.establishment_id
-        return json.dumps(payload)
+        # New keys only; `from_redis` keeps reading the legacy ones.
+        return json.dumps(
+            {
+                "user_id": self.user_id,
+                "email": self.email,
+                "role": self.role,
+                "account_id": self.account_id,
+                "unit_id": self.unit_id,
+            }
+        )
 
     @classmethod
     def from_redis(cls, raw: str) -> SessionData:
         data = json.loads(raw)
-        establishment_id = data.get("establishment_id") or data.get("location_id")
         return cls(
             user_id=data.get("user_id", ""),
             email=data.get("email", ""),
             role=data.get("role", ""),
-            company_id=data.get("company_id"),
-            establishment_id=establishment_id,
-            location_id=establishment_id,
+            account_id=data.get("account_id") or data.get("company_id"),
+            unit_id=data.get("unit_id") or data.get("establishment_id") or data.get("location_id"),
         )
 
 

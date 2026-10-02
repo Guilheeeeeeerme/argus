@@ -16,16 +16,16 @@ from argus.apps.http import create_admin_app
 from argus.config import get_settings
 from argus.domain.enums import TriageCaseState, UserRole
 from argus.domain.models import Detection, TriageCase
-from argus.services.database import company_session, dispose_engine
+from argus.services.database import account_session, dispose_engine
 from argus.services.redis import close_redis
-from tests.conftest import SEED_CAMERA_ID, SEED_COMPANY_ID, SEED_ESTABLISHMENT_ID
+from tests.conftest import SEED_CAMERA_ID, SEED_ACCOUNT_ID, SEED_UNIT_ID
 from tests.helpers import bearer, session_token
 
 get_settings.cache_clear()
 
-_COMPANY = uuid.UUID(SEED_COMPANY_ID)
+_ACCOUNT = uuid.UUID(SEED_ACCOUNT_ID)
 _CAMERA = uuid.UUID(SEED_CAMERA_ID)
-_ESTABLISHMENT = uuid.UUID(SEED_ESTABLISHMENT_ID)
+_UNIT = uuid.UUID(SEED_UNIT_ID)
 
 
 @pytest_asyncio.fixture
@@ -43,16 +43,16 @@ async def _cleanup():
 
 
 async def _operator_token() -> str:
-    return await session_token(UserRole.OPERATOR, SEED_COMPANY_ID)
+    return await session_token(UserRole.OPERATOR, SEED_ACCOUNT_ID)
 
 
 async def _seed_open_case() -> tuple[str, str]:
     now = datetime.now(UTC)
-    async with company_session(_COMPANY, UserRole.MANAGER.value) as session:
+    async with account_session(_ACCOUNT, UserRole.MANAGER.value) as session:
         detection = Detection(
-            company_id=_COMPANY,
+            account_id=_ACCOUNT,
             camera_id=_CAMERA,
-            establishment_id=_ESTABLISHMENT,
+            unit_id=_UNIT,
             sequence_id=f"seq-{uuid.uuid4().hex[:8]}",
             summary="Person in restricted area",
             confidence=0.91,
@@ -72,7 +72,7 @@ async def _seed_open_case() -> tuple[str, str]:
         session.add(detection)
         await session.flush()
         case = TriageCase(
-            company_id=_COMPANY,
+            account_id=_ACCOUNT,
             detection_id=detection.id,
             state=TriageCaseState.OPEN,
         )
@@ -85,7 +85,7 @@ async def _seed_open_case() -> tuple[str, str]:
 async def test_list_triage_cases(client: AsyncClient) -> None:
     await _seed_open_case()
     response = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/triage-cases",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/triage-cases",
         headers=bearer(await _operator_token()),
     )
     assert response.status_code == 200
@@ -98,7 +98,7 @@ async def test_list_triage_cases(client: AsyncClient) -> None:
 async def test_resolve_triage_case_writes_feedback(client: AsyncClient) -> None:
     case_id, detection_id = await _seed_open_case()
     response = await client.post(
-        f"/v1/companies/{SEED_COMPANY_ID}/triage-cases/{case_id}/resolve",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/triage-cases/{case_id}/resolve",
         json={
             "disposition": "false_positive",
             "reasoning": "Shadow from display case, not a person.",
@@ -111,7 +111,7 @@ async def test_resolve_triage_case_writes_feedback(client: AsyncClient) -> None:
     assert body["state"] == "false_positive"
 
     detail = await client.get(
-        f"/v1/companies/{SEED_COMPANY_ID}/triage-cases/{case_id}",
+        f"/v1/accounts/{SEED_ACCOUNT_ID}/triage-cases/{case_id}",
         headers=bearer(await _operator_token()),
     )
     assert detail.status_code == 200
@@ -123,15 +123,15 @@ async def test_resolve_triage_case_writes_feedback(client: AsyncClient) -> None:
 async def test_list_filters_by_unit_and_camera_with_names(client: AsyncClient) -> None:
     case_id, _ = await _seed_open_case()
     headers = bearer(await _operator_token())
-    base = f"/v1/companies/{SEED_COMPANY_ID}/triage-cases"
+    base = f"/v1/accounts/{SEED_ACCOUNT_ID}/triage-cases"
 
-    by_unit = await client.get(f"{base}?establishment_id={SEED_ESTABLISHMENT_ID}&limit=5", headers=headers)
+    by_unit = await client.get(f"{base}?unit_id={SEED_UNIT_ID}&limit=5", headers=headers)
     assert by_unit.status_code == 200
     rows = by_unit.json()
     assert 1 <= len(rows) <= 5
     row = next(r for r in rows if r["id"] == case_id)
     assert row["detection"]["camera_name"]
-    assert row["detection"]["establishment_name"]
+    assert row["detection"]["unit_name"]
     assert row["detection"]["sequence_id"].startswith("seq-")
 
     by_camera = await client.get(f"{base}?camera_id={SEED_CAMERA_ID}", headers=headers)

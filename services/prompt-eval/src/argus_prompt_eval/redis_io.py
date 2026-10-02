@@ -99,6 +99,16 @@ def decode_json_field(value: str | None, default: Any = None) -> Any:
         return value
 
 
+def tenant_id(fields: dict[str, Any]) -> str:
+    """Account id of a stream message; legacy producers still write company_id (one release)."""
+    return str(fields.get("account_id") or fields.get("company_id") or "")
+
+
+def unit_id(fields: dict[str, Any]) -> str:
+    """Unit id of a stream message; legacy producers still write establishment_id (one release)."""
+    return str(fields.get("unit_id") or fields.get("establishment_id") or "")
+
+
 def parse_frames_ready(fields: dict[str, str]) -> dict[str, Any]:
     frame_uris = decode_json_field(fields.get("frame_uris"), [])
     if isinstance(frame_uris, str):
@@ -107,8 +117,8 @@ def parse_frames_ready(fields: dict[str, str]) -> dict[str, Any]:
     if not isinstance(preproc_meta, dict):
         preproc_meta = {}
     return {
-        "company_id": fields.get("company_id", ""),
-        "establishment_id": fields.get("establishment_id", ""),
+        "account_id": tenant_id(fields),
+        "unit_id": unit_id(fields),
         "camera_id": fields.get("camera_id", ""),
         "sequence_id": fields.get("sequence_id", ""),
         "captured_at": fields.get("captured_at", ""),
@@ -122,8 +132,8 @@ def parse_context_event(fields: dict[str, str]) -> dict[str, Any]:
     if not isinstance(payload, dict):
         payload = {"raw": payload}
     return {
-        "company_id": fields.get("company_id", ""),
-        "establishment_id": fields.get("establishment_id", ""),
+        "account_id": tenant_id(fields),
+        "unit_id": unit_id(fields),
         "camera_id": fields.get("camera_id") or None,
         "kind": fields.get("kind", "unknown"),
         "payload": payload,
@@ -145,7 +155,7 @@ def parse_candidates_ready(fields: dict[str, str]) -> dict[str, Any]:
     from argus_prompt_eval.consensus import probability
 
     payload = parse_frames_ready(fields)
-    for key in ("company_id", "establishment_id", "camera_id"):
+    for key in ("account_id", "unit_id", "camera_id"):
         UUID(payload[key])
     if not payload["sequence_id"] or not payload["captured_at"]:
         raise ValueError("missing sequence metadata")
@@ -210,10 +220,7 @@ def parse_candidates_ready(fields: dict[str, str]) -> dict[str, Any]:
     for sensor in payload["sensors"]:
         if not isinstance(sensor, dict):
             raise TypeError("invalid sensor")
-        if (
-            sensor.get("company_id") != payload["company_id"]
-            or sensor.get("establishment_id") != payload["establishment_id"]
-        ):
+        if tenant_id(sensor) != payload["account_id"] or unit_id(sensor) != payload["unit_id"]:
             raise ValueError("sensor tenant mismatch")
         if sensor.get("camera_id") not in (None, "", payload["camera_id"]):
             raise ValueError("sensor camera mismatch")

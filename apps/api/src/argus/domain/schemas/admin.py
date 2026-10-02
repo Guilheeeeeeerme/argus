@@ -6,57 +6,62 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, Field
+from pydantic import AliasChoices, AwareDatetime, BaseModel, Field
+
+from argus.domain.enums import AccountKind
 
 
-class CreateCompanyRequest(BaseModel):
+class CreateAccountRequest(BaseModel):
     name: str
     slug: str = Field(max_length=63)
+    kind: AccountKind = AccountKind.COMPANY
     aggregation_window_secs: int = 300
 
 
-class UpdateCompanyRequest(BaseModel):
+class UpdateAccountRequest(BaseModel):
     name: str | None = None
     slug: str | None = Field(default=None, max_length=63)
+    kind: AccountKind | None = None
     aggregation_window_secs: int | None = None
 
 
-class CompanyResponse(BaseModel):
+class AccountResponse(BaseModel):
     id: UUID
     name: str
     slug: str
+    kind: AccountKind = AccountKind.COMPANY
     aggregation_window_secs: int
 
     model_config = {"from_attributes": True}
 
 
-class AssignCompanyAdminRequest(BaseModel):
+class AssignAccountAdminRequest(BaseModel):
     email: str
     password: str | None = None
     idp_subject: str | None = None
 
 
-class CreateCompanyUserRequest(BaseModel):
-    company_ids: list[UUID] | None = None
-    company_id: UUID | None = None
+class CreateAccountUserRequest(BaseModel):
+    account_ids: list[UUID] | None = None
+    account_id: UUID | None = None
     email: str
     password: str | None = None
     idp_subject: str | None = None
     role: str = "manager"
 
 
-class UpdateCompanyUserRequest(BaseModel):
-    company_ids: list[UUID] | None = None
+class UpdateAccountUserRequest(BaseModel):
+    account_ids: list[UUID] | None = None
     email: str | None = None
-    company_id: UUID | None = None
+    account_id: UUID | None = None
     role: str | None = None
     password: str | None = None
 
 
-class CompanyUserResponse(BaseModel):
-    company_ids: list[UUID] = Field(default_factory=list)
+class AccountUserResponse(BaseModel):
+    account_ids: list[UUID] = Field(default_factory=list)
     id: UUID
-    company_id: UUID | None
+    account_id: UUID | None
     email: str
     idp_subject: str | None
     role: str
@@ -64,21 +69,21 @@ class CompanyUserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class CreateEstablishmentRequest(BaseModel):
+class CreateUnitRequest(BaseModel):
     name: str
     address: str | None = None
     timezone: str = "UTC"
     active: bool = True
 
 
-class UpdateEstablishmentRequest(BaseModel):
+class UpdateUnitRequest(BaseModel):
     name: str | None = None
     address: str | None = None
     timezone: str | None = None
     active: bool | None = None
 
 
-class EstablishmentResponse(BaseModel):
+class UnitResponse(BaseModel):
     id: UUID
     name: str
     address: str | None
@@ -109,7 +114,7 @@ class UpdateCameraRequest(BaseModel):
 
 class CameraResponse(BaseModel):
     id: UUID
-    establishment_id: UUID
+    unit_id: UUID
     name: str
     stream_url: str | None
     stream_username: str | None
@@ -160,20 +165,20 @@ class PromptResponse(BaseModel):
 
 class CreateWebhookEndpointRequest(BaseModel):
     name: str
-    establishment_id: UUID | None = None
+    unit_id: UUID | None = None
     active: bool = True
 
 
 class UpdateWebhookEndpointRequest(BaseModel):
     name: str | None = None
-    establishment_id: UUID | None = None
+    unit_id: UUID | None = None
     active: bool | None = None
 
 
 class WebhookEndpointResponse(BaseModel):
     id: UUID
     name: str
-    establishment_id: UUID | None
+    unit_id: UUID | None
     active: bool
     token: str | None = None  # raw token only on create/rotate
 
@@ -186,14 +191,15 @@ class InboundWebhookRequest(BaseModel):
     role: Literal["trigger", "filter", "context"] = "context"
     occurred_at: AwareDatetime | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
-    establishment_id: UUID | None = None
+    # External integrations may still post establishment_id (one release).
+    unit_id: UUID | None = Field(default=None, validation_alias=AliasChoices("unit_id", "establishment_id"))
     camera_id: UUID | None = None
 
 
 class ContextEventResponse(BaseModel):
     id: UUID
     webhook_id: UUID
-    establishment_id: UUID | None
+    unit_id: UUID | None
     camera_id: UUID | None
     kind: str
     payload: dict[str, Any]

@@ -15,10 +15,10 @@ from argus_edge_cv.pipeline import EdgeInferencePipeline, Settings
 from argus_prompt_eval.consensus import ConsensusEngine
 from argus_prompt_eval.redis_io import parse_candidates_ready
 
-COMPANY = "11111111-1111-4111-8111-111111111111"
+ACCOUNT = "11111111-1111-4111-8111-111111111111"
 SITE = "22222222-2222-4222-8222-222222222222"
 CAMERA = "33333333-3333-4333-8333-333333333333"
-OTHER_COMPANY = "44444444-4444-4444-8444-444444444444"
+OTHER_ACCOUNT = "44444444-4444-4444-8444-444444444444"
 TIME = "2026-10-01T12:00:00+00:00"
 
 
@@ -35,7 +35,7 @@ class SyntheticVision:
 
 class SyntheticDetector:
     def detect(self, frame, identity):
-        assert identity == (COMPANY, SITE, CAMERA)
+        assert identity == (ACCOUNT, SITE, CAMERA)
         return [
             {
                 "track_id": frame,
@@ -46,12 +46,12 @@ class SyntheticDetector:
         ]
 
 
-def produce(role="trigger", payload=None, *, company=COMPANY):
+def produce(role="trigger", payload=None, *, account=ACCOUNT):
     sensors = SensorFusionBuffer()
     sensors.add(
         {
-            "company_id": company,
-            "establishment_id": SITE,
+            "account_id": account,
+            "unit_id": SITE,
             "camera_id": CAMERA,
             "context_event_id": "sensor-1",
             "kind": "door",
@@ -65,8 +65,8 @@ def produce(role="trigger", payload=None, *, company=COMPANY):
         Settings(), SyntheticDetector(), int, vision=SyntheticVision()
     )
     fields = {
-        "company_id": COMPANY,
-        "establishment_id": SITE,
+        "account_id": ACCOUNT,
+        "unit_id": SITE,
         "camera_id": CAMERA,
         "sequence_id": "sequence-1",
         "captured_at": TIME,
@@ -117,7 +117,7 @@ def test_real_candidate_wire_preserves_sensor_role_and_consensus(
 
 
 def test_other_tenant_filter_cannot_veto_candidate():
-    parsed = produce("filter", {"reject": True}, company=OTHER_COMPANY)
+    parsed = produce("filter", {"reject": True}, account=OTHER_ACCOUNT)
     assert parsed["sensors"] == []
     assert parsed["sensor_ids"] == []
     assert parsed["sensor_veto"] is False

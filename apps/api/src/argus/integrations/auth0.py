@@ -30,12 +30,12 @@ def _claim(payload: dict[str, Any], name: str) -> Any:
 
 
 def extract_standard_claims(payload: dict[str, Any]) -> dict[str, Any]:
-    company_id = _claim(payload, "company_id")
+    account_id = _claim(payload, "account_id")
     role = _claim(payload, "role")
     camera_id = _claim(payload, "camera_id")
     return {
         "sub": payload.get("sub", ""),
-        "company_id": company_id,
+        "account_id": account_id,
         "role": role,
         "camera_id": camera_id,
         "gty": payload.get("gty"),
@@ -76,7 +76,7 @@ def _validate_mock_jwt(token: str) -> dict[str, Any]:
 def create_mock_m2m_token(
     *,
     sub: str,
-    company_id: str,
+    account_id: str,
     camera_id: str,
     expires_in: int = 3600,
 ) -> str:
@@ -88,7 +88,7 @@ def create_mock_m2m_token(
         "aud": settings.auth0_api_audience,
         "iat": now,
         "exp": now + expires_in,
-        "company_id": company_id,
+        "account_id": account_id,
         "camera_id": camera_id,
         "gty": "client-credentials",
     }

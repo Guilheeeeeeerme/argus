@@ -24,10 +24,10 @@ from argus.core.passwords import hash_password
 from argus.domain.enums import UserRole
 from argus.domain.models import (
     Camera,
-    Company,
-    CompanyUser,
-    CompanyUserMembership,
-    Establishment,
+    Account,
+    AccountUser,
+    AccountUserMembership,
+    Unit,
     Prompt,
     PromptSet,
     WebhookEndpoint,
@@ -35,8 +35,8 @@ from argus.domain.models import (
 from argus.services.database import set_session_context
 from demo_catalog import CAMERAS, SOURCE_PAGE, SOURCE_TERMS
 
-COMPANY_DEMO_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
-ESTABLISHMENT_DEMO_ID = uuid.UUID("22222222-2222-4222-8222-222222222222")
+ACCOUNT_DEMO_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
+UNIT_DEMO_ID = uuid.UUID("22222222-2222-4222-8222-222222222222")
 CAMERA_DEMO_ID = uuid.UUID("33333333-3333-4333-8333-333333333333")
 PROMPT_SET_ID = uuid.UUID("55555555-5555-4555-8555-555555555555")
 PROMPT_ID = uuid.UUID("77777777-7777-4777-8777-777777777777")
@@ -44,7 +44,7 @@ USER_MANAGER_ID = uuid.UUID("99999999-9999-4999-8999-999999999999")
 USER_GUEST_ID = uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 WEBHOOK_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
-SANDBOX_COMPANY_ID = uuid.uuid5(COMPANY_DEMO_ID, "sandbox-company")
+SANDBOX_ACCOUNT_ID = uuid.uuid5(ACCOUNT_DEMO_ID, "sandbox-account")
 
 DEFAULT_PASSWORD = "Password123!"
 DEMO_WEBHOOK_TOKEN = "demo-webhook-token-change-me"
@@ -60,75 +60,75 @@ def demo_password() -> str:
 
 
 async def seed_demo(session: AsyncSession) -> dict[str, str]:
-    await set_session_context(session, company_id=None, role=UserRole.ROOT.value)
+    await set_session_context(session, account_id=None, role=UserRole.ROOT.value)
     ids: dict[str, str] = {}
 
-    company = await session.get(Company, COMPANY_DEMO_ID)
-    if company is None:
-        company = Company(
-            id=COMPANY_DEMO_ID,
-            name="Demo Company",
+    account = await session.get(Account, ACCOUNT_DEMO_ID)
+    if account is None:
+        account = Account(
+            id=ACCOUNT_DEMO_ID,
+            name="Demo Account",
             slug="demo-company",
         )
-        session.add(company)
+        session.add(account)
         await session.flush()
-    ids["company_id"] = str(company.id)
+    ids["account_id"] = str(account.id)
 
-    if company.name == "Demo Company":
-        company.name = "Argus Public Camera Demo"
-    company.settings = {
-        **(company.settings or {}),
+    if account.name == "Demo Account":
+        account.name = "Argus Public Camera Demo"
+    account.settings = {
+        **(account.settings or {}),
         "demo_source": "Caltrans public traffic cameras",
         "demo_source_url": SOURCE_PAGE,
         "demo_source_terms": SOURCE_TERMS,
     }
-    sandbox = await session.get(Company, SANDBOX_COMPANY_ID)
+    sandbox = await session.get(Account, SANDBOX_ACCOUNT_ID)
     if sandbox is None:
         session.add(
-            Company(id=SANDBOX_COMPANY_ID, name="Demo Sandbox", slug="demo-sandbox")
+            Account(id=SANDBOX_ACCOUNT_ID, name="Demo Sandbox", slug="demo-sandbox")
         )
         await session.flush()
-    ids["sandbox_company_id"] = str(SANDBOX_COMPANY_ID)
+    ids["sandbox_account_id"] = str(SANDBOX_ACCOUNT_ID)
 
     for index, item in enumerate(CAMERAS):
         site_id = (
-            ESTABLISHMENT_DEMO_ID
+            UNIT_DEMO_ID
             if index == 0
-            else uuid.uuid5(COMPANY_DEMO_ID, item["key"] + ":site")
+            else uuid.uuid5(ACCOUNT_DEMO_ID, item["key"] + ":site")
         )
         camera_id = (
             CAMERA_DEMO_ID
             if index == 0
-            else uuid.uuid5(COMPANY_DEMO_ID, item["key"] + ":camera")
+            else uuid.uuid5(ACCOUNT_DEMO_ID, item["key"] + ":camera")
         )
         set_id = (
             PROMPT_SET_ID
             if index == 0
-            else uuid.uuid5(COMPANY_DEMO_ID, item["key"] + ":prompts")
+            else uuid.uuid5(ACCOUNT_DEMO_ID, item["key"] + ":prompts")
         )
-        establishment = await session.get(Establishment, site_id)
-        if establishment is None:
-            establishment = Establishment(
+        unit = await session.get(Unit, site_id)
+        if unit is None:
+            unit = Unit(
                 id=site_id,
-                company_id=company.id,
+                account_id=account.id,
                 name=item["site"],
                 address="US-101, San Luis Obispo, California",
                 timezone="America/Los_Angeles",
                 active=True,
             )
-            session.add(establishment)
+            session.add(unit)
             await session.flush()
-        elif establishment.name == "Demo Establishment":
-            establishment.name = item["site"]
-            establishment.address = "US-101, San Luis Obispo, California"
-            establishment.timezone = "America/Los_Angeles"
+        elif unit.name == "Demo Unit":
+            unit.name = item["site"]
+            unit.address = "US-101, San Luis Obispo, California"
+            unit.timezone = "America/Los_Angeles"
         camera = await session.get(Camera, camera_id)
         stream = "ffmpeg:" + item["playlist"] + "#video=copy"
         if camera is None:
             camera = Camera(
                 id=camera_id,
-                company_id=company.id,
-                establishment_id=site_id,
+                account_id=account.id,
+                unit_id=site_id,
                 name=item["name"],
                 stream_url=stream,
                 is_active=True,
@@ -142,7 +142,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
         if prompt_set is None:
             prompt_set = PromptSet(
                 id=set_id,
-                company_id=company.id,
+                account_id=account.id,
                 camera_id=camera_id,
                 name=item["watchlist"],
             )
@@ -161,7 +161,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
                 session.add(
                     Prompt(
                         id=prompt_id,
-                        company_id=company.id,
+                        account_id=account.id,
                         prompt_set_id=set_id,
                         text=prompt_text,
                         enabled=True,
@@ -173,7 +173,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
         await session.flush()
     # Preserve the stable fixture identifiers used by operators and API tests.
     ids.update(
-        establishment_id=str(ESTABLISHMENT_DEMO_ID),
+        unit_id=str(UNIT_DEMO_ID),
         camera_id=str(CAMERA_DEMO_ID),
         prompt_set_id=str(PROMPT_SET_ID),
         prompt_id=str(PROMPT_ID),
@@ -184,8 +184,8 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
     if webhook is None:
         webhook = WebhookEndpoint(
             id=WEBHOOK_ID,
-            company_id=company.id,
-            establishment_id=ESTABLISHMENT_DEMO_ID,
+            account_id=account.id,
+            unit_id=UNIT_DEMO_ID,
             name="Demo inbound context",
             token_hash=hash_password(token),
             active=True,
@@ -199,18 +199,18 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
         (USER_MANAGER_ID, "manager@demo.local", UserRole.MANAGER, "Demo Manager"),
         (USER_GUEST_ID, "guest@demo.local", UserRole.OPERATOR, "Demo Operator"),
     ):
-        user = await session.get(CompanyUser, user_id)
+        user = await session.get(AccountUser, user_id)
         if user is None:
             existing = await session.scalar(
-                select(CompanyUser).where(CompanyUser.email == email)
+                select(AccountUser).where(AccountUser.email == email)
             )
             if existing is not None:
                 raise ValueError(
                     "Demo email is already owned by another user; no membership changed"
                 )
-            user = CompanyUser(
+            user = AccountUser(
                 id=user_id,
-                company_id=company.id,
+                account_id=account.id,
                 email=email,
                 role=role,
                 password_hash=password_hash,
@@ -220,12 +220,12 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
         # Do not grant access to a reused fixture ID or alter an existing password.
         if user.email != email:
             raise ValueError("Demo user identity mismatch; no membership changed")
-        targets = [company.id]
+        targets = [account.id]
         if role == UserRole.MANAGER:
-            targets.append(SANDBOX_COMPANY_ID)
+            targets.append(SANDBOX_ACCOUNT_ID)
         for target in targets:
-            if await session.get(CompanyUserMembership, (user.id, target)) is None:
-                session.add(CompanyUserMembership(user_id=user.id, company_id=target))
+            if await session.get(AccountUserMembership, (user.id, target)) is None:
+                session.add(AccountUserMembership(user_id=user.id, account_id=target))
         ids[f"user_{role.value}"] = str(user.id)
 
     await session.commit()

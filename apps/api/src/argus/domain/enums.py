@@ -11,7 +11,18 @@ class UserRole(str, enum.Enum):
 
 
 PLATFORM_ROLES: frozenset[UserRole] = frozenset({UserRole.ROOT, UserRole.ADMIN})
-COMPANY_WRITE_ROLES: frozenset[UserRole] = frozenset({UserRole.MANAGER})
+ACCOUNT_WRITE_ROLES: frozenset[UserRole] = frozenset({UserRole.MANAGER})
+COMPANY_WRITE_ROLES = ACCOUNT_WRITE_ROLES  # deprecated alias (one release)
+
+
+class AccountKind(str, enum.Enum):
+    """What kind of organisation an Account (Conta) is."""
+
+    COMPANY = "company"
+    NGO = "ngo"
+    SCHOOL = "school"
+    UNIVERSITY = "university"
+    OTHER = "other"
 
 
 class TriageCaseState(str, enum.Enum):

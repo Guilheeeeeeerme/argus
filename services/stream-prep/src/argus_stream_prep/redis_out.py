@@ -34,8 +34,8 @@ class RedisOut:
     def publish_frames_ready(
         self,
         *,
-        company_id: str,
-        establishment_id: str,
+        account_id: str,
+        unit_id: str,
         camera_id: str,
         sequence_id: str,
         captured_at: str,
@@ -44,8 +44,8 @@ class RedisOut:
     ) -> str:
         """XADD one sequence message; returns the stream entry id."""
         fields = {
-            "company_id": company_id,
-            "establishment_id": establishment_id,
+            "account_id": account_id,
+            "unit_id": unit_id,
             "camera_id": camera_id,
             "sequence_id": sequence_id,
             "captured_at": captured_at,
@@ -69,8 +69,8 @@ class RedisOut:
         camera_id: str,
         uri: str,
         captured_at: str,
-        company_id: str,
-        establishment_id: str,
+        account_id: str,
+        unit_id: str,
         ttl_seconds: int,
     ) -> None:
         """``HSET frame:latest:{camera_id}`` with the newest pointer and refresh its TTL."""
@@ -81,8 +81,8 @@ class RedisOut:
             mapping={
                 "uri": uri,
                 "captured_at": captured_at,
-                "company_id": company_id,
-                "establishment_id": establishment_id,
+                "account_id": account_id,
+                "unit_id": unit_id,
             },
         )
         pipe.expire(key, max(int(ttl_seconds), 1))
