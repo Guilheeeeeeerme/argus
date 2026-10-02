@@ -15,7 +15,7 @@ import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import { webhooks as webhooksApi } from '../../api/client';
 import type { WebhookEndpoint } from '../../api/types';
-import { useCompanyId } from '../../app/SessionProvider';
+import { useAccountId } from '../../app/SessionProvider';
 import { LinkButton } from '../../components/LinkButton';
 import { ConfirmDelete } from '../../components/forms/ConfirmDelete';
 import { TokenReveal } from '../../components/forms/TokenReveal';
@@ -25,15 +25,15 @@ import type { UnitOutletContext } from '../UnitDetailPage';
 export function WebhooksTab() {
   const t = useT();
   const toast = useToast();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { unitId } = useOutletContext<UnitOutletContext>();
-  const all = useAsync(() => webhooksApi.list(companyId), [companyId]);
+  const all = useAsync(() => webhooksApi.list(accountId), [accountId]);
   const endpoints = useMemo(
-    () => (all.data ?? []).filter(endpoint => endpoint.establishment_id === unitId),
+    () => (all.data ?? []).filter(endpoint => endpoint.unit_id === unitId),
     [all.data, unitId],
   );
-  const remove = useMutation((id: string) => webhooksApi.remove(companyId, id));
-  const rotate = useMutation((id: string) => webhooksApi.rotate(companyId, id));
+  const remove = useMutation((id: string) => webhooksApi.remove(accountId, id));
+  const rotate = useMutation((id: string) => webhooksApi.rotate(accountId, id));
   const [pendingDelete, setPendingDelete] = useState<WebhookEndpoint | null>(null);
   const [pendingRotate, setPendingRotate] = useState<WebhookEndpoint | null>(null);
   const [reveal, setReveal] = useState<{ name: string; token: string } | null>(null);

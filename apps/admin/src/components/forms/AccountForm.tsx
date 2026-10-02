@@ -8,20 +8,30 @@ import {
   FormError,
   FormSkeleton,
   Input,
+  Select,
   useToast,
 } from '@argus/design-system';
 import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import type { FieldErrors } from '@shared/auth';
 import { accounts as accountsApi } from '../../api/client';
-import type { Company } from '../../api/types';
+import { ACCOUNT_KINDS, type Account, type AccountKind } from '../../api/types';
 import { useSession } from '../../app/SessionProvider';
 import { hasFieldErrors, useFieldErrors } from './useFieldErrors';
 
 export interface AccountFormValues {
   name: string;
   slug: string;
+  kind: AccountKind;
 }
+
+const KIND_LABELS: Record<AccountKind, string> = {
+  company: 'Empresa',
+  ngo: 'ONG',
+  school: 'Escola',
+  university: 'Universidade',
+  other: 'Outro',
+};
 
 export function slugify(value: string): string {
   return value
@@ -37,7 +47,7 @@ const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 interface AccountFormProps {
   id: string;
-  initial?: Company | null;
+  initial?: Account | null;
   busy: boolean;
   fieldErrors: FieldErrors;
   formError?: string | null;
@@ -48,11 +58,12 @@ export function AccountForm({ id, initial, busy, fieldErrors, formError, onSubmi
   const t = useT();
   const [name, setName] = useState(initial?.name ?? '');
   const [slug, setSlug] = useState(initial?.slug ?? '');
+  const [kind, setKind] = useState<AccountKind>(initial?.kind ?? 'company');
   // While creating, the slug follows the name until the user edits it by hand.
   const [slugTouched, setSlugTouched] = useState(Boolean(initial));
 
   return (
-    <Form id={id} busy={busy} onSubmit={() => onSubmit({ name: name.trim(), slug: slug.trim() })}>
+    <Form id={id} busy={busy} onSubmit={() => onSubmit({ name: name.trim(), slug: slug.trim(), kind })}>
       <FormError message={formError} />
       <Input
         label={t('Nome da conta')}
@@ -80,6 +91,13 @@ export function AccountForm({ id, initial, busy, fieldErrors, formError, onSubmi
       <p className="argus-field__hint argus-form__hint">
         {t('Usado em URLs e integrações. Letras minúsculas, números e hífens.')}
       </p>
+      <Select
+        label={t('Tipo de conta')}
+        value={kind}
+        error={fieldErrors.kind}
+        options={ACCOUNT_KINDS.map(value => ({ value, label: t(KIND_LABELS[value]) }))}
+        onChange={e => setKind(e.target.value as AccountKind)}
+      />
     </Form>
   );
 }

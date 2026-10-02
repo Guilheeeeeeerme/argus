@@ -17,7 +17,7 @@ import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import type { FieldErrors } from '@shared/auth';
 import { users as usersApi, type UserInput } from '../../api/client';
-import type { AdminUser, Company } from '../../api/types';
+import type { AdminUser, Account } from '../../api/types';
 import { useSession } from '../../app/SessionProvider';
 import { hasFieldErrors, useFieldErrors } from './useFieldErrors';
 
@@ -25,29 +25,29 @@ export interface UserFormValues {
   email: string;
   role: string;
   password: string;
-  company_ids: string[];
+  account_ids: string[];
 }
 
 interface UserFormProps {
   id: string;
   initial?: AdminUser | null;
-  companies: Company[];
+  accounts: Account[];
   busy: boolean;
   fieldErrors: FieldErrors;
   formError?: string | null;
   onSubmit: (values: UserFormValues) => void;
 }
 
-export function UserForm({ id, initial, companies, busy, fieldErrors, formError, onSubmit }: UserFormProps) {
+export function UserForm({ id, initial, accounts, busy, fieldErrors, formError, onSubmit }: UserFormProps) {
   const t = useT();
   const editing = Boolean(initial);
   const [email, setEmail] = useState(initial?.email ?? '');
   const [role, setRole] = useState(initial?.role ?? 'manager');
   const [password, setPassword] = useState('');
-  const [companyIds, setCompanyIds] = useState<string[]>(initial?.company_ids ?? []);
+  const [accountIds, setAccountIds] = useState<string[]>(initial?.account_ids ?? []);
 
-  function toggleCompany(companyId: string, next: boolean) {
-    setCompanyIds(ids => (next ? [...ids.filter(i => i !== companyId), companyId] : ids.filter(i => i !== companyId)));
+  function toggleAccount(accountId: string, next: boolean) {
+    setAccountIds(ids => (next ? [...ids.filter(i => i !== accountId), accountId] : ids.filter(i => i !== accountId)));
   }
 
   const roleOptions = [
@@ -58,7 +58,7 @@ export function UserForm({ id, initial, companies, busy, fieldErrors, formError,
   if (initial?.role === 'root') roleOptions.push({ value: 'root', label: t('Root') });
 
   return (
-    <Form id={id} busy={busy} onSubmit={() => onSubmit({ email: email.trim(), role, password, company_ids: companyIds })}>
+    <Form id={id} busy={busy} onSubmit={() => onSubmit({ email: email.trim(), role, password, account_ids: accountIds })}>
       <FormError message={formError} />
       <Input
         label={t('E-mail do usuário')}
@@ -87,18 +87,18 @@ export function UserForm({ id, initial, companies, busy, fieldErrors, formError,
         autoComplete="new-password"
         required={!editing}
       />
-      <FormField label={t('Acesso às contas')} hint={t('Gestores e operadores só veem as contas marcadas.')} error={fieldErrors.company_ids}>
+      <FormField label={t('Acesso às contas')} hint={t('Gestores e operadores só veem as contas marcadas.')} error={fieldErrors.account_ids}>
         <div className="argus-switch-list">
-          {companies.length === 0 ? (
+          {accounts.length === 0 ? (
             <span className="argus-field__hint">{t('Nenhuma conta ainda')}</span>
           ) : (
-            companies.map(company => (
+            accounts.map(account => (
               <Switch
-                key={company.id}
+                key={account.id}
                 size="sm"
-                label={company.name}
-                checked={companyIds.includes(company.id)}
-                onChange={next => toggleCompany(company.id, next)}
+                label={account.name}
+                checked={accountIds.includes(account.id)}
+                onChange={next => toggleAccount(account.id, next)}
                 disabled={busy}
               />
             ))
@@ -110,7 +110,7 @@ export function UserForm({ id, initial, companies, busy, fieldErrors, formError,
 }
 
 export interface UsersOutletContext {
-  companies: Company[];
+  accounts: Account[];
   reload: () => Promise<void>;
 }
 
@@ -122,7 +122,7 @@ export function UserFormDrawer() {
   const { session } = useSession();
   const { userId } = useParams();
   const editing = Boolean(userId);
-  const { companies, reload } = useOutletContext<UsersOutletContext>();
+  const { accounts, reload } = useOutletContext<UsersOutletContext>();
 
   const record = useAsync(
     () => usersApi.list().then(list => list.find(u => u.id === userId) ?? null),
@@ -130,7 +130,7 @@ export function UserFormDrawer() {
     { enabled: editing },
   );
   const save = useMutation((values: UserFormValues) => {
-    const body: UserInput = { email: values.email, role: values.role, company_ids: values.company_ids };
+    const body: UserInput = { email: values.email, role: values.role, account_ids: values.account_ids };
     if (values.password) body.password = values.password;
     return editing ? usersApi.update(userId ?? '', body) : usersApi.create(body);
   });
@@ -192,7 +192,7 @@ export function UserFormDrawer() {
         <UserForm
           id={formId}
           initial={record.data}
-          companies={companies}
+          accounts={accounts}
           busy={save.pending}
           fieldErrors={fieldErrors}
           formError={save.error && !hasFieldErrors(save.error) ? localizeApiError(save.error, t) : null}

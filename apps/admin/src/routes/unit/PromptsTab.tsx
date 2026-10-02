@@ -15,7 +15,7 @@ import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import { cameras as camerasApi, promptSets as promptSetsApi, prompts as promptsApi } from '../../api/client';
 import type { Prompt, PromptSet } from '../../api/types';
-import { useCompanyId } from '../../app/SessionProvider';
+import { useAccountId } from '../../app/SessionProvider';
 import { ConfirmDelete } from '../../components/forms/ConfirmDelete';
 import { PromptDrawer, PromptSetNameDialog, type PromptFormValues } from '../../components/forms/PromptForm';
 import { useFieldErrors, hasFieldErrors } from '../../components/forms/useFieldErrors';
@@ -27,11 +27,11 @@ type SetDialog = { mode: 'create' } | { mode: 'rename'; set: PromptSet } | null;
 export function PromptsTab() {
   const t = useT();
   const toast = useToast();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { unitId } = useOutletContext<UnitOutletContext>();
   const [params, setParams] = useSearchParams();
 
-  const cameras = useAsync(() => camerasApi.list(companyId, unitId, true), [companyId, unitId]);
+  const cameras = useAsync(() => camerasApi.list(accountId, unitId, true), [accountId, unitId]);
   const cameraId = params.get('camera') ?? '';
 
   useEffect(() => {
@@ -41,8 +41,8 @@ export function PromptsTab() {
   }, [cameraId, cameras.data, setParams]);
 
   const sets = useAsync(
-    () => promptSetsApi.list(companyId, cameraId),
-    [companyId, cameraId],
+    () => promptSetsApi.list(accountId, cameraId),
+    [accountId, cameraId],
     { enabled: Boolean(cameraId) },
   );
   const setId = params.get('set') ?? '';
@@ -58,18 +58,18 @@ export function PromptsTab() {
   const [togglingIds, setTogglingIds] = useState<ReadonlySet<string>>(new Set());
 
   const savePrompt = useMutation((values: PromptFormValues) => {
-    if (editor?.mode === 'edit') return promptsApi.update(companyId, editor.prompt.id, values);
+    if (editor?.mode === 'edit') return promptsApi.update(accountId, editor.prompt.id, values);
     if (!activeSet) throw new Error('No prompt set');
-    return promptsApi.create(companyId, activeSet.id, { ...values, sort_order: activeSet.prompts.length });
+    return promptsApi.create(accountId, activeSet.id, { ...values, sort_order: activeSet.prompts.length });
   });
   const { fieldErrors, setLocalErrors } = useFieldErrors(savePrompt.error);
-  const removePrompt = useMutation((id: string) => promptsApi.remove(companyId, id));
+  const removePrompt = useMutation((id: string) => promptsApi.remove(accountId, id));
   const saveSet = useMutation((name: string) =>
     setDialog?.mode === 'rename'
-      ? promptSetsApi.rename(companyId, setDialog.set.id, name)
-      : promptSetsApi.create(companyId, cameraId, name),
+      ? promptSetsApi.rename(accountId, setDialog.set.id, name)
+      : promptSetsApi.create(accountId, cameraId, name),
   );
-  const removeSet = useMutation((id: string) => promptSetsApi.remove(companyId, id));
+  const removeSet = useMutation((id: string) => promptSetsApi.remove(accountId, id));
 
   function selectCamera(id: string) {
     setParams(id ? { camera: id } : {}, { replace: true });
@@ -95,7 +95,7 @@ export function PromptsTab() {
     if (togglingIds.has(prompt.id)) return;
     setTogglingIds(ids => new Set(ids).add(prompt.id));
     try {
-      await promptsApi.update(companyId, prompt.id, { enabled: next });
+      await promptsApi.update(accountId, prompt.id, { enabled: next });
       toast.success(next ? t('Instrução ativada.') : t('Instrução desativada.'));
       sets.setData(list =>
         list?.map(s => ({

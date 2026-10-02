@@ -13,19 +13,19 @@ import { useAsync, useMutation } from '@shared/hooks';
 import { authedFetch, confidencePercent, getCase, resolveCase, type Disposition, type TriageCaseDetail } from '../api';
 
 interface TriageDetailProps {
-  companyId: string;
+  accountId: string;
   caseId: string;
   /** Any operator action inside the detail (resets the FOLLOW idle timer). */
   onInteraction: () => void;
   onResolved: (result: { id: string; state: string; resolved_at: string }) => void;
 }
 
-export function TriageDetail({ companyId, caseId, onInteraction, onResolved }: TriageDetailProps) {
+export function TriageDetail({ accountId, caseId, onInteraction, onResolved }: TriageDetailProps) {
   const t = useT();
   const toast = useToast();
-  const detail = useAsync(() => getCase(companyId, caseId), [companyId, caseId]);
+  const detail = useAsync(() => getCase(accountId, caseId), [accountId, caseId]);
   const resolve = useMutation((disposition: Disposition, reasoning: string | null) =>
-    resolveCase(companyId, caseId, { disposition, reasoning }),
+    resolveCase(accountId, caseId, { disposition, reasoning }),
   );
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | undefined>();

@@ -9,35 +9,35 @@ import { LinkButton } from '../components/LinkButton';
 
 export function OverviewPage() {
   const t = useT();
-  const { session, companies, loadingContext, isPlatform } = useSession();
-  const companyId = session?.activeCompany?.id ?? null;
+  const { session, accounts, loadingContext, isPlatform } = useSession();
+  const accountId = session?.activeAccount?.id ?? null;
 
   return (
     <>
       <PageHeader
         title={t('Visão geral')}
         description={
-          session?.activeCompany
-            ? t('Resumo de {name}.', { name: session.activeCompany.name })
+          session?.activeAccount
+            ? t('Resumo de {name}.', { name: session.activeAccount.name })
             : undefined
         }
       />
-      {companyId ? (
-        <CompanyStats companyId={companyId} />
-      ) : loadingContext && companies.length === 0 ? (
+      {accountId ? (
+        <AccountStats accountId={accountId} />
+      ) : loadingContext && accounts.length === 0 ? (
         <div className="argus-overview-grid">
           <StatCard title={t('Unidades')} loading />
           <StatCard title={t('Câmeras')} loading />
         </div>
       ) : (
         <EmptyState
-          title={t(companies.length ? 'Selecione uma conta' : 'Nenhuma conta atribuída ainda.')}
+          title={t(accounts.length ? 'Selecione uma conta' : 'Nenhuma conta atribuída ainda.')}
           description={t(
-            companies.length
+            accounts.length
               ? 'Escolha uma conta na barra lateral para continuar.'
               : 'Fale com um administrador para ter acesso.',
           )}
-          action={isPlatform && companies.length === 0 ? <LinkButton to="/accounts/new" size="sm">{t('Nova conta')}</LinkButton> : undefined}
+          action={isPlatform && accounts.length === 0 ? <LinkButton to="/accounts/new" size="sm">{t('Nova conta')}</LinkButton> : undefined}
         />
       )}
       {isPlatform ? <PlatformStats /> : null}
@@ -45,11 +45,11 @@ export function OverviewPage() {
   );
 }
 
-function CompanyStats({ companyId }: { companyId: string }) {
+function AccountStats({ accountId }: { accountId: string }) {
   const t = useT();
-  const units = useAsync(() => unitsApi.list(companyId), [companyId]);
-  const cameras = useAsync(() => camerasApi.listAll(companyId), [companyId]);
-  const webhooks = useAsync(() => webhooksApi.list(companyId), [companyId]);
+  const units = useAsync(() => unitsApi.list(accountId), [accountId]);
+  const cameras = useAsync(() => camerasApi.listAll(accountId), [accountId]);
+  const webhooks = useAsync(() => webhooksApi.list(accountId), [accountId]);
   const firstUnit = units.data?.[0];
 
   return (

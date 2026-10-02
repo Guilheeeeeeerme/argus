@@ -15,7 +15,7 @@ import '@argus/design-system/tokens.css';
 import '@argus/design-system/global.css';
 import './style.css';
 import { consumeTokenFromUrl, getToken, redirectToLogin } from './api';
-import { loadSession, Session, selectCompany } from './api';
+import { loadSession, Session, selectAccount } from './api';
 import { TriageWorkspace } from './pages/TriageWorkspace';
 
 function BootToolbar() {
@@ -37,7 +37,7 @@ function BootToolbar() {
 function TriageRoot() {
   const t = useT();
   const [session, setSession] = useState<Session | null>(null);
-  const [companyless, setCompanyless] = useState(false);
+  const [accountless, setAccountless] = useState(false);
   const [booted, setBooted] = useState(false);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ function TriageRoot() {
     }
     loadSession().then(next => {
       if (!next.ok) redirectToLogin();
-      else if ('companyless' in next) setCompanyless(true);
+      else if ('accountless' in next) setAccountless(true);
       else setSession(next.session);
       setBooted(true);
     });
@@ -64,7 +64,7 @@ function TriageRoot() {
       </main>
     );
   }
-  if (companyless) {
+  if (accountless) {
     return (
       <main className="argus-boot">
         <BootToolbar />
@@ -73,7 +73,7 @@ function TriageRoot() {
             title={t('Nenhuma conta selecionada')}
             description={t('Selecione uma conta ou peça acesso a um administrador.')}
           />
-          <Button onClick={selectCompany}>{t('Selecione uma conta')}</Button>
+          <Button onClick={selectAccount}>{t('Selecione uma conta')}</Button>
         </Card>
       </main>
     );

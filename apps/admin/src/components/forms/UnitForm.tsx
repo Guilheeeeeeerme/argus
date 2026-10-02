@@ -15,8 +15,8 @@ import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import type { FieldErrors } from '@shared/auth';
 import { units as unitsApi } from '../../api/client';
-import type { Establishment } from '../../api/types';
-import { useCompanyId, useSession } from '../../app/SessionProvider';
+import type { Unit } from '../../api/types';
+import { useAccountId, useSession } from '../../app/SessionProvider';
 import { defaultTimeZone, timeZoneOptions } from '../../lib/timezones';
 import { hasFieldErrors, useFieldErrors } from './useFieldErrors';
 
@@ -28,7 +28,7 @@ export interface UnitFormValues {
 
 interface UnitFormProps {
   id: string;
-  initial?: Establishment | null;
+  initial?: Unit | null;
   busy: boolean;
   fieldErrors: FieldErrors;
   formError?: string | null;
@@ -78,16 +78,16 @@ export function UnitFormDrawer() {
   const t = useT();
   const toast = useToast();
   const navigate = useNavigate();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { reloadContext } = useSession();
   const { unitId } = useParams();
   const editing = Boolean(unitId);
   const { reload } = useOutletContext<UnitsOutletContext>();
 
-  const record = useAsync(() => unitsApi.get(companyId, unitId ?? ''), [companyId, unitId], { enabled: editing });
+  const record = useAsync(() => unitsApi.get(accountId, unitId ?? ''), [accountId, unitId], { enabled: editing });
   const save = useMutation((values: UnitFormValues) => {
     const body = { name: values.name, address: values.address || null, timezone: values.timezone };
-    return editing ? unitsApi.update(companyId, unitId ?? '', body) : unitsApi.create(companyId, body);
+    return editing ? unitsApi.update(accountId, unitId ?? '', body) : unitsApi.create(accountId, body);
   });
   const { fieldErrors, setLocalErrors } = useFieldErrors(save.error);
 

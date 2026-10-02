@@ -12,7 +12,7 @@ import {
 import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import { accounts as accountsApi } from '../api/client';
-import type { Company } from '../api/types';
+import type { Account } from '../api/types';
 import { RequirePlatform } from '../app/guards';
 import { useSession } from '../app/SessionProvider';
 import { LinkButton } from '../components/LinkButton';
@@ -30,10 +30,10 @@ export function AccountsPage() {
 function AccountsList() {
   const t = useT();
   const toast = useToast();
-  const { session, reloadContext, switchCompany } = useSession();
+  const { session, reloadContext, switchAccount } = useSession();
   const accounts = useAsync(() => accountsApi.list(), []);
   const remove = useMutation((id: string) => accountsApi.remove(id));
-  const [pendingDelete, setPendingDelete] = useState<Company | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Account | null>(null);
 
   async function confirmDelete() {
     if (!pendingDelete) return;
@@ -43,10 +43,10 @@ function AccountsList() {
       return;
     }
     toast.success(t('Conta excluída.'));
-    const wasActive = session?.activeCompany?.id === pendingDelete.id;
+    const wasActive = session?.activeAccount?.id === pendingDelete.id;
     setPendingDelete(null);
     void accounts.reload();
-    if (wasActive) void switchCompany(null);
+    if (wasActive) void switchAccount(null);
     else void reloadContext();
   }
 
@@ -86,8 +86,8 @@ function AccountsList() {
               meta={account.slug}
               actions={
                 <>
-                  {session?.activeCompany?.id !== account.id ? (
-                    <Button size="sm" variant="ghost" onClick={() => void switchCompany(account.id)}>
+                  {session?.activeAccount?.id !== account.id ? (
+                    <Button size="sm" variant="ghost" onClick={() => void switchAccount(account.id)}>
                       {t('Usar esta conta')}
                     </Button>
                   ) : null}

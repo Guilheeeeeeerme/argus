@@ -4,7 +4,7 @@ import type { CameraOverview } from '../api';
 import { useLatestFrame } from '../hooks/useLatestFrame';
 
 interface CameraTileProps {
-  companyId: string;
+  accountId: string;
   camera: CameraOverview;
   openCount: number;
   /** This camera produced the focused / newest detection. */
@@ -13,9 +13,9 @@ interface CameraTileProps {
   onSelect: () => void;
 }
 
-export function CameraTile({ companyId, camera, openCount, alert, focused, onSelect }: CameraTileProps) {
+export function CameraTile({ accountId, camera, openCount, alert, focused, onSelect }: CameraTileProps) {
   const t = useT();
-  const frame = useLatestFrame(companyId, camera.id);
+  const frame = useLatestFrame(accountId, camera.id);
   const live = frame.status === 'ok';
   const signalLabel = frame.status === 'loading' ? t('Carregando…') : live ? t('Ao vivo') : t('Sem sinal');
   const className = [

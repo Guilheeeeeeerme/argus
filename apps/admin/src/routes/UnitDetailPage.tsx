@@ -3,32 +3,32 @@ import { EmptyState, PageHeader, Skeleton, Tabs } from '@argus/design-system';
 import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync } from '@shared/hooks';
 import { units as unitsApi } from '../api/client';
-import type { Establishment } from '../api/types';
-import { RequireCompany } from '../app/guards';
-import { useCompanyId } from '../app/SessionProvider';
+import type { Unit } from '../api/types';
+import { RequireAccount } from '../app/guards';
+import { useAccountId } from '../app/SessionProvider';
 import { LinkButton } from '../components/LinkButton';
 
 export interface UnitOutletContext {
   unitId: string;
-  unit: Establishment | null;
+  unit: Unit | null;
 }
 
 export function UnitDetailPage() {
   return (
-    <RequireCompany>
+    <RequireAccount>
       <UnitDetail />
-    </RequireCompany>
+    </RequireAccount>
   );
 }
 
 function UnitDetail() {
   const t = useT();
   const navigate = useNavigate();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { unitId = '' } = useParams();
   const match = useMatch('/units/:unitId/:tab/*');
   const tab = match?.params.tab ?? 'cameras';
-  const unit = useAsync(() => unitsApi.get(companyId, unitId), [companyId, unitId]);
+  const unit = useAsync(() => unitsApi.get(accountId, unitId), [accountId, unitId]);
 
   if (unit.error) {
     return (

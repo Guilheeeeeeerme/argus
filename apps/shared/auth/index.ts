@@ -11,37 +11,31 @@ export interface User {
   id: string;
   email: string;
   role: string;
-  companyId: string | null;
+  accountId: string | null;
 }
 
-export interface CompanyRef {
+export interface AccountRef {
   id: string;
   name: string;
   slug: string;
 }
 
-export interface EstablishmentRef {
+export interface UnitRef {
   id: string;
   name: string;
   address: string | null;
 }
 
-export type TenantRef = CompanyRef;
-/** @deprecated Use EstablishmentRef */
-export type MarketRef = EstablishmentRef;
-/** @deprecated Use EstablishmentRef */
-export type LocationRef = EstablishmentRef;
-
 export interface Session {
   token?: string;
   user: User;
-  activeCompany: CompanyRef | null;
-  activeEstablishment: EstablishmentRef | null;
+  activeAccount: AccountRef | null;
+  activeUnit: UnitRef | null;
 }
 
-/** Session field helper — id of the active establishment, if any. */
-export function activeEstablishmentId(session: Session): string | null {
-  return session.activeEstablishment?.id ?? null;
+/** Session field helper — id of the active unit, if any. */
+export function activeUnitId(session: Session): string | null {
+  return session.activeUnit?.id ?? null;
 }
 
 export function allowedReturnOrigins(): string[] {

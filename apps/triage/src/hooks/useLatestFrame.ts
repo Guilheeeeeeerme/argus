@@ -23,7 +23,7 @@ function envNumber(name: string, fallback: number): number {
  * Poll a camera's latest frame every ~2 s with ETag revalidation. Blob URLs are
  * revoked on replace/unmount; polling pauses while the tab is hidden.
  */
-export function useLatestFrame(companyId: string, cameraId: string, enabled = true): LatestFrameState {
+export function useLatestFrame(accountId: string, cameraId: string, enabled = true): LatestFrameState {
   const [state, setState] = useState<LatestFrameState>({ url: null, status: 'loading', capturedAt: null });
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export function useLatestFrame(companyId: string, cameraId: string, enabled = tr
         schedule();
         return;
       }
-      const result = await fetchLatestFrame(companyId, cameraId, etag, controller.signal);
+      const result = await fetchLatestFrame(accountId, cameraId, etag, controller.signal);
       if (cancelled) return;
       if (result.status === 'ok') {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -84,7 +84,7 @@ export function useLatestFrame(companyId: string, cameraId: string, enabled = tr
       document.removeEventListener('visibilitychange', onVisible);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [companyId, cameraId, enabled]);
+  }, [accountId, cameraId, enabled]);
 
   return state;
 }

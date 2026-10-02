@@ -16,7 +16,7 @@ import { useAsync, useMutation } from '@shared/hooks';
 import type { FieldErrors } from '@shared/auth';
 import { webhooks as webhooksApi } from '../../api/client';
 import type { WebhookEndpoint } from '../../api/types';
-import { useCompanyId } from '../../app/SessionProvider';
+import { useAccountId } from '../../app/SessionProvider';
 import { hasFieldErrors, useFieldErrors } from './useFieldErrors';
 
 export interface WebhookFormValues {
@@ -65,20 +65,20 @@ export function WebhookFormDrawer() {
   const t = useT();
   const toast = useToast();
   const navigate = useNavigate();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { webhookId } = useParams();
   const editing = Boolean(webhookId);
   const { unitId, reload, onCreated } = useOutletContext<WebhooksOutletContext>();
 
   const record = useAsync(
-    () => webhooksApi.list(companyId).then(list => list.find(w => w.id === webhookId) ?? null),
-    [companyId, webhookId],
+    () => webhooksApi.list(accountId).then(list => list.find(w => w.id === webhookId) ?? null),
+    [accountId, webhookId],
     { enabled: editing },
   );
   const save = useMutation((values: WebhookFormValues) =>
     editing
-      ? webhooksApi.update(companyId, webhookId ?? '', values)
-      : webhooksApi.create(companyId, { ...values, establishment_id: unitId }),
+      ? webhooksApi.update(accountId, webhookId ?? '', values)
+      : webhooksApi.create(accountId, { ...values, unit_id: unitId }),
   );
   const { fieldErrors, setLocalErrors } = useFieldErrors(save.error);
 

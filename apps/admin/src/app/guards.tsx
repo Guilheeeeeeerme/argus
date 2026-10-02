@@ -5,16 +5,16 @@ import { useT } from '@argus/i18n';
 import { useSession } from './SessionProvider';
 
 /** Pages that act on the active Conta: show a prompt to choose one instead of the page. */
-export function RequireCompany({ children }: { children: ReactNode }) {
+export function RequireAccount({ children }: { children: ReactNode }) {
   const t = useT();
-  const { session, companies, loadingContext } = useSession();
-  if (session?.activeCompany) return <>{children}</>;
-  if (loadingContext && companies.length === 0) return null;
+  const { session, accounts, loadingContext } = useSession();
+  if (session?.activeAccount) return <>{children}</>;
+  if (loadingContext && accounts.length === 0) return null;
   return (
     <EmptyState
-      title={t(companies.length ? 'Selecione uma conta' : 'Nenhuma conta atribuída ainda.')}
+      title={t(accounts.length ? 'Selecione uma conta' : 'Nenhuma conta atribuída ainda.')}
       description={t(
-        companies.length
+        accounts.length
           ? 'Escolha uma conta na barra lateral para continuar.'
           : 'Fale com um administrador para ter acesso.',
       )}

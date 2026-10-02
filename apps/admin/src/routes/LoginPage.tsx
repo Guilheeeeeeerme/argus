@@ -44,7 +44,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
     setSession(session);
     const target = returnTo();
-    if (target !== APP && session.activeCompany) {
+    if (target !== APP && session.activeAccount) {
       window.location.assign(`${target}#token=${encodeURIComponent(session.token ?? '')}`);
     }
   }
