@@ -68,12 +68,62 @@ LEGACY_PROMPT_PREFIXES = (
 )
 
 # Known legacy English LLM outputs -> pt-BR. Never guess beyond this map.
+# The free-form VLM summaries below were transcribed verbatim from the demo
+# database (2026-10-02) and hand-translated; keep keys byte-exact.
 SUMMARY_TRANSLATIONS = {
     "Person in restricted area": "Pessoa em área restrita",
     "Person visible": "Pessoa visível",
     "No match (mock).": "Nenhum acerto (mock).",
     "Suspicious loitering detected near restricted shelf area.": "Comportamento suspeito perto da área restrita da loja.",
     "Deterministic mock VLM hit.": "Acerto determinístico do VLM (mock).",
+    "The image shows a nighttime traffic scene on a multi-lane highway (101 at Madonna Rd). Several cars are clearly visible with their headlights on, travelling along the road under low-visibility, dark conditions. There are no unusually dense queues or visible obstructions present in the travel lanes.":
+        "A imagem mostra uma cena de tráfego noturna em uma rodovia com várias faixas (101 na Madonna Rd). Vários carros estão claramente visíveis com os faróis acesos, circulando na via em condições de baixa visibilidade e escuridão. Não há filas incomumente densas nem obstruções visíveis nas faixas de rolamento.",
+    "Cars are visible in the travel lanes, but there is no dense queue or obstruction.":
+        "Carros visíveis nas faixas de rolamento, sem fila densa ou obstrução.",
+    "Vehicles are visible traveling on the highway under nighttime conditions, with headlights and taillights creating light streaks.":
+        "Veículos circulam pela rodovia à noite, com faróis e lanternas formando rastros de luz.",
+    "The frame shows a nighttime view of a roadway (101 at Broad St) with minimal visible traffic. A distant car is faintly visible on the roadway.":
+        "O frame mostra uma via à noite (101 na Broad St) com pouco tráfego visível. Um carro ao longe aparece discretamente na pista.",
+    "The image shows a nighttime highway scene with faint vehicle lights visible in the distance, but no dense queue or traffic obstruction.":
+        "A imagem mostra uma rodovia à noite com luzes fracas de veículos ao longe, sem fila densa ou obstrução no tráfego.",
+    "Vehicles are visible in the travel lanes, but there is no dense queue or obstruction.":
+        "Veículos visíveis nas faixas de rolamento, sem fila densa ou obstrução.",
+    "One car is visible in the travel lanes, but no dense queue or obstruction is present.":
+        "Um carro visível nas faixas de rolamento, sem fila densa ou obstrução.",
+    "The image shows a nighttime traffic scene on a highway with visible vehicle lights and some traffic present in the travel lanes.":
+        "A imagem mostra uma cena de tráfego noturna em rodovia, com luzes de veículos e algum tráfego nas faixas de rolamento.",
+    "One car is visible on the road, with no unusual traffic density or obstruction.":
+        "Um carro visível na pista, sem densidade de tráfego incomum ou obstrução.",
+    "A distant car is visible on the road in normal traffic conditions.":
+        "Um carro ao longe na pista, em condições normais de tráfego.",
+    "The image shows a nighttime view of a highway (101 at Broad St). Traffic is visible with headlights and taillights indicating movement, but no dense queue or obstruction is present.":
+        "A imagem mostra uma rodovia à noite (101 na Broad St). Há tráfego visível, com faróis e lanternas indicando movimento, mas sem fila densa ou obstrução.",
+    "The frame shows a highway view at night with vehicle headlights and taillights visible traveling on the road.":
+        "O frame mostra uma rodovia à noite, com faróis e lanternas de veículos circulando na pista.",
+    "The image shows a nighttime traffic view on a highway (101 at Broad St). Headlight streaks and vehicle lights are visible traveling along the roadway, but individual vehicles cannot be distinctly counted due to motion blur and lighting. There is no dense queue or obstruction occupying a travel lane.":
+        "A imagem mostra uma rodovia à noite (101 na Broad St). Há rastros de faróis e luzes de veículos circulando na pista, mas os veículos individuais não podem ser contados com precisão devido ao desfoque de movimento e à iluminação. Não há fila densa ou obstrução ocupando uma faixa de rolamento.",
+    "A distant car is clearly visible on the road under normal visibility conditions.":
+        "Um carro ao longe está claramente visível na pista, em condições normais de visibilidade.",
+    "At least one car is clearly visible in the travel lanes.":
+        "Ao menos um carro está claramente visível nas faixas de rolamento.",
+    "At least one vehicle (car) is visible in the travel lanes in the distance.":
+        "Ao menos um veículo (carro) é visível ao longe nas faixas de rolamento.",
+    "Cars are clearly visible on the road, with approximately one vehicle distinguishable in the frame.":
+        "Carros claramente visíveis na pista, com aproximadamente um veículo distinguível no frame.",
+    "Distant vehicle lights are visible on the roadway.":
+        "Luzes de veículos ao longe são visíveis na pista.",
+    "One or more cars are clearly visible in the travel lanes.":
+        "Um ou mais carros estão claramente visíveis nas faixas de rolamento.",
+    "Vehicle headlights and taillights are visible along the highway lanes, indicating normal traffic presence.":
+        "Faróis e lanternas são visíveis ao longo das faixas da rodovia, indicando tráfego normal.",
+    "Vehicle light streaks are clearly visible on the roadway indicating traffic movement, though individual vehicle counts cannot be reliably determined.":
+        "Rastros de luz de veículos são claramente visíveis na pista, indicando movimento do tráfego, mas a contagem individual de veículos não pode ser determinada com confiabilidade.",
+    "Vehicles are visible on the roadway, indicated by their bright headlights and taillight streaks.":
+        "Veículos são visíveis na pista, indicados por faróis brilhantes e rastros de lanternas.",
+    "Vehicles with visible headlights and taillights are present in the travel lanes.":
+        "Veículos com faróis e lanternas visíveis estão presentes nas faixas de rolamento.",
+    "Vehicles with visible headlights and taillights are present on the roadway.":
+        "Veículos com faróis e lanternas visíveis estão presentes na pista.",
 }
 
 APPLY = False
@@ -98,6 +148,12 @@ async def patch(session_factory) -> list[str]:
         report.append(msg if APPLY else f"(dry) {msg}")
 
     async with session_factory() as session:
+        # RLS is enforced (FORCE) even for the table owner: policies key off the
+        # app.current_role GUC. Act as platform root so legacy rows are visible
+        # and writable; without this the patch silently sees nothing.
+        await session.execute(
+            text("SELECT set_config('app.current_role', 'root', true)")
+        )
         # Companies (demo + sandbox) by fixed IDs.
         rows = (await session.execute(
             text("SELECT id, name FROM companies WHERE id IN (:a, :b)"),
@@ -240,6 +296,9 @@ async def patch(session_factory) -> list[str]:
 
     # Anything left untranslated for human review (never auto-guessed).
     async with session_factory() as session:
+        await session.execute(
+            text("SELECT set_config('app.current_role', 'root', true)")
+        )
         leftovers = (await session.execute(
             text(
                 "SELECT id, summary FROM detections "

@@ -78,7 +78,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
         company.name = "Argus Demo Brasil"
     company.settings = {
         **(company.settings or {}),
-        "demo_source": "Câmeras públicas de tráfego (Caltrans)",
+        "demo_source": "Câmeras públicas de tráfego (Caltrans, EUA) — vídeo de demonstração",
         "demo_source_url": SOURCE_PAGE,
         "demo_source_terms": SOURCE_TERMS,
     }
