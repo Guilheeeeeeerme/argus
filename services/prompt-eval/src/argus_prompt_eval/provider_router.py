@@ -143,6 +143,13 @@ async def analyze_with_failover(
             )
             return name, result
         except Exception as exc:  # noqa: BLE001 — failover across providers
-            logger.warning("Provider %s failed: %s", name, exc)
-            errors.append(f"{name}: {exc}")
+            status = getattr(exc, "status_code", None)
+            if status is None:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+            # Never stringify SDK exceptions: URLs, keys and payloads can appear.
+            detail = type(exc).__name__
+            if isinstance(status, int):
+                detail += f" status={status}"
+            logger.warning("Provider %s failed: %s", name, detail)
+            errors.append(f"{name}: {detail}")
     raise RuntimeError("All LLM providers failed: " + "; ".join(errors))

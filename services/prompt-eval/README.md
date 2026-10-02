@@ -111,3 +111,23 @@ with edge score at least `0.4`. `CONSENSUS_THRESHOLD` and
 `CONSENSUS_EDGE_MINIMUM` override these two thresholds. Negatives never persist a
 Detection/TriageCase or publish `detections:positive`. Provider routing, budgets,
 frame URI validation and guardrails remain in the existing VLM path.
+
+### Pending message recovery
+
+The consumer reclaims stale pending entries from any consumer with `XAUTOCLAIM`
+(Redis 6.2+), including entries left behind after a restart or provider outage.
+`CONSUMER_RETRY_IDLE_MS` defaults to 300000 (five minutes). Each loop scans a
+bounded pending batch and then reads new work; failed entries stay pending until
+the next idle interval. The scan cursor advances so a failing oldest entry does
+not starve the rest of the backlog.
+
+Positive retries lock the tenant/camera/sequence within the database transaction
+and reuse any committed Detection/TriageCase before evaluating again. A crash
+between database commit and Redis publication/ACK therefore republishes the same
+IDs. Stream publication remains at least once: consumers must deduplicate by
+`detection_id`. Recovered publications contain persisted detection fields;
+provider and ffmpeg metadata are only included on the original attempt.
+
+Focused integration tests use explicitly disposable services via
+`TEST_RECOVERY_REDIS_URL` and `TEST_RECOVERY_POSTGRES_URL`. The Postgres test
+creates local tables and an `argus_app` test role; never point it at production.

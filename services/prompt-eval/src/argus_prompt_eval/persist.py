@@ -3,14 +3,42 @@
 from __future__ import annotations
 
 from datetime import datetime
+from hashlib import sha256
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus_prompt_eval.db import Detection, TriageCase, TriageCaseState
 from argus_prompt_eval.evidence_retention import EvidenceClip
 from argus_prompt_eval.structured_output import PromptEvalResult
+
+
+async def find_positive(
+    session: AsyncSession, *, company_id: UUID, camera_id: UUID, sequence_id: str
+) -> tuple[Detection, TriageCase] | None:
+    """Serialize a sequence and reuse a committed positive on stream redelivery.
+
+    The transaction-scoped lock covers evaluation and persistence in the caller,
+    so reclaiming a slow in-flight message cannot create a second detection.
+    """
+    key = f"prompt-eval:{company_id}:{camera_id}:{sequence_id}"
+    lock_id = int.from_bytes(sha256(key.encode()).digest()[:8], "big", signed=True)
+    await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_id})
+    rows = await session.execute(
+        select(Detection, TriageCase)
+        .join(TriageCase, TriageCase.detection_id == Detection.id)
+        .where(
+            Detection.company_id == company_id,
+            Detection.camera_id == camera_id,
+            Detection.sequence_id == sequence_id,
+            TriageCase.company_id == company_id,
+        )
+        .limit(1)
+    )
+    row = rows.first()
+    return (row[0], row[1]) if row is not None else None
 
 
 async def persist_positive(

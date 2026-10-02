@@ -86,6 +86,9 @@ def setup_handler(monkeypatch, positive=True):
     monkeypatch.setattr(main, "company_session", session)
     monkeypatch.setattr(main, "get_redis", lambda: object())
     monkeypatch.setattr(
+        main, "find_positive", AsyncMock(return_value=None), raising=False
+    )
+    monkeypatch.setattr(
         main,
         "ground_context",
         AsyncMock(
@@ -119,6 +122,10 @@ def setup_handler(monkeypatch, positive=True):
             return_value=(
                 SimpleNamespace(
                     id="d",
+                    company_id=C,
+                    establishment_id=E,
+                    camera_id=K,
+                    sequence_id="s",
                     clip_uri="clip",
                     prompt_hits=[],
                     confidence=0.9,
@@ -201,6 +208,9 @@ def test_loop_reads_only_selected_frame_source(monkeypatch, enabled):
 
     reader = AsyncMock(side_effect=read)
     monkeypatch.setattr(main, "xreadgroup", reader)
+    monkeypatch.setattr(
+        main, "claim_pending", AsyncMock(return_value=("0-0", [])), raising=False
+    )
     monkeypatch.setattr(main, "ensure_consumer_group", AsyncMock())
     monkeypatch.setattr(main, "close_redis", AsyncMock())
     monkeypatch.setattr(main, "_handle_frames_ready", AsyncMock())
@@ -303,3 +313,62 @@ def test_evidence_chronological_while_vlm_keeps_strongest(monkeypatch):
         "s3://b/other.jpg",
         "s3://b/best.jpg",
     ]
+
+
+def test_committed_positive_replay_republishes_without_reevaluation(monkeypatch):
+    evaluation = setup_handler(monkeypatch)
+    prior = main.persist_positive.return_value
+    main.find_positive.return_value = prior
+    asyncio.run(main._handle_candidates_ready("1-0", fields()))
+    evaluation.assert_not_awaited()
+    main.retain_evidence.assert_not_called()
+    main.persist_positive.assert_not_awaited()
+    main.publish_detection_positive.assert_awaited_once()
+    assert main.publish_detection_positive.call_args.args[0]["detection_id"] == "d"
+    main.xack.assert_awaited_once()
+
+
+def test_loop_recovers_pending_and_still_reads_fresh(monkeypatch):
+    monkeypatch.setattr(main.settings, "edge_cv_enabled", True)
+    stop = asyncio.Event()
+    monkeypatch.setattr(main, "_stop", stop)
+    stream = main.settings.candidates_stream
+    claimed = AsyncMock(side_effect=[("9-0", [("1-0", fields())]), ("0-0", [])])
+    monkeypatch.setattr(main, "claim_pending", claimed, raising=False)
+    monkeypatch.setattr(main, "ensure_consumer_group", AsyncMock())
+    monkeypatch.setattr(main, "close_redis", AsyncMock())
+    handler = AsyncMock()
+    monkeypatch.setattr(main, "_handle_candidates_ready", handler)
+
+    async def read(*args, **kwargs):
+        stop.set()
+        return [(stream, [("2-0", fields())])]
+
+    monkeypatch.setattr(main, "xreadgroup", AsyncMock(side_effect=read))
+    asyncio.run(main.run_forever())
+    assert [call.args[0] for call in handler.await_args_list] == ["1-0", "2-0"]
+    assert claimed.call_args_list[0].args[:2] == (stream, main.settings.frames_group)
+
+
+@pytest.mark.parametrize("failure_stage", ["publish", "ack"])
+def test_postcommit_failure_retries_same_positive(monkeypatch, failure_stage):
+    evaluation = setup_handler(monkeypatch)
+    existing = main.persist_positive.return_value
+    # First transaction sees no row; after its commit, retry finds the same pair.
+    main.find_positive.side_effect = [None, existing]
+    failing = (
+        main.publish_detection_positive if failure_stage == "publish" else main.xack
+    )
+    failing.side_effect = [RuntimeError("temporary transport failure"), None]
+    with pytest.raises(RuntimeError):
+        asyncio.run(main._handle_candidates_ready("1-0", fields()))
+    if failure_stage == "publish":
+        main.xack.assert_not_awaited()
+    asyncio.run(main._handle_candidates_ready("1-0", fields()))
+    evaluation.assert_awaited_once()
+    main.persist_positive.assert_awaited_once()
+    main.retain_evidence.assert_called_once()
+    publications = main.publish_detection_positive.await_args_list
+    assert len(publications) == 2
+    assert {call.args[0]["detection_id"] for call in publications} == {"d"}
+    assert {call.args[0]["triage_case_id"] for call in publications} == {"t"}
