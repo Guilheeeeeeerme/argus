@@ -13,10 +13,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus.config import settings
-from argus.domain.enums import UserRole
+from argus.domain.enums import PLATFORM_ROLES, UserRole
 from argus.integrations.auth0 import validate_jwt
 from argus.services.database import get_db as _get_db, set_session_context
-from argus.services.sessions import SessionData, get_session
+from argus.services.memberships import has_company_membership
+from argus.services.sessions import SessionData, get_session, update_session
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -151,6 +152,14 @@ async def get_auth_context(
             headers={"WWW-Authenticate": "Bearer"},
         )
     auth = _auth_context_from_session(credentials.credentials, session)
+    if auth.role not in PLATFORM_ROLES and auth.company_id is not None:
+        if not await has_company_membership(auth.sub, str(auth.company_id)):
+            # Revocation takes effect immediately, while allowing selection of remaining memberships.
+            session.company_id = None
+            session.establishment_id = None
+            session.location_id = None
+            await update_session(credentials.credentials, session)
+            auth = _auth_context_from_session(credentials.credentials, session)
     request.state.auth = auth
     return auth
 

@@ -9,6 +9,8 @@ from collections import defaultdict
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 
+from argus.services.memberships import can_receive_company_events
+
 MAX_CONNECTIONS_PER_SUB = 5
 
 
@@ -35,8 +37,8 @@ class ConnectionManager:
             sub = getattr(websocket.state, "sub", None)
             if company_id and websocket in self._rooms[company_id]:
                 self._rooms[company_id].remove(websocket)
-            if sub and self._subs[sub] > 0:
-                self._subs[sub] -= 1
+                if sub and self._subs[sub] > 0:
+                    self._subs[sub] -= 1
 
     async def broadcast(self, company_id: str, message: dict) -> None:
         payload = json.dumps(message)
@@ -46,6 +48,10 @@ class ConnectionManager:
                 dead.append(ws)
                 continue
             try:
+                if not await can_receive_company_events(getattr(ws.state, "token", None), company_id):
+                    await ws.close(code=4003, reason="Company access denied")
+                    dead.append(ws)
+                    continue
                 await ws.send_text(payload)
             except Exception:
                 dead.append(ws)

@@ -10,15 +10,16 @@ import {
   AlertDialog,
 } from '@argus/design-system';
 import { useT, localizeApiError } from '@argus/i18n';
-import { call, Account } from '../api';
+import { call, Account, Company } from '../api';
 
 interface UsersProps {
   users: Account[];
+  companies: Company[];
   companyId: string | null;
   onReload: () => void;
 }
 
-export function Users({ users, companyId, onReload }: UsersProps) {
+export function Users({ users, companies, companyId, onReload }: UsersProps) {
   const t = useT();
   const [userEmail, setUserEmail] = useState('manager@argus.local');
   const [userPassword, setUserPassword] = useState('Password123!');
@@ -27,15 +28,11 @@ export function Users({ users, companyId, onReload }: UsersProps) {
   const [pendingDelete, setPendingDelete] = useState<Account | null>(null);
 
   async function createUser() {
-    if (!companyId) {
-      setMessage(t('Select a tenant before creating a user.'));
-      return;
-    }
     try {
       await call('/v1/admin/users', {
         method: 'POST',
         body: JSON.stringify({
-          company_id: companyId,
+          company_ids: companyId ? [companyId] : [],
           email: userEmail,
           password: userPassword,
           role: userRole,
@@ -43,6 +40,19 @@ export function Users({ users, companyId, onReload }: UsersProps) {
       });
       onReload();
       setMessage(t('User created.'));
+    } catch (error) {
+      setMessage(localizeApiError(String(error), t));
+    }
+  }
+
+  async function updateMembership(user: Account, id: string, assigned: boolean) {
+    const ids = assigned ? [...user.company_ids, id] : user.company_ids.filter(value => value !== id);
+    try {
+      await call(`/v1/admin/users/${user.id}`, {
+        method: 'PATCH', body: JSON.stringify({ company_ids: ids }),
+      });
+      onReload();
+      setMessage(t('Company access updated.'));
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
     }
@@ -75,9 +85,22 @@ export function Users({ users, companyId, onReload }: UsersProps) {
             title={user.email}
             meta={user.role}
             actions={
-              <Button size="sm" variant="danger" onClick={() => setPendingDelete(user)}>
-                {t('Delete')}
-              </Button>
+              <>
+                {companies.map(company => (
+                  <Button
+                    key={company.id}
+                    size="sm"
+                    variant="secondary"
+                    aria-pressed={user.company_ids.includes(company.id)}
+                    onClick={() => void updateMembership(user, company.id, !user.company_ids.includes(company.id))}
+                  >
+                    {t(user.company_ids.includes(company.id) ? 'Remove access to {name}' : 'Add access to {name}', { name: company.name })}
+                  </Button>
+                ))}
+                <Button size="sm" variant="danger" onClick={() => setPendingDelete(user)}>
+                  {t('Delete')}
+                </Button>
+              </>
             }
           />
         ))

@@ -63,14 +63,15 @@ async def test_manager_gets_me(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_operator_cannot_switch_context(client: AsyncClient) -> None:
+async def test_operator_can_select_assigned_company(client: AsyncClient) -> None:
     token = await session_token(UserRole.OPERATOR, SEED_COMPANY_ID)
     response = await client.patch(
         "/v1/auth/context",
         json={"companyId": SEED_COMPANY_ID},
         headers=bearer(token),
     )
-    assert response.status_code == 403
+    assert response.status_code == 200
+    assert response.json()["activeCompany"]["id"] == SEED_COMPANY_ID
 
 
 @pytest.mark.asyncio

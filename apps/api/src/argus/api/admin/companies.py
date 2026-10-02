@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from argus.api.deps import get_platform_db
 from argus.core.passwords import hash_password
 from argus.domain.enums import UserRole
-from argus.domain.models import Company, CompanyUser
+from argus.domain.models import Company, CompanyUser, CompanyUserMembership
 from argus.domain.schemas.admin import (
     AssignCompanyAdminRequest,
     CreateCompanyRequest,
@@ -82,6 +82,17 @@ async def list_users(
     return list((await session.scalars(select(CompanyUser).order_by(CompanyUser.email))).all())
 
 
+async def _set_memberships(session: AsyncSession, user: CompanyUser, company_ids: list[UUID]) -> None:
+    ids = list(dict.fromkeys(company_ids))
+    if ids:
+        found = set((await session.scalars(select(Company.id).where(Company.id.in_(ids)))).all())
+        if found != set(ids):
+            raise HTTPException(status_code=404, detail="Company not found")
+    existing = {membership.company_id: membership for membership in user.memberships}
+    user.memberships = [existing.get(cid) or CompanyUserMembership(company_id=cid) for cid in ids]
+    user.company_id = ids[0] if ids else None
+
+
 @router.post("/users", response_model=CompanyUserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     body: CreateCompanyUserRequest,
@@ -92,12 +103,18 @@ async def create_user(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid user role") from exc
     user = CompanyUser(
+        memberships=[],
         company_id=body.company_id,
         email=body.email,
         idp_subject=body.idp_subject,
         password_hash=hash_password(body.password) if body.password else None,
         role=role,
     )
+    company_ids = (
+        body.company_ids if body.company_ids is not None
+        else [body.company_id] if body.company_id else []
+    )
+    await _set_memberships(session, user, company_ids)
     session.add(user)
     await session.flush()
     return user
@@ -114,8 +131,10 @@ async def update_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if body.email is not None:
         user.email = body.email
-    if body.company_id is not None:
-        user.company_id = body.company_id
+    if body.company_ids is not None:
+        await _set_memberships(session, user, body.company_ids)
+    elif "company_id" in body.model_fields_set:
+        await _set_memberships(session, user, [body.company_id] if body.company_id else [])
     if body.role is not None:
         try:
             user.role = UserRole(body.role)
@@ -149,6 +168,7 @@ async def assign_company_manager(
     session: AsyncSession = Depends(get_platform_db),
 ) -> CompanyUser:
     user = CompanyUser(
+        memberships=[CompanyUserMembership(company_id=company_id)],
         company_id=company_id,
         idp_subject=body.idp_subject,
         email=body.email,

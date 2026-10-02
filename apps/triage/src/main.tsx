@@ -7,13 +7,14 @@ import {
   Skeleton,
   EmptyState,
   Card,
+  Button,
 } from '@argus/design-system';
 import { I18nProvider, useT, useLocale } from '@argus/i18n';
 import '@argus/design-system/tokens.css';
 import '@argus/design-system/global.css';
 import './style.css';
 import { consumeTokenFromUrl, getToken, redirectToLogin } from './api';
-import { loadSession, Session } from './api';
+import { loadSession, Session, selectCompany } from './api';
 import { TriageWorkspace } from './pages/TriageWorkspace';
 
 function BootToolbar() {
@@ -68,9 +69,10 @@ function TriageRoot() {
         <BootToolbar />
         <Card className="argus-auth__panel">
           <EmptyState
-            title={t('No company assigned yet.')}
-            description={t('Ask an administrator for access.')}
+            title={t('No company selected')}
+            description={t('Select a company or ask an administrator for access.')}
           />
+          <Button onClick={selectCompany}>{t('Select a company')}</Button>
         </Card>
       </main>
     );

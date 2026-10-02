@@ -3,7 +3,7 @@
 
 Polls ``GET /v1/internal/stream-configs`` and:
 1. Rewrites ``go2rtc.yaml`` streams section (durable).
-2. PUTs each stream into the live go2rtc HTTP API for hot reload.
+2. PATCHes each stream in memory (the sidecar owns the durable config).
 """
 
 from __future__ import annotations
@@ -23,10 +23,16 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [stream-gateway-sync] %(message)s",
 )
 logger = logging.getLogger("stream-gateway-sync")
+# Camera sources can contain credentials; never log HTTP query strings.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 API_INTERNAL_URL = os.environ.get("API_INTERNAL_URL", "http://api:8000").rstrip("/")
-STREAM_GATEWAY_URL = os.environ.get("STREAM_GATEWAY_URL", "http://stream-gateway:1984").rstrip("/")
-STREAM_GATEWAY_TOKEN = os.environ.get("STREAM_GATEWAY_TOKEN", "dev-stream-gateway-token")
+STREAM_GATEWAY_URL = os.environ.get(
+    "STREAM_GATEWAY_URL", "http://stream-gateway:1984"
+).rstrip("/")
+STREAM_GATEWAY_TOKEN = os.environ.get(
+    "STREAM_GATEWAY_TOKEN", "dev-stream-gateway-token"
+)
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "30"))
 CONFIG_PATH = os.environ.get("GO2RTC_CONFIG_PATH", "/config/go2rtc.yaml")
 
@@ -37,7 +43,9 @@ def _auth_url(stream_url: str, username: str | None, password: str | None) -> st
     parsed = urlparse(stream_url)
     if parsed.username:
         return stream_url
-    netloc = f"{quote(username, safe='')}:{quote(password or '', safe='')}@{parsed.hostname}"
+    netloc = (
+        f"{quote(username, safe='')}:{quote(password or '', safe='')}@{parsed.hostname}"
+    )
     if parsed.port:
         netloc += f":{parsed.port}"
     return urlunparse(parsed._replace(netloc=netloc))
@@ -66,7 +74,7 @@ def write_config_file(streams: dict[str, str]) -> None:
                 loaded = yaml.safe_load(fh) or {}
             if isinstance(loaded, dict):
                 base = {**loaded, "streams": streams}
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("failed reading existing %s; rewriting", CONFIG_PATH)
     os.makedirs(os.path.dirname(CONFIG_PATH) or ".", exist_ok=True)
     with open(CONFIG_PATH, "w", encoding="utf-8") as fh:
@@ -77,21 +85,21 @@ def write_config_file(streams: dict[str, str]) -> None:
 def put_live_streams(client: httpx.Client, streams: dict[str, str]) -> None:
     for name, src in streams.items():
         try:
-            # go2rtc: PUT /api/streams?name=<id>&src=<url>
-            response = client.put(
+            # PATCH changes only runtime state; PUT also writes the gateway
+            # config, which is intentionally mounted read-only.
+            response = client.patch(
                 f"{STREAM_GATEWAY_URL}/api/streams",
                 params={"name": name, "src": src},
                 timeout=10.0,
             )
             if response.status_code >= 400:
                 logger.warning(
-                    "go2rtc PUT stream %s failed: %s %s",
+                    "go2rtc stream %s failed status=%s",
                     name,
                     response.status_code,
-                    response.text[:200],
                 )
-        except Exception:  # noqa: BLE001
-            logger.exception("go2rtc PUT failed for %s", name)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("go2rtc stream %s failed type=%s", name, type(exc).__name__)
 
 
 def sync_once(client: httpx.Client) -> None:
@@ -132,7 +140,7 @@ def main() -> None:
         while not stop:
             try:
                 sync_once(client)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception("sync iteration failed")
             # Interruptible sleep
             deadline = time.monotonic() + POLL_INTERVAL

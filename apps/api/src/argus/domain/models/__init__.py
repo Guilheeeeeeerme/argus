@@ -27,6 +27,7 @@ from argus.domain.enums import FeedbackDisposition, TriageCaseState, UserRole
 __all__ = [
     "Company",
     "CompanyUser",
+    "CompanyUserMembership",
     "Establishment",
     "Camera",
     "PromptSet",
@@ -82,7 +83,7 @@ class CompanyUser(Base, TimestampMixin):
     )
     company_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("companies.id", ondelete="CASCADE"),
+        ForeignKey("companies.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -95,6 +96,26 @@ class CompanyUser(Base, TimestampMixin):
     )
 
     company: Mapped[Company | None] = relationship(back_populates="users")
+
+    memberships: Mapped[list["CompanyUserMembership"]] = relationship(
+        lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    @property
+    def company_ids(self) -> list[uuid.UUID]:
+        return [membership.company_id for membership in self.memberships]
+
+
+class CompanyUserMembership(Base):
+    __tablename__ = "company_user_memberships"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("company_users.id", ondelete="CASCADE"), primary_key=True
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), primary_key=True,
+        index=True,
+    )
 
 
 class Establishment(Base, CompanyScopedMixin, TimestampMixin):
