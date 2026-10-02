@@ -154,6 +154,8 @@ const ptBR: Record<string, string> = {
   'Summary': 'Resumo',
   'Prompt hits': 'Acertos de prompt',
   'Evidence': 'Evidência',
+  'Loading evidence clip…': 'Carregando clipe de evidência…',
+  'Unable to load evidence clip.': 'Não foi possível carregar o clipe de evidência.',
   'No evidence clip or frames.': 'Sem clipe ou frames de evidência.',
   'Disposition': 'Disposição',
   'Reasoning (optional, recommended for false positive)': 'Justificativa (opcional, recomendada para falso positivo)',

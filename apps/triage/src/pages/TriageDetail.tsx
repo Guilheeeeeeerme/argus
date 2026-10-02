@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Textarea, Card, Badge, Message, badgeVariantForTriageState } from '@argus/design-system';
 import { useT, localizeApiError } from '@argus/i18n';
 import { authedFetch, TriageCase, confidencePercent } from '../api';
@@ -15,6 +15,33 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [clip, setClip] = useState<{ path: string; url: string } | null>(null);
+  const [clipError, setClipError] = useState(false);
+  const clipPath = triageCase.clip_playback_url ?? null;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    setClip(null);
+    setClipError(false);
+    if (clipPath) {
+      void authedFetch(clipPath, { signal: controller.signal })
+        .then(async response => {
+          if (!response.ok) throw new Error('Evidence request failed');
+          const blob = await response.blob();
+          if (controller.signal.aborted) return;
+          objectUrl = URL.createObjectURL(blob);
+          setClip({ path: clipPath, url: objectUrl });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setClipError(true);
+        });
+    }
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [clipPath]);
 
   async function resolve(disposition: 'confirmed' | 'dismissed' | 'false_positive') {
     if (disposition === 'false_positive' && !reason.trim()) {
@@ -44,7 +71,7 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
   const detection = triageCase.detection;
   const frames = detection?.frame_uris ?? [];
   const hits = detection?.prompt_hits ?? [];
-  const clipUrl = triageCase.clip_playback_url ?? null;
+  const clipUrl = clip?.path === clipPath ? clip.url : null;
   const confidence = confidencePercent(detection?.confidence);
   const isOpen = triageCase.state === 'open';
 
@@ -102,7 +129,10 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
             ))}
           </div>
         ) : null}
-        {!clipUrl && frames.length === 0 ? (
+        {clipPath && !clipUrl ? (
+          <p className="argus-list-row__meta">{t(clipError ? 'Unable to load evidence clip.' : 'Loading evidence clip…')}</p>
+        ) : null}
+        {!clipPath && frames.length === 0 ? (
           <p className="argus-list-row__meta">{t('No evidence clip or frames.')}</p>
         ) : null}
       </section>
