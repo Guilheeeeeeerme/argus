@@ -134,7 +134,7 @@ async def get_triage_clip(
     if case is None or case.detection is None or not case.detection.clip_uri:
         raise HTTPException(status_code=404, detail="Evidence clip not found")
     try:
-        payload, _ = await download_bytes(case.detection.clip_uri)
+        payload, content_type = await download_bytes(case.detection.clip_uri)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Evidence clip not found") from exc
     except ClientError as exc:
@@ -144,7 +144,7 @@ async def get_triage_clip(
         raise HTTPException(status_code=502, detail="Evidence storage unavailable") from exc
     return Response(
         content=payload,
-        media_type="video/mp4",
+        media_type=content_type,
         headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
 

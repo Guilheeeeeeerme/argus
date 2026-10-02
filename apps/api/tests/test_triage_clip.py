@@ -15,7 +15,7 @@ from argus.domain.enums import UserRole
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("scenario,expected", [
-    ("playback", 200), ("anonymous", 401), ("other_company", 403),
+    ("playback", 200), ("jpeg_fallback", 200), ("anonymous", 401), ("other_company", 403),
     ("missing_case", 404), ("missing_clip", 404),
 ])
 async def test_clip_requires_session_and_company(monkeypatch, scenario, expected):
@@ -40,14 +40,15 @@ async def test_clip_requires_session_and_company(monkeypatch, scenario, expected
             token="opaque-session",
         )
     monkeypatch.setattr(deps, "set_company_context", AsyncMock())
-    download = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypmp42", "video/mp4"))
+    payload, content_type = (b"\xff\xd8\xff", "image/jpeg") if scenario == "jpeg_fallback" else (b"\x00\x00\x00\x18ftypmp42", "video/mp4")
+    download = AsyncMock(return_value=(payload, content_type))
     monkeypatch.setattr(triage_cases, "download_bytes", download)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get(f"/v1/companies/{company_id}/triage-cases/{case_id}/clip")
     assert response.status_code == expected
     if expected == 200:
-        assert response.content == b"\x00\x00\x00\x18ftypmp42"
-        assert response.headers["content-type"] == "video/mp4"
+        assert response.content == payload
+        assert response.headers["content-type"] == content_type
         assert response.headers["cache-control"] == "private, no-store"
         download.assert_awaited_once_with("s3://private/clips/test.mp4")
         # Explicit company constraint supplements RLS, including platform-role requests.

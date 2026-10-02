@@ -15,7 +15,7 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [clip, setClip] = useState<{ path: string; url: string } | null>(null);
+  const [clip, setClip] = useState<{ path: string; url: string; isImage: boolean } | null>(null);
   const [clipError, setClipError] = useState(false);
   const clipPath = triageCase.clip_playback_url ?? null;
 
@@ -31,7 +31,7 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
           const blob = await response.blob();
           if (controller.signal.aborted) return;
           objectUrl = URL.createObjectURL(blob);
-          setClip({ path: clipPath, url: objectUrl });
+          setClip({ path: clipPath, url: objectUrl, isImage: blob.type.startsWith('image/') });
         })
         .catch(() => {
           if (!controller.signal.aborted) setClipError(true);
@@ -120,7 +120,11 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
       <section className="argus-triage-detail__section">
         <h3>{t('Evidence')}</h3>
         {clipUrl ? (
-          <video className="argus-evidence-media" controls preload="metadata" src={clipUrl} />
+          clip?.isImage ? (
+            <img className="argus-evidence-media" src={clipUrl} alt={t('Evidence')} />
+          ) : (
+            <video className="argus-evidence-media" controls preload="metadata" src={clipUrl} />
+          )
         ) : null}
         {frames.length > 0 ? (
           <div className="argus-evidence-frames">
