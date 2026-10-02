@@ -42,3 +42,5 @@ how often a candidate reaches the language model.
 
 The gateway has no public control port. Source pages remain the operator's
 public viewing option; retained analysis evidence is available through Argus.
+
+Evidence clips are fetched through the authenticated, company-scoped API; browser playback does not require a public object-storage host.

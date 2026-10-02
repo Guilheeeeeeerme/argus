@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from botocore.exceptions import ClientError
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,7 +23,7 @@ from argus.domain.schemas.triage import (
     TriageCaseSummary,
 )
 from argus.services.feedback import create_feedback_with_embedding
-from argus.services.storage import generate_presigned_get_url
+from argus.services.storage import download_bytes
 from argus.services.ws_events import publish_ws_event
 from argus.services.audit import write_audit_record
 
@@ -84,6 +85,7 @@ async def list_open_triage_cases(
 
 @router.get("/{triage_case_id}", response_model=TriageCaseDetail)
 async def get_triage_case(
+    company_id: UUID,
     triage_case_id: UUID,
     session: AsyncSession = Depends(get_company_db),
     _auth: AuthContext = Depends(
@@ -92,7 +94,7 @@ async def get_triage_case(
 ) -> TriageCaseDetail:
     case = await session.scalar(
         select(TriageCase)
-        .where(TriageCase.id == triage_case_id)
+        .where(TriageCase.id == triage_case_id, TriageCase.company_id == company_id)
         .options(selectinload(TriageCase.detection))
     )
     if case is None:
@@ -101,8 +103,7 @@ async def get_triage_case(
     clip_playback_url = None
     detection = case.detection
     if detection is not None and detection.clip_uri and detection.clip_uri.startswith("s3://"):
-        key = detection.clip_uri.split("/", 3)[-1]
-        clip_playback_url = await generate_presigned_get_url(key)
+        clip_playback_url = f"/v1/companies/{company_id}/triage-cases/{triage_case_id}/clip"
 
     return TriageCaseDetail(
         id=case.id,
@@ -113,6 +114,38 @@ async def get_triage_case(
         updated_at=case.updated_at,
         detection=_detection_summary(detection),
         clip_playback_url=clip_playback_url,
+    )
+
+
+@router.get("/{triage_case_id}/clip")
+async def get_triage_clip(
+    company_id: UUID,
+    triage_case_id: UUID,
+    session: AsyncSession = Depends(get_company_db),
+    _auth: AuthContext = Depends(
+        require_role(UserRole.OPERATOR, UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
+    ),
+) -> Response:
+    case = await session.scalar(
+        select(TriageCase)
+        .where(TriageCase.id == triage_case_id, TriageCase.company_id == company_id)
+        .options(selectinload(TriageCase.detection))
+    )
+    if case is None or case.detection is None or not case.detection.clip_uri:
+        raise HTTPException(status_code=404, detail="Evidence clip not found")
+    try:
+        payload, content_type = await download_bytes(case.detection.clip_uri)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Evidence clip not found") from exc
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code")
+        if code in {"NoSuchKey", "NoSuchBucket", "404"}:
+            raise HTTPException(status_code=404, detail="Evidence clip not found") from exc
+        raise HTTPException(status_code=502, detail="Evidence storage unavailable") from exc
+    return Response(
+        content=payload,
+        media_type=content_type,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
 
 

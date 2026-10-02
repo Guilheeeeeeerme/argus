@@ -70,6 +70,22 @@ async def xreadgroup(
     )
 
 
+async def claim_pending(
+    stream: str, group: str, consumer: str, cursor: str
+) -> tuple[str, list[tuple[str, dict[str, str]]]]:
+    """Reclaim stale work from any consumer, scanning fairly across the PEL."""
+    result = await get_redis().xautoclaim(
+        stream,
+        group,
+        consumer,
+        min_idle_time=settings.consumer_retry_idle_ms,
+        start_id=cursor,
+        count=settings.consumer_batch_size,
+    )
+    # Redis 7 also returns IDs already trimmed from the stream.
+    return result[0], result[1]
+
+
 async def xack(stream: str, group: str, message_id: str) -> int:
     return await get_redis().xack(stream, group, message_id)
 

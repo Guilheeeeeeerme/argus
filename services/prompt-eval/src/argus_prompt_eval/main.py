@@ -22,9 +22,10 @@ from argus_prompt_eval.context_grounding import ground_candidate, ground_context
 from argus_prompt_eval.db import _USING_SHARED_MODELS, company_session
 from argus_prompt_eval.evidence_retention import retain_evidence
 from argus_prompt_eval.negative_discard import discard_sequence, should_discard
-from argus_prompt_eval.persist import persist_positive
+from argus_prompt_eval.persist import find_positive, persist_positive
 from argus_prompt_eval.prompt_set_eval import evaluate_prompt_set
 from argus_prompt_eval.redis_io import (
+    claim_pending,
     close_redis,
     ensure_consumer_group,
     get_redis,
@@ -104,6 +105,14 @@ async def _handle_frames_ready(
 
     redis = get_redis()
     async with company_session(company_id) as session:
+        existing = await find_positive(
+            session, company_id=company_id, camera_id=camera_id, sequence_id=sequence_id
+        )
+        if existing is not None:
+            detection, triage = existing
+            await _publish_positive(detection, triage)
+            await xack(stream, settings.frames_group, message_id)
+            return
         grounded = await ground_context(
             session,
             company_id=company_id,
@@ -206,21 +215,11 @@ async def _handle_frames_ready(
             captured_at=captured_at,
         )
 
-    await publish_detection_positive(
-        {
-            "detection_id": str(detection.id),
-            "triage_case_id": str(triage.id),
-            "clip_uri": detection.clip_uri,
-            "prompt_hits": detection.prompt_hits,
-            "confidence": float(detection.confidence),
-            "summary": detection.summary,
-            "company_id": str(company_id),
-            "establishment_id": str(establishment_id),
-            "camera_id": str(camera_id),
-            "sequence_id": sequence_id,
-            "provider": provider,
-            "assembled_with_ffmpeg": evidence.assembled_with_ffmpeg,
-        }
+    await _publish_positive(
+        detection,
+        triage,
+        provider=provider,
+        assembled_with_ffmpeg=evidence.assembled_with_ffmpeg,
     )
     logger.info(
         "positive detection=%s triage=%s provider=%s sequence=%s",
@@ -230,6 +229,25 @@ async def _handle_frames_ready(
         sequence_id,
     )
     await xack(stream, settings.frames_group, message_id)
+
+
+async def _publish_positive(detection, triage, **metadata) -> None:
+    # Publication is at least once; downstream must deduplicate by detection_id.
+    await publish_detection_positive(
+        {
+            "detection_id": str(detection.id),
+            "triage_case_id": str(triage.id),
+            "clip_uri": detection.clip_uri,
+            "prompt_hits": detection.prompt_hits,
+            "confidence": float(detection.confidence),
+            "summary": detection.summary,
+            "company_id": str(detection.company_id),
+            "establishment_id": str(detection.establishment_id),
+            "camera_id": str(detection.camera_id),
+            "sequence_id": detection.sequence_id,
+            **metadata,
+        }
+    )
 
 
 async def _handle_context_event(message_id: str, fields: dict[str, str]) -> None:
@@ -264,9 +282,20 @@ async def run_forever() -> None:
         _USING_SHARED_MODELS,
     )
 
+    cursors = {stream: "0-0", settings.context_stream: "0-0"}
     while not _stop.is_set():
         try:
-            batches = await xreadgroup(
+            batches = []
+            for pending_stream, group in (
+                (stream, settings.frames_group),
+                (settings.context_stream, settings.context_group),
+            ):
+                cursors[pending_stream], pending = await claim_pending(
+                    pending_stream, group, consumer, cursors[pending_stream]
+                )
+                if pending:
+                    batches.append((pending_stream, pending))
+            fresh = await xreadgroup(
                 settings.frames_group,
                 consumer,
                 {
@@ -274,8 +303,9 @@ async def run_forever() -> None:
                     settings.context_stream: ">",
                 },
             )
+            batches.extend(fresh)
         except Exception:
-            logger.exception("xreadgroup failed")
+            logger.exception("stream read failed")
             await asyncio.sleep(1)
             continue
 
@@ -294,9 +324,12 @@ async def run_forever() -> None:
                         await handler(message_id, fields)
                     else:
                         await _handle_context_event(message_id, fields)
-                except Exception:
-                    logger.exception(
-                        "failed processing %s id=%s", stream_name, message_id
+                except Exception as exc:  # noqa: BLE001 — keep failed entries pending
+                    logger.error(
+                        "failed processing %s id=%s error_type=%s",
+                        stream_name,
+                        message_id,
+                        type(exc).__name__,
                     )
 
     await close_redis()

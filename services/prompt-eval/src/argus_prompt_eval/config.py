@@ -93,6 +93,9 @@ class Settings(BaseSettings):
     context_lookback_seconds: int = Field(alias="CONTEXT_LOOKBACK_SECONDS", default=900)
     rag_limit: int = Field(alias="RAG_LIMIT", default=5)
     consumer_batch_size: int = Field(alias="CONSUMER_BATCH_SIZE", default=5)
+    consumer_retry_idle_ms: int = Field(
+        alias="CONSUMER_RETRY_IDLE_MS", default=300_000, ge=1000
+    )
     consumer_block_ms: int = Field(alias="CONSUMER_BLOCK_MS", default=2000)
 
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
