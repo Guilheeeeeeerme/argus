@@ -76,6 +76,8 @@ export interface CameraInput {
 }
 
 export const cameras = {
+  /** Every active camera of the Conta, across units. */
+  listAll: (companyId: string) => apiFetch<Camera[]>(`/v1/companies/${companyId}/cameras`),
   list: (companyId: string, unitId: string, includeInactive = false) =>
     apiFetch<Camera[]>(
       `/v1/companies/${companyId}/establishments/${unitId}/cameras${includeInactive ? '?include_inactive=true' : ''}`,

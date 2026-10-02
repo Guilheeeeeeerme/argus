@@ -13,6 +13,10 @@ import { PromptsTab } from './routes/unit/PromptsTab';
 import { WebhooksTab } from './routes/unit/WebhooksTab';
 import { CameraFormDrawer } from './components/forms/CameraForm';
 import { WebhookFormDrawer } from './components/forms/WebhookForm';
+import { UsersPage } from './routes/UsersPage';
+import { UserFormDrawer } from './components/forms/UserForm';
+import { AccountsPage } from './routes/AccountsPage';
+import { AccountFormDrawer } from './components/forms/AccountForm';
 
 function Root() {
   return (
@@ -66,6 +70,22 @@ export const router = createBrowserRouter([
                       { path: ':webhookId/edit', element: <WebhookFormDrawer /> },
                     ],
                   },
+                ],
+              },
+              {
+                path: 'users',
+                element: <UsersPage />,
+                children: [
+                  { path: 'new', element: <UserFormDrawer /> },
+                  { path: ':userId/edit', element: <UserFormDrawer /> },
+                ],
+              },
+              {
+                path: 'accounts',
+                element: <AccountsPage />,
+                children: [
+                  { path: 'new', element: <AccountFormDrawer /> },
+                  { path: ':accountId/edit', element: <AccountFormDrawer /> },
                 ],
               },
               { path: '*', element: <Navigate to="/" replace /> },
