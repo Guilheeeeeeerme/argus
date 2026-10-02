@@ -32,6 +32,7 @@ export default defineConfig({
       { find: /^@argus\/design-system$/, replacement: path.join(ui, 'index.ts') },
       { find: /^@argus\/i18n$/, replacement: path.resolve(rootDir, '../../packages/i18n/src/index.ts') },
       { find: '@shared/auth', replacement: path.resolve(rootDir, '../shared/auth/index.ts') },
+      { find: '@shared/hooks', replacement: path.resolve(rootDir, '../shared/hooks/index.ts') },
     ],
   },
 });

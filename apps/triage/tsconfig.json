@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "paths": {
       "@shared/auth": ["../shared/auth/index.ts"],
+      "@shared/hooks": ["../shared/hooks/index.ts"],
       "@argus/design-system": ["../../packages/ui/src/index.ts"],
       "@argus/design-system/*": ["../../packages/ui/src/*"],
       "@argus/i18n": ["../../packages/i18n/src/index.ts"]

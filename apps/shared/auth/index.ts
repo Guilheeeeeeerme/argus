@@ -85,23 +85,83 @@ export function redirectToLogin(returnUrl: string = window.location.href): void 
   window.location.assign(`${MAIN_ORIGIN}/sso/handoff?returnUrl=${encodeURIComponent(target)}`);
 }
 
-export async function apiFetch(path: string, init: RequestInit = {}): Promise<unknown> {
+export type FieldErrors = Record<string, string>;
+
+/**
+ * Typed API failure. `detail` mirrors FastAPI's `{detail}`; 422 validation bodies
+ * (`{detail: [{loc, msg}]}`) are flattened into `fieldErrors` keyed by the last `loc` segment.
+ * `status` is 0 when the request never reached the server.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly detail: string;
+  readonly fieldErrors: FieldErrors;
+
+  constructor(status: number, detail: string, fieldErrors: FieldErrors = {}) {
+    super(detail);
+    this.name = 'ApiError';
+    this.status = status;
+    this.detail = detail;
+    this.fieldErrors = fieldErrors;
+  }
+}
+
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
+interface ValidationItem {
+  loc?: unknown;
+  msg?: unknown;
+}
+
+async function toApiError(response: Response): Promise<ApiError> {
+  const text = await response.text().catch(() => '');
+  let detail = text || response.statusText || `HTTP ${response.status}`;
+  const fieldErrors: FieldErrors = {};
+  try {
+    const body = JSON.parse(text) as { detail?: unknown };
+    if (typeof body.detail === 'string') {
+      detail = body.detail;
+    } else if (Array.isArray(body.detail)) {
+      for (const item of body.detail as ValidationItem[]) {
+        const loc = Array.isArray(item.loc) ? item.loc : [];
+        const field = loc.length ? String(loc[loc.length - 1]) : '';
+        if (field && typeof item.msg === 'string' && !(field in fieldErrors)) {
+          fieldErrors[field] = item.msg;
+        }
+      }
+      detail = Object.values(fieldErrors)[0] ?? 'Validation error';
+    }
+  } catch {
+    /* non-JSON body: keep raw text */
+  }
+  return new ApiError(response.status, detail, fieldErrors);
+}
+
+export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        'content-type': 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    throw new ApiError(0, error instanceof Error ? error.message : 'Network error');
+  }
   if (response.status === 401 && !path.startsWith('/v1/auth/login')) {
     clearToken();
     redirectToLogin();
-    throw new Error('Session expired');
+    throw new ApiError(401, 'Session expired');
   }
-  if (!response.ok) throw new Error(await response.text());
-  return response.status === 204 ? null : response.json();
+  if (!response.ok) throw await toApiError(response);
+  if (response.status === 204) return null as T;
+  return (await response.json()) as T;
 }
 
 export async function getSession(): Promise<Session> {
