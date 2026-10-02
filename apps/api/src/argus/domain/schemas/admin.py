@@ -97,6 +97,9 @@ class CreateCameraRequest(BaseModel):
 
 
 class UpdateCameraRequest(BaseModel):
+    """Partial update. For `stream_url` / `stream_username` / `stream_password`,
+    omitting the field (None) keeps the stored value and `""` clears it."""
+
     name: str | None = None
     stream_url: str | None = None
     stream_username: str | None = None

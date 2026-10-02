@@ -42,6 +42,24 @@ async def list_establishments(
     )
 
 
+@router.get("/{establishment_id}", response_model=EstablishmentResponse)
+async def get_establishment(
+    company_id: UUID,
+    establishment_id: UUID,
+    session: AsyncSession = Depends(get_company_db),
+    _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
+) -> Establishment:
+    establishment = await session.scalar(
+        select(Establishment).where(
+            Establishment.id == establishment_id,
+            Establishment.company_id == company_id,
+        )
+    )
+    if establishment is None:
+        raise HTTPException(status_code=404, detail="Establishment not found")
+    return establishment
+
+
 @router.post("", response_model=EstablishmentResponse, status_code=status.HTTP_201_CREATED)
 async def create_establishment(
     company_id: UUID,
