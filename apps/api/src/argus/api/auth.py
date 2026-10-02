@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from argus.api.deps import get_platform_db
 from argus.core.auth import AuthContext, get_auth_context
-from argus.core.passwords import hash_password
-from argus.domain.enums import UserRole
-from argus.domain.models import Company, CompanyUser, Establishment
+from argus.domain.enums import PLATFORM_ROLES, UserRole
+from argus.domain.models import Company, CompanyUser, CompanyUserMembership, Establishment
 from argus.services.database import get_db, set_session_context
 from argus.services.sessions import (
     SessionData,
@@ -28,11 +27,6 @@ router = APIRouter(prefix="/v1/auth", tags=["authentication"])
 class LoginRequest(BaseModel):
     email: str
     password: str
-
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=72)
 
 
 class UserResponse(BaseModel):
@@ -64,9 +58,9 @@ class SessionResponse(BaseModel):
 
 
 class SwitchContextRequest(BaseModel):
-    companyId: str | None = Field(default=None)
-    establishmentId: str | None = Field(default=None)
-    locationId: str | None = Field(default=None)  # alias
+    companyId: UUID | None = Field(default=None)
+    establishmentId: UUID | None = Field(default=None)
+    locationId: UUID | None = Field(default=None)  # alias
 
 
 def _user_response(user: CompanyUser) -> UserResponse:
@@ -92,6 +86,7 @@ async def _session_payload(token: str, data: SessionData) -> SessionResponse:
                 establishment = await session.scalar(
                     select(Establishment).where(
                         Establishment.id == establishment_id,
+                        Establishment.company_id == data.company_id,
                         Establishment.active.is_(True),
                     )
                 )
@@ -139,46 +134,16 @@ async def login(body: LoginRequest) -> SessionResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
-    data = SessionData(
-        user_id=str(user.id),
-        email=user.email,
-        role=user.role.value,
-        company_id=str(user.company_id) if user.company_id else None,
+    membership_ids = user.company_ids
+    selected = (
+        user.company_id if user.company_id in membership_ids
+        else membership_ids[0] if len(membership_ids) == 1 else None
     )
-    token = await create_session(data)
-    return await _session_payload(token, data)
-
-
-@router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest) -> SessionResponse:
-    password_hash = hash_password(body.password)
-    email = body.email.lower()
-    async for session in get_db():
-        await set_session_context(session, company_id=None, role=UserRole.ROOT.value)
-        existing = await session.scalar(select(CompanyUser).where(CompanyUser.email == email))
-        if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
-            )
-        user = CompanyUser(
-            email=email,
-            password_hash=password_hash,
-            role=UserRole.OPERATOR,
-        )
-        session.add(user)
-        try:
-            await session.flush()
-        except IntegrityError:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
-            )
     data = SessionData(
         user_id=str(user.id),
         email=user.email,
         role=user.role.value,
-        company_id=None,
+        company_id=str(selected) if selected else None,
     )
     token = await create_session(data)
     return await _session_payload(token, data)
@@ -202,10 +167,29 @@ async def me(auth: AuthContext = Depends(get_auth_context)) -> SessionResponse:
     return await _session_payload(auth.token, data)
 
 
+async def get_context_db(auth: AuthContext = Depends(get_auth_context)):
+    """Trusted account lookup; every company result is explicitly membership-filtered."""
+    async for session in get_db():
+        await set_session_context(session, company_id=None, role=UserRole.ROOT.value)
+        yield session
+
+
+@router.get("/companies", response_model=list[CompanyRef])
+async def available_companies(
+    auth: AuthContext = Depends(get_auth_context),
+    session: AsyncSession = Depends(get_context_db),
+) -> list[CompanyRef]:
+    query = select(Company).order_by(Company.name)
+    if auth.role not in PLATFORM_ROLES:
+        query = query.join(CompanyUserMembership).where(CompanyUserMembership.user_id == auth.sub)
+    return [CompanyRef(id=str(c.id), name=c.name, slug=c.slug)
+            for c in (await session.scalars(query)).all()]
+
+
 @router.patch("/context", response_model=SessionResponse)
 async def switch_context(
     body: SwitchContextRequest,
-    session: AsyncSession = Depends(get_platform_db),
+    session: AsyncSession = Depends(get_context_db),
     auth: AuthContext = Depends(get_auth_context),
 ) -> SessionResponse:
     data = SessionData(
@@ -215,27 +199,40 @@ async def switch_context(
         company_id=str(auth.company_id) if auth.company_id else None,
         establishment_id=str(auth.establishment_id) if auth.establishment_id else None,
     )
-    if body.companyId is not None:
-        company = await session.scalar(select(Company).where(Company.id == body.companyId))
-        if company is None:
-            raise HTTPException(status_code=404, detail="Company not found")
-        data.company_id = str(company.id)
+    if "companyId" in body.model_fields_set:
+        if body.companyId is not None:
+            if auth.role not in PLATFORM_ROLES:
+                membership = await session.scalar(select(CompanyUserMembership.user_id).where(
+                    CompanyUserMembership.user_id == auth.sub,
+                    CompanyUserMembership.company_id == body.companyId,
+                ))
+                if membership is None:
+                    raise HTTPException(status_code=403, detail="Company access denied")
+            company = await session.scalar(select(Company).where(Company.id == body.companyId))
+            if company is None:
+                raise HTTPException(status_code=404, detail="Company not found")
+            data.company_id = str(company.id)
+        else:
+            data.company_id = None
         data.establishment_id = None
         data.location_id = None
-    establishment_id = body.establishmentId or body.locationId
-    if establishment_id is not None:
-        if data.company_id is None:
-            raise HTTPException(status_code=409, detail="Select a company first")
-        establishment = await session.scalar(
-            select(Establishment).where(
+    if "establishmentId" in body.model_fields_set or "locationId" in body.model_fields_set:
+        establishment_id = (
+            body.establishmentId if "establishmentId" in body.model_fields_set else body.locationId
+        )
+        if establishment_id is not None:
+            if data.company_id is None:
+                raise HTTPException(status_code=409, detail="Select a company first")
+            establishment = await session.scalar(select(Establishment).where(
                 Establishment.id == establishment_id,
                 Establishment.company_id == data.company_id,
                 Establishment.active.is_(True),
-            )
-        )
-        if establishment is None:
-            raise HTTPException(status_code=404, detail="Establishment not found")
-        data.establishment_id = str(establishment.id)
+            ))
+            if establishment is None:
+                raise HTTPException(status_code=404, detail="Establishment not found")
+            data.establishment_id = str(establishment.id)
+        else:
+            data.establishment_id = None
         data.location_id = data.establishment_id
     await update_session(auth.token, data)
     return await _session_payload(auth.token, data)

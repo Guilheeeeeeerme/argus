@@ -53,6 +53,7 @@ export type WebhookEndpoint = {
   token?: string;
 };
 export type Account = {
+  company_ids: string[];
   id: string;
   company_id: string | null;
   email: string;

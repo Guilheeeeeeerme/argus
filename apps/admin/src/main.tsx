@@ -9,6 +9,7 @@ import {
   Message,
   Skeleton,
   AlertDialog,
+  EmptyState,
   UserMenu,
 } from '@argus/design-system';
 import { I18nProvider, useT, useLocale, SUPPORTED_LOCALES } from '@argus/i18n';
@@ -26,7 +27,6 @@ import {
 } from '@shared/auth';
 import { call, returnTo, APP, switchContext, Session, Company, Establishment, Account } from './api';
 import { Login } from './pages/Login';
-import { Register } from './pages/Register';
 import { Companies } from './pages/Companies';
 import { Users } from './pages/Users';
 import { Establishments } from './pages/Establishments';
@@ -54,8 +54,8 @@ function App({ initial }: { initial: Session }) {
   async function load(next = session) {
     setSession(next);
     try {
+      setCompanies((await call('/v1/auth/companies')) as Company[]);
       if (isPlatform(next.user.role)) {
-        setCompanies((await call('/v1/admin/companies')) as Company[]);
         setUsers((await call('/v1/admin/users')) as Account[]);
       }
       if (next.activeCompany) {
@@ -81,7 +81,7 @@ function App({ initial }: { initial: Session }) {
       const next = await switchContext({ companyId: id || null });
       await load(next);
       const target = returnTo();
-      if (target !== APP) window.location.assign(withToken(target));
+      if (target !== APP && next.activeCompany) window.location.assign(withToken(target));
       else setMessage(t('Company context updated.'));
     } catch (error) {
       setMessage(String(error));
@@ -148,8 +148,7 @@ function App({ initial }: { initial: Session }) {
           subtitle={t('Administration')}
           aria-label={t('Tenant context')}
         >
-          {isPlatform(session.user.role) && (
-            <div className="argus-sidenav__section">
+          <div className="argus-sidenav__section">
               <label className="argus-sidenav__section-label" htmlFor="company-switcher">
                 {t('Company')}
               </label>
@@ -160,23 +159,14 @@ function App({ initial }: { initial: Session }) {
                 value={session.activeCompany?.id ?? ''}
                 onChange={e => void switchCompany(e.target.value)}
               >
-                <option value="">{t('All companies')}</option>
+                <option value="">{t('No company selected')}</option>
                 {companies.map(company => (
                   <option key={company.id} value={company.id}>
                     {company.name}
                   </option>
                 ))}
               </select>
-            </div>
-          )}
-          {!isPlatform(session.user.role) && (
-            <div className="argus-sidenav__section">
-              <span className="argus-sidenav__section-label">{t('Company')}</span>
-              <span className="argus-list-row__title">
-                {session.activeCompany?.name ?? t('All companies')}
-              </span>
-            </div>
-          )}
+          </div>
           {session.activeCompany && (
             <div className="argus-sidenav__section">
               <label className="argus-sidenav__section-label" htmlFor="establishment-switcher">
@@ -216,11 +206,18 @@ function App({ initial }: { initial: Session }) {
       {message ? <Message text={message} /> : null}
 
       <div className="argus-admin-sections">
+        {!session.activeCompany && (
+          <EmptyState
+            title={t(companies.length ? 'Select a company' : 'No company assigned yet.')}
+            description={t(companies.length ? 'Choose a company in the sidebar to continue.' : 'Contact an administrator to get access to a company.')}
+          />
+        )}
         {isPlatform(session.user.role) && (
           <>
             <Companies companies={companies} onReload={() => void load()} />
             <Users
               users={users}
+              companies={companies}
               companyId={session.activeCompany?.id ?? null}
               onReload={() => void load()}
             />
@@ -287,21 +284,6 @@ function LocaleAware() {
 
   useEffect(() => {
     consumeTokenFromUrl();
-    if (window.location.pathname === '/register') {
-      if (getToken()) {
-        getSession()
-          .then(() => {
-            window.location.assign(APP);
-          })
-          .catch(() => {
-            clearToken();
-            setBooted(true);
-          });
-      } else {
-        setBooted(true);
-      }
-      return;
-    }
     if (window.location.pathname === '/sso/handoff') {
       setBooted(true);
       return;
@@ -324,7 +306,6 @@ function LocaleAware() {
       </div>
     );
   }
-  if (window.location.pathname === '/register') return <Register onRegister={setSession} />;
   if (window.location.pathname === '/sso/handoff') return <SsoHandoffPage />;
   return session ? <App initial={session} /> : <Login onLogin={setSession} />;
 }

@@ -5,6 +5,7 @@ import {
   consumeTokenFromUrl,
   getToken,
   redirectToLogin,
+  MAIN_ORIGIN,
 } from '@shared/auth';
 
 export const API = API_BASE;
@@ -91,4 +92,13 @@ export function authedFetch(path: string, init: RequestInit = {}): Promise<Respo
 export function confidencePercent(value: number | null | undefined): number | null {
   if (value == null) return null;
   return value <= 1 ? Math.round(value * 100) : Math.round(value);
+}
+
+
+export function selectCompany(): void {
+  const target = new URL(MAIN_ORIGIN);
+  target.searchParams.set('returnTo', window.location.origin + window.location.pathname);
+  const token = getToken();
+  if (token) target.hash = `token=${encodeURIComponent(token)}`;
+  window.location.assign(target.toString());
 }

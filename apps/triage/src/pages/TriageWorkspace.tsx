@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Card,
+  Button,
   Badge,
   Message,
   ThemeToggle,
@@ -23,6 +24,7 @@ import {
   redirectToLogin,
   API,
   confidencePercent,
+  selectCompany,
 } from '../api';
 import { TriageDetail } from './TriageDetail';
 
@@ -136,6 +138,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
       wide
       actions={
         <>
+          <Button variant="secondary" onClick={selectCompany}>{t('Change company')}</Button>
           <ThemeToggle />
           <UserMenu
             name={displayName}

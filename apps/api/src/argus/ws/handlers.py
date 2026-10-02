@@ -17,6 +17,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from argus.domain.enums import UserRole
 from argus.services.sessions import get_session
+from argus.services.memberships import has_company_membership
 from argus.services.ws_events import EVENT_DETECTION_CREATED, EVENT_TRIAGE_UPDATED
 from argus.ws.gateway import manager
 
@@ -44,6 +45,10 @@ async def triage_websocket(websocket: WebSocket, token: str | None = None) -> No
         await websocket.close(code=4003, reason="Missing company_id")
         return
 
+    if not await has_company_membership(session.user_id, session.company_id):
+        await websocket.close(code=4003, reason="Company access denied")
+        return
+    websocket.state.token = token
     company_id = session.company_id
     connected = await manager.connect(websocket, company_id=company_id, sub=session.user_id)
     if not connected:

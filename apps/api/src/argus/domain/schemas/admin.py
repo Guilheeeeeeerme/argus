@@ -37,6 +37,7 @@ class AssignCompanyAdminRequest(BaseModel):
 
 
 class CreateCompanyUserRequest(BaseModel):
+    company_ids: list[UUID] | None = None
     company_id: UUID | None = None
     email: str
     password: str | None = None
@@ -45,6 +46,7 @@ class CreateCompanyUserRequest(BaseModel):
 
 
 class UpdateCompanyUserRequest(BaseModel):
+    company_ids: list[UUID] | None = None
     email: str | None = None
     company_id: UUID | None = None
     role: str | None = None
@@ -52,6 +54,7 @@ class UpdateCompanyUserRequest(BaseModel):
 
 
 class CompanyUserResponse(BaseModel):
+    company_ids: list[UUID] = Field(default_factory=list)
     id: UUID
     company_id: UUID | None
     email: str

@@ -30,7 +30,7 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
       if (session.token) setToken(session.token);
       onLogin(session);
       const target = returnTo();
-      if (target !== APP) {
+      if (target !== APP && session.activeCompany) {
         window.location.assign(
           `${target}#token=${encodeURIComponent(session.token ?? '')}`,
         );
@@ -81,9 +81,6 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
               {t('Sign in')}
             </Button>
           </form>
-          <p className="argus-auth__link">
-            {t('No account?')} <a href="/register">{t('Register')}</a>
-          </p>
           <Message text={message} variant="error" />
         </Card>
       </div>

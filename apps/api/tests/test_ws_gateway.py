@@ -47,7 +47,9 @@ def test_ws_rejects_missing_token() -> None:
 
 
 def test_ws_accepts_valid_token(monkeypatch) -> None:
+    from unittest.mock import AsyncMock
     monkeypatch.setattr(ws_handlers, "get_session", _fake_get_session("good-token"))
+    monkeypatch.setattr(ws_handlers, "has_company_membership", AsyncMock(return_value=True))
     client = TestClient(create_ws_app())
     with client.websocket_connect("/v1/ws?token=good-token") as ws:
         msg = ws.receive_json()
@@ -76,3 +78,26 @@ async def test_connection_limit_per_sub() -> None:
         results.append(ok)
     assert results.count(True) == 5
     assert results.count(False) == 1
+
+
+@pytest.mark.asyncio
+async def test_broadcast_blocks_revoked_membership(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from starlette.websockets import WebSocketState
+    from argus.ws.gateway import ConnectionManager
+    import argus.ws.gateway as gateway
+
+    class Socket:
+        state = SimpleNamespace(token="token")
+        client_state = WebSocketState.CONNECTED
+        accept = AsyncMock()
+        send_text = AsyncMock()
+        close = AsyncMock()
+    socket = Socket()
+    rooms = ConnectionManager()
+    await rooms.connect(socket, company_id=SEED_TENANT_ID, sub="member")
+    monkeypatch.setattr(gateway, "can_receive_company_events", AsyncMock(return_value=False))
+    await rooms.broadcast(SEED_TENANT_ID, {"type": "detection.created"})
+    socket.send_text.assert_not_called()
+    socket.close.assert_awaited_once()
