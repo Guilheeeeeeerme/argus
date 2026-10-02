@@ -27,16 +27,22 @@ function MoonIcon() {
   );
 }
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  toDarkLabel?: string;
+  toLightLabel?: string;
+}
+
+export function ThemeToggle({ toDarkLabel, toLightLabel }: ThemeToggleProps = {}) {
   const { theme, toggle } = useTheme();
   const next = theme === 'dark' ? 'light' : 'dark';
+  const label = next === 'dark' ? (toDarkLabel ?? 'Mudar para modo escuro') : (toLightLabel ?? 'Mudar para modo claro');
   return (
     <button
       type="button"
       className="argus-btn argus-btn--ghost argus-btn--sm argus-btn--icon"
       onClick={toggle}
-      aria-label={`Switch to ${next} mode`}
-      title={`Switch to ${next} mode`}
+      aria-label={label}
+      title={label}
     >
       {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
     </button>

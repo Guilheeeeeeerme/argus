@@ -70,7 +70,7 @@ async def load_recent_context_events(
 
 def _format_events(events: list[ContextEvent]) -> str:
     if not events:
-        return "- No recent context events."
+        return "- Nenhum evento de contexto recente."
     lines: list[str] = []
     for event in events:
         received = ensure_aware(event.received_at).isoformat()
@@ -82,8 +82,8 @@ def _format_events(events: list[ContextEvent]) -> str:
 
 def _format_feedback(feedback: list[Feedback]) -> str:
     if not feedback:
-        return "- No prior false-positive feedback."
-    return "\n".join(f"- FALSE POSITIVE example: {fb.reasoning}" for fb in feedback)
+        return "- Nenhum feedback de falso positivo anterior."
+    return "\n".join(f"- Exemplo de FALSO POSITIVO: {fb.reasoning}" for fb in feedback)
 
 
 async def ground_context(
@@ -111,9 +111,9 @@ async def ground_context(
     # Neutralize before screening so invisible-character obfuscation cannot
     # carry a payload past the policy patterns (LLM01 encoding axis).
     raw_block = neutralize(
-        "Context events:\n"
+        "Eventos de contexto:\n"
         f"{_format_events(events)}\n"
-        "Prior operator feedback:\n"
+        "Feedback anterior dos operadores:\n"
         f"{_format_feedback(feedback)}"
     )
     hits = screen(raw_block)
@@ -145,4 +145,4 @@ def ground_candidate(payload: dict) -> str:
     raw = neutralize(json.dumps(data, allow_nan=False, ensure_ascii=False))
     if is_blocked(raw) or any(hit.action == "block" for hit in screen(raw)):
         raise ValueError("candidate context policy block")
-    return fence("Edge evidence (untrusted data):\n```json\n" + raw + "\n```")
+    return fence("Evidência de borda (dados não confiáveis):\n```json\n" + raw + "\n```")

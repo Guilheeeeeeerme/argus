@@ -11,7 +11,6 @@ import {
   SUPPORTED_LOCALES,
   TranslationVars,
   TFunction,
-  resolveLocale,
   translate,
 } from './dictionary';
 
@@ -25,12 +24,13 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 function getInitialLocale(): Locale {
-  if (typeof window === 'undefined') return 'en';
+  if (typeof window === 'undefined') return 'pt-BR';
   const stored = localStorage.getItem(STORAGE_KEY);
   for (const locale of SUPPORTED_LOCALES) {
     if (stored === locale) return locale;
   }
-  return resolveLocale(navigator.language);
+  // pt-BR is the default; English only when the user picked it explicitly.
+  return 'pt-BR';
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {

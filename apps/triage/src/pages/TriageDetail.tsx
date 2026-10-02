@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Textarea, Card, Badge, Message, badgeVariantForTriageState } from '@argus/design-system';
-import { useT, localizeApiError } from '@argus/i18n';
+import { useT, localizeApiError, triageStateLabel } from '@argus/i18n';
 import { authedFetch, TriageCase, confidencePercent } from '../api';
 
 interface TriageDetailProps {
@@ -45,7 +45,7 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
 
   async function resolve(disposition: 'confirmed' | 'dismissed' | 'false_positive') {
     if (disposition === 'false_positive' && !reason.trim()) {
-      setMessage(t('Reasoning is required for false positive.'));
+      setMessage(t('Justificativa obrigatória para falso positivo.'));
       return;
     }
     setSubmitting(true);
@@ -77,26 +77,26 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
 
   return (
     <Card>
-      <h2>{t('Case detail')}</h2>
+      <h2>{t('Detalhes do caso')}</h2>
       <p>
-        <Badge variant={badgeVariantForTriageState(triageCase.state)}>{triageCase.state}</Badge>
+        <Badge variant={badgeVariantForTriageState(triageCase.state)}>{triageStateLabel(triageCase.state, t)}</Badge>
         {confidence != null ? (
           <>
             {' · '}
             <span className="tabular-nums">
-              {t('{confidence}% confidence', { confidence })}
+              {t('{confidence}% de confiança', { confidence })}
             </span>
           </>
         ) : null}
       </p>
 
       <section className="argus-triage-detail__section">
-        <h3>{t('Summary')}</h3>
+        <h3>{t('Resumo')}</h3>
         <p>{detection?.summary ?? '—'}</p>
       </section>
 
       <section className="argus-triage-detail__section">
-        <h3>{t('Prompt hits')}</h3>
+        <h3>{t('Instruções acionadas')}</h3>
         {hits.length === 0 ? (
           <p className="argus-list-row__meta">—</p>
         ) : (
@@ -118,10 +118,10 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
       </section>
 
       <section className="argus-triage-detail__section">
-        <h3>{t('Evidence')}</h3>
+        <h3>{t('Evidência')}</h3>
         {clipUrl ? (
           clip?.isImage ? (
-            <img className="argus-evidence-media" src={clipUrl} alt={t('Evidence')} />
+            <img className="argus-evidence-media" src={clipUrl} alt={t('Evidência')} />
           ) : (
             <video className="argus-evidence-media" controls preload="metadata" src={clipUrl} />
           )
@@ -134,24 +134,24 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
           </div>
         ) : null}
         {clipPath && !clipUrl ? (
-          <p className="argus-list-row__meta">{t(clipError ? 'Unable to load evidence clip.' : 'Loading evidence clip…')}</p>
+          <p className="argus-list-row__meta">{t(clipError ? 'Não foi possível carregar o clipe.' : 'Carregando clipe de evidência…')}</p>
         ) : null}
         {!clipPath && frames.length === 0 ? (
-          <p className="argus-list-row__meta">{t('No evidence clip or frames.')}</p>
+          <p className="argus-list-row__meta">{t('Sem clipe ou frames de evidência.')}</p>
         ) : null}
       </section>
 
       {isOpen ? (
         <>
           <Textarea
-            label={t('Reasoning (optional, recommended for false positive)')}
+            label={t('Justificativa (opcional; recomendada para falso positivo)')}
             value={reason}
             onChange={e => setReason(e.target.value)}
           />
           <div className="argus-resolve-actions">
             {onClose ? (
               <Button variant="ghost" onClick={onClose}>
-                {t('Close')}
+                {t('Fechar')}
               </Button>
             ) : null}
             <Button
@@ -159,24 +159,24 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
               onClick={() => void resolve('dismissed')}
               disabled={submitting}
             >
-              {t('Dismiss')}
+              {t('Descartar')}
             </Button>
             <Button
               variant="secondary"
               onClick={() => void resolve('false_positive')}
               disabled={submitting}
             >
-              {t('False positive')}
+              {t('Falso positivo')}
             </Button>
             <Button variant="primary" onClick={() => void resolve('confirmed')} disabled={submitting}>
-              {t('Confirm')}
+              {t('Confirmar')}
             </Button>
           </div>
         </>
       ) : onClose ? (
         <div className="argus-resolve-actions">
           <Button variant="ghost" onClick={onClose}>
-            {t('Close')}
+            {t('Fechar')}
           </Button>
         </div>
       ) : null}

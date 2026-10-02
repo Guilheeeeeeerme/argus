@@ -9,7 +9,7 @@ import {
   EmptyState,
   AlertDialog,
 } from '@argus/design-system';
-import { useT, localizeApiError } from '@argus/i18n';
+import { useT, localizeApiError, roleLabel } from '@argus/i18n';
 import { call, Account, Company } from '../api';
 
 interface UsersProps {
@@ -39,7 +39,7 @@ export function Users({ users, companies, companyId, onReload }: UsersProps) {
         }),
       });
       onReload();
-      setMessage(t('User created.'));
+      setMessage(t('Usuário criado.'));
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
     }
@@ -52,7 +52,7 @@ export function Users({ users, companies, companyId, onReload }: UsersProps) {
         method: 'PATCH', body: JSON.stringify({ company_ids: ids }),
       });
       onReload();
-      setMessage(t('Company access updated.'));
+      setMessage(t('Acesso à empresa atualizado.'));
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
     }
@@ -72,18 +72,18 @@ export function Users({ users, companies, companyId, onReload }: UsersProps) {
 
   return (
     <Card>
-      <h2>{t('Users')}</h2>
+      <h2>{t('Usuários')}</h2>
       {users.length === 0 ? (
         <EmptyState
-          title={t('No users yet')}
-          description={t('Create a manager or operator for the active company.')}
+          title={t('Nenhum usuário ainda')}
+          description={t('Crie um gestor ou operador para esta empresa.')}
         />
       ) : (
         users.map(user => (
           <ListRow
             key={user.id}
             title={user.email}
-            meta={user.role}
+            meta={roleLabel(user.role, t)}
             actions={
               <>
                 {companies.map(company => (
@@ -94,11 +94,11 @@ export function Users({ users, companies, companyId, onReload }: UsersProps) {
                     aria-pressed={user.company_ids.includes(company.id)}
                     onClick={() => void updateMembership(user, company.id, !user.company_ids.includes(company.id))}
                   >
-                    {t(user.company_ids.includes(company.id) ? 'Remove access to {name}' : 'Add access to {name}', { name: company.name })}
+                    {t(user.company_ids.includes(company.id) ? 'Remover acesso a {name}' : 'Dar acesso a {name}', { name: company.name })}
                   </Button>
                 ))}
                 <Button size="sm" variant="danger" onClick={() => setPendingDelete(user)}>
-                  {t('Delete')}
+                  {t('Excluir')}
                 </Button>
               </>
             }
@@ -107,37 +107,37 @@ export function Users({ users, companies, companyId, onReload }: UsersProps) {
       )}
       <div className="argus-inline-form">
         <Input
-          label={t('User email')}
+          label={t('E-mail do usuário')}
           value={userEmail}
           onChange={e => setUserEmail(e.target.value)}
         />
         <Input
-          label={t('Password')}
+          label={t('Senha')}
           type="password"
           value={userPassword}
           onChange={e => setUserPassword(e.target.value)}
         />
         <Select
-          label={t('User role')}
+          label={t('Função do usuário')}
           value={userRole}
           onChange={e => setUserRole(e.target.value)}
           options={[
-            { value: 'manager', label: t('Manager') },
-            { value: 'operator', label: t('Operator') },
+            { value: 'manager', label: t('Gestor') },
+            { value: 'operator', label: t('Operador') },
           ]}
         />
-        <Button onClick={createUser}>{t('Create user')}</Button>
+        <Button onClick={createUser}>{t('Criar usuário')}</Button>
       </div>
       <Message text={message} />
 
       <AlertDialog
         open={Boolean(pendingDelete)}
-        title={t('Delete user')}
-        description={t('Delete {name}? This cannot be undone.', {
+        title={t('Excluir usuário')}
+        description={t('Excluir {name}? Essa ação não pode ser desfeita.', {
           name: pendingDelete?.email ?? '',
         })}
-        confirmLabel={t('Delete')}
-        cancelLabel={t('Cancel')}
+        confirmLabel={t('Excluir')}
+        cancelLabel={t('Cancelar')}
         onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}
       />

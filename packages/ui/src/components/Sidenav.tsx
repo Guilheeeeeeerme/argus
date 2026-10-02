@@ -13,7 +13,7 @@ export function Sidenav({
   brand,
   brandMark,
   subtitle,
-  'aria-label': ariaLabel = 'Navigation',
+  'aria-label': ariaLabel = 'Navegação',
 }: SidenavProps) {
   return (
     <div className="argus-sidenav" aria-label={ariaLabel}>

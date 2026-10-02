@@ -48,21 +48,21 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
         <div className="argus-auth__toolbar">
           <LocaleToggle
             locale={locale}
-            label={t('PT-BR')}
-            ariaLabel={t('Switch language')}
+            label={t('English')}
+            ariaLabel={t('Mudar idioma')}
             onLocaleChange={setLocale}
           />
-          <ThemeToggle />
+          <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />
         </div>
         <Card>
           <h1 className="argus-auth__brand">
             <img src="/brand.svg" alt="" width={28} height={28} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
             ARGUS
           </h1>
-          <p className="argus-auth__subtitle">{t('Sign in to continue.')}</p>
+          <p className="argus-auth__subtitle">{t('Entre para continuar.')}</p>
           <form onSubmit={submit}>
             <Input
-              label={t('Email')}
+              label={t('E-mail')}
               type="email"
               autoComplete="username"
               value={email}
@@ -70,7 +70,7 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
               required
             />
             <Input
-              label={t('Password')}
+              label={t('Senha')}
               type="password"
               autoComplete="current-password"
               value={password}
@@ -78,7 +78,7 @@ export function Login({ onLogin }: { onLogin: (session: Session) => void }) {
               required
             />
             <Button type="submit" disabled={submitting}>
-              {t('Sign in')}
+              {t('Entrar')}
             </Button>
           </form>
           <Message text={message} variant="error" />

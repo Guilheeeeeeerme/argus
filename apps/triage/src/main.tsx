@@ -24,11 +24,11 @@ function BootToolbar() {
     <div className="argus-boot__toolbar">
       <LocaleToggle
         locale={locale}
-        label={t('PT-BR')}
-        ariaLabel={t('Switch language')}
+        label={t('English')}
+        ariaLabel={t('Mudar idioma')}
         onLocaleChange={setLocale}
       />
-      <ThemeToggle />
+      <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />
     </div>
   );
 }
@@ -57,9 +57,9 @@ function TriageRoot() {
     return (
       <main className="argus-boot">
         <BootToolbar />
-        <Skeleton width={200} height={20} aria-label={t('Checking session…')} />
+        <Skeleton width={200} height={20} aria-label={t('Verificando sessão…')} />
         <Skeleton width={140} height={14} />
-        <p>{t('Checking session…')}</p>
+        <p>{t('Verificando sessão…')}</p>
       </main>
     );
   }
@@ -69,10 +69,10 @@ function TriageRoot() {
         <BootToolbar />
         <Card className="argus-auth__panel">
           <EmptyState
-            title={t('No company selected')}
-            description={t('Select a company or ask an administrator for access.')}
+            title={t('Nenhuma empresa selecionada')}
+            description={t('Selecione uma empresa ou peça acesso a um administrador.')}
           />
-          <Button onClick={selectCompany}>{t('Select a company')}</Button>
+          <Button onClick={selectCompany}>{t('Selecione uma empresa')}</Button>
         </Card>
       </main>
     );
@@ -81,7 +81,7 @@ function TriageRoot() {
     <TriageWorkspace session={session} />
   ) : (
     <main className="argus-boot">
-      <p>{t('Redirecting to sign in…')}</p>
+      <p>{t('Redirecionando para o login…')}</p>
     </main>
   );
 }

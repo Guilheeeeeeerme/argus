@@ -72,13 +72,13 @@ def build_system_prompt(prompt_set: PromptSet, prompts: list[Prompt]) -> str:
     prompts_block = "\n".join(
         f"- id={prompt.id}: {prompt.text.strip()}"
         for prompt in prompts
-    ) or "- No prompts configured."
+    ) or "- Nenhuma instrução configurada."
     return render_prompt(
         "vlm.system",
         {
             "system_prompt": (
-                f"You evaluate camera frames for PromptSet '{prompt_set.name}'. "
-                "For each evaluation prompt, decide whether it appears to be happening."
+                f"Você avalia imagens de câmeras para o PromptSet '{prompt_set.name}'. "
+                "Para cada instrução de avaliação, decida se ela está visível na imagem."
             ),
             "prompts_block": prompts_block,
         },

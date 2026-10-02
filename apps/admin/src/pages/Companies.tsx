@@ -19,7 +19,7 @@ interface CompaniesProps {
 
 export function Companies({ companies, onReload }: CompaniesProps) {
   const t = useT();
-  const [name, setName] = useState('New company');
+  const [name, setName] = useState('Nova empresa');
   const [message, setMessage] = useState('');
   const [pendingDelete, setPendingDelete] = useState<Company | null>(null);
   const [editing, setEditing] = useState<Company | null>(null);
@@ -35,7 +35,7 @@ export function Companies({ companies, onReload }: CompaniesProps) {
         }),
       });
       onReload();
-      setMessage(t('Company created.'));
+      setMessage(t('Empresa criada.'));
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
     }
@@ -69,11 +69,11 @@ export function Companies({ companies, onReload }: CompaniesProps) {
 
   return (
     <Card>
-      <h2>{t('Companies')}</h2>
+      <h2>{t('Empresas')}</h2>
       {companies.length === 0 ? (
         <EmptyState
-          title={t('No companies yet')}
-          description={t('Create a company to start multi-tenant administration.')}
+          title={t('Nenhuma empresa ainda')}
+          description={t('Crie a primeira empresa para começar.')}
         />
       ) : (
         companies.map(company => (
@@ -91,10 +91,10 @@ export function Companies({ companies, onReload }: CompaniesProps) {
                     setEditName(company.name);
                   }}
                 >
-                  {t('Edit')}
+                  {t('Editar')}
                 </Button>
                 <Button size="sm" variant="danger" onClick={() => setPendingDelete(company)}>
-                  {t('Delete')}
+                  {t('Excluir')}
                 </Button>
               </>
             }
@@ -103,41 +103,41 @@ export function Companies({ companies, onReload }: CompaniesProps) {
       )}
       <div className="argus-inline-form">
         <Input
-          label={t('Company name')}
+          label={t('Nome da empresa')}
           value={name}
           onChange={e => setName(e.target.value)}
         />
-        <Button onClick={createCompany}>{t('Create company')}</Button>
+        <Button onClick={createCompany}>{t('Criar empresa')}</Button>
       </div>
       <Message text={message} />
 
       <AlertDialog
         open={Boolean(pendingDelete)}
-        title={t('Delete company')}
-        description={t('Delete {name}? This cannot be undone.', {
+        title={t('Excluir empresa')}
+        description={t('Excluir {name}? Essa ação não pode ser desfeita.', {
           name: pendingDelete?.name ?? '',
         })}
-        confirmLabel={t('Delete')}
-        cancelLabel={t('Cancel')}
+        confirmLabel={t('Excluir')}
+        cancelLabel={t('Cancelar')}
         onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}
       />
 
       <Dialog
         open={Boolean(editing)}
-        title={t('Edit company')}
+        title={t('Editar empresa')}
         onClose={() => setEditing(null)}
       >
         <Input
-          label={t('Company name')}
+          label={t('Nome da empresa')}
           value={editName}
           onChange={e => setEditName(e.target.value)}
         />
         <div className="argus-dialog__actions">
           <Button variant="ghost" onClick={() => setEditing(null)}>
-            {t('Cancel')}
+            {t('Cancelar')}
           </Button>
-          <Button onClick={() => void saveEdit()}>{t('Save')}</Button>
+          <Button onClick={() => void saveEdit()}>{t('Salvar')}</Button>
         </div>
       </Dialog>
     </Card>
