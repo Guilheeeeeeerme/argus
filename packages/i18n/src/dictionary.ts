@@ -195,6 +195,7 @@ const en: Record<string, string> = {
   'Nenhuma unidade ainda': 'No units yet',
   'Adicione uma unidade para gerenciar câmeras e instruções.': 'Add a unit to manage its cameras and prompts.',
   'Nova unidade': 'New unit',
+  'Lojas, salas ou campi desta conta. Cada unidade agrupa câmeras, instruções e webhooks.': 'Stores, rooms or campuses of this account. Each unit groups cameras, prompts and webhooks.',
   'Editar unidade': 'Edit unit',
   'Excluir unidade': 'Delete unit',
   'Nome da unidade': 'Unit name',

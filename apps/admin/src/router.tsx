@@ -5,6 +5,8 @@ import { AdminShell } from './app/AdminShell';
 import { LoginPage } from './routes/LoginPage';
 import { SsoHandoffPage } from './routes/SsoHandoffPage';
 import { OverviewPage } from './routes/OverviewPage';
+import { UnitsPage } from './routes/UnitsPage';
+import { UnitFormDrawer } from './components/forms/UnitForm';
 
 function Root() {
   return (
@@ -28,6 +30,14 @@ export const router = createBrowserRouter([
             element: <AdminShell />,
             children: [
               { index: true, element: <OverviewPage /> },
+              {
+                path: 'units',
+                element: <UnitsPage />,
+                children: [
+                  { path: 'new', element: <UnitFormDrawer /> },
+                  { path: ':unitId/edit', element: <UnitFormDrawer /> },
+                ],
+              },
               { path: '*', element: <Navigate to="/" replace /> },
             ],
           },
