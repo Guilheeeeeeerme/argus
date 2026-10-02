@@ -308,6 +308,20 @@ const en: Record<string, string> = {
   'Sem conexão com o servidor.': 'Cannot reach the server.',
   'Já existe um registro com esse valor.': 'A record with this value already exists.',
   'Dados inválidos. Revise os campos.': 'Invalid data. Review the fields.',
+
+  // ——— Triage grid ———
+  'Selecione uma conta ou peça acesso a um administrador.': 'Select an account or ask an administrator for access.',
+  'Selecione uma unidade': 'Select a unit',
+  'Escolha a unidade cujas câmeras você vai acompanhar.': 'Choose the unit whose cameras you will monitor.',
+  'Nenhuma unidade cadastrada nesta conta. Crie uma na administração.': 'No unit registered in this account. Create one in Administration.',
+  'Nenhuma câmera nesta unidade': 'No cameras in this unit',
+  'Cadastre câmeras na administração para vê-las aqui.': 'Register cameras in Administration to see them here.',
+  'Sem sinal': 'No signal',
+  'Reconectando…': 'Reconnecting…',
+  'Caso': 'Case',
+  'Sem casos para esta câmera.': 'No cases for this camera.',
+  '{count} casos abertos': '{count} open cases',
+  '{count} novos': '{count} new',
 };
 
 const dictionaries: Record<Locale, Record<string, string>> = {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   ThemeProvider,
+  ToastProvider,
   LocaleToggle,
   ThemeToggle,
   Skeleton,
@@ -58,7 +59,7 @@ function TriageRoot() {
       <main className="argus-boot">
         <BootToolbar />
         <Skeleton width={200} height={20} aria-label={t('Verificando sessão…')} />
-        <Skeleton width={140} height={14} />
+        <Skeleton width={140} height={14} aria-label="" />
         <p>{t('Verificando sessão…')}</p>
       </main>
     );
@@ -69,10 +70,10 @@ function TriageRoot() {
         <BootToolbar />
         <Card className="argus-auth__panel">
           <EmptyState
-            title={t('Nenhuma empresa selecionada')}
-            description={t('Selecione uma empresa ou peça acesso a um administrador.')}
+            title={t('Nenhuma conta selecionada')}
+            description={t('Selecione uma conta ou peça acesso a um administrador.')}
           />
-          <Button onClick={selectCompany}>{t('Selecione uma empresa')}</Button>
+          <Button onClick={selectCompany}>{t('Selecione uma conta')}</Button>
         </Card>
       </main>
     );
@@ -86,11 +87,20 @@ function TriageRoot() {
   );
 }
 
+function Providers() {
+  const t = useT();
+  return (
+    <ToastProvider closeLabel={t('Fechar')}>
+      <TriageRoot />
+    </ToastProvider>
+  );
+}
+
 function Root() {
   return (
     <ThemeProvider>
       <I18nProvider>
-        <TriageRoot />
+        <Providers />
       </I18nProvider>
     </ThemeProvider>
   );

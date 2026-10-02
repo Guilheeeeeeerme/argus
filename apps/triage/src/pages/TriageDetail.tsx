@@ -1,23 +1,152 @@
 import { useEffect, useState } from 'react';
-import { Button, Textarea, Card, Badge, Message, badgeVariantForTriageState } from '@argus/design-system';
+import {
+  Badge,
+  Button,
+  FormSkeleton,
+  EmptyState,
+  Textarea,
+  badgeVariantForTriageState,
+  useToast,
+} from '@argus/design-system';
 import { useT, localizeApiError, triageStateLabel } from '@argus/i18n';
-import { authedFetch, TriageCase, confidencePercent } from '../api';
+import { useAsync, useMutation } from '@shared/hooks';
+import { authedFetch, confidencePercent, getCase, resolveCase, type Disposition, type TriageCaseDetail } from '../api';
 
 interface TriageDetailProps {
-  triageCase: TriageCase;
-  company: string;
-  onResolved: () => void;
-  onClose?: () => void;
+  companyId: string;
+  caseId: string;
+  /** Any operator action inside the detail (resets the FOLLOW idle timer). */
+  onInteraction: () => void;
+  onResolved: (result: { id: string; state: string; resolved_at: string }) => void;
 }
 
-export function TriageDetail({ triageCase, company, onResolved, onClose }: TriageDetailProps) {
+export function TriageDetail({ companyId, caseId, onInteraction, onResolved }: TriageDetailProps) {
   const t = useT();
+  const toast = useToast();
+  const detail = useAsync(() => getCase(companyId, caseId), [companyId, caseId]);
+  const resolve = useMutation((disposition: Disposition, reasoning: string | null) =>
+    resolveCase(companyId, caseId, { disposition, reasoning }),
+  );
   const [reason, setReason] = useState('');
-  const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [reasonError, setReasonError] = useState<string | undefined>();
+  const [pendingDisposition, setPendingDisposition] = useState<Disposition | null>(null);
+
+  async function submit(disposition: Disposition) {
+    onInteraction();
+    if (disposition === 'false_positive' && !reason.trim()) {
+      setReasonError(t('Justificativa obrigatória para falso positivo.'));
+      return;
+    }
+    setReasonError(undefined);
+    setPendingDisposition(disposition);
+    const result = await resolve.run(disposition, reason.trim() || null);
+    setPendingDisposition(null);
+    if (!result.ok) {
+      toast.error(localizeApiError(result.error, t));
+      return;
+    }
+    toast.success(t('Caso atualizado.'));
+    onResolved({ id: result.data.triage_case_id, state: result.data.state, resolved_at: result.data.resolved_at });
+  }
+
+  if (detail.loading && !detail.data) return <FormSkeleton fields={3} label={t('Carregando')} />;
+  if (detail.error || !detail.data) {
+    return (
+      <EmptyState
+        title={t('Não foi possível carregar.')}
+        description={detail.error ? localizeApiError(detail.error, t) : undefined}
+        action={
+          <Button variant="secondary" size="sm" onClick={() => void detail.reload()}>
+            {t('Tentar novamente')}
+          </Button>
+        }
+      />
+    );
+  }
+
+  const triageCase = detail.data;
+  const detection = triageCase.detection;
+  const hits = detection?.prompt_hits ?? [];
+  const confidence = confidencePercent(detection?.confidence);
+  const isOpen = triageCase.state === 'open';
+  const busy = resolve.pending;
+
+  return (
+    <div className="argus-triage-detail" onPointerDown={onInteraction} onKeyDown={onInteraction}>
+      <p className="argus-triage-detail__state">
+        <Badge variant={badgeVariantForTriageState(triageCase.state)}>{triageStateLabel(triageCase.state, t)}</Badge>
+        {confidence != null ? (
+          <span className="tabular-nums"> · {t('{confidence}% de confiança', { confidence })}</span>
+        ) : null}
+        {detection?.camera_name ? <span> · {detection.camera_name}</span> : null}
+      </p>
+
+      <section className="argus-triage-detail__section">
+        <h3>{t('Resumo')}</h3>
+        <p>{detection?.summary ?? '—'}</p>
+      </section>
+
+      <section className="argus-triage-detail__section">
+        <h3>{t('Instruções acionadas')}</h3>
+        {hits.length === 0 ? (
+          <p className="argus-list-row__meta">—</p>
+        ) : (
+          <ul className="argus-prompt-hits">
+            {hits.map((hit, index) => {
+              const label = hit.name ?? hit.text ?? hit.prompt_id ?? 'prompt';
+              const hitPct = confidencePercent(hit.confidence);
+              return (
+                <li key={hit.prompt_id ?? `${label}-${index}`} className="argus-prompt-hits__row">
+                  <Badge variant="open">{label}</Badge>
+                  {hitPct != null ? <span className="tabular-nums"> {hitPct}%</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="argus-triage-detail__section">
+        <h3>{t('Evidência')}</h3>
+        <Evidence detail={triageCase} />
+      </section>
+
+      {isOpen ? (
+        <>
+          <Textarea
+            label={t('Justificativa (opcional; recomendada para falso positivo)')}
+            value={reason}
+            error={reasonError}
+            onChange={e => setReason(e.target.value)}
+            disabled={busy}
+          />
+          <div className="argus-resolve-actions">
+            <Button variant="ghost" onClick={() => void submit('dismissed')} loading={pendingDisposition === 'dismissed'} disabled={busy}>
+              {t('Descartar')}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void submit('false_positive')}
+              loading={pendingDisposition === 'false_positive'}
+              disabled={busy}
+            >
+              {t('Falso positivo')}
+            </Button>
+            <Button variant="primary" onClick={() => void submit('confirmed')} loading={pendingDisposition === 'confirmed'} disabled={busy}>
+              {t('Confirmar')}
+            </Button>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function Evidence({ detail }: { detail: TriageCaseDetail }) {
+  const t = useT();
+  const clipPath = detail.clip_playback_url ?? null;
   const [clip, setClip] = useState<{ path: string; url: string; isImage: boolean } | null>(null);
   const [clipError, setClipError] = useState(false);
-  const clipPath = triageCase.clip_playback_url ?? null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -43,144 +172,18 @@ export function TriageDetail({ triageCase, company, onResolved, onClose }: Triag
     };
   }, [clipPath]);
 
-  async function resolve(disposition: 'confirmed' | 'dismissed' | 'false_positive') {
-    if (disposition === 'false_positive' && !reason.trim()) {
-      setMessage(t('Justificativa obrigatória para falso positivo.'));
-      return;
-    }
-    setSubmitting(true);
-    setMessage('');
-    const response = await authedFetch(
-      `/v1/companies/${company}/triage-cases/${triageCase.id}/resolve`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          disposition,
-          reasoning: reason.trim() || null,
-        }),
-      },
-    );
-    setSubmitting(false);
-    if (response.ok) {
-      onResolved();
-    } else {
-      setMessage(localizeApiError(await response.text(), t));
-    }
-  }
-
-  const detection = triageCase.detection;
-  const frames = detection?.frame_uris ?? [];
-  const hits = detection?.prompt_hits ?? [];
   const clipUrl = clip?.path === clipPath ? clip.url : null;
-  const confidence = confidencePercent(detection?.confidence);
-  const isOpen = triageCase.state === 'open';
-
-  return (
-    <Card>
-      <h2>{t('Detalhes do caso')}</h2>
-      <p>
-        <Badge variant={badgeVariantForTriageState(triageCase.state)}>{triageStateLabel(triageCase.state, t)}</Badge>
-        {confidence != null ? (
-          <>
-            {' · '}
-            <span className="tabular-nums">
-              {t('{confidence}% de confiança', { confidence })}
-            </span>
-          </>
-        ) : null}
+  if (!clipPath) return <p className="argus-list-row__meta">{t('Sem clipe ou frames de evidência.')}</p>;
+  if (!clipUrl) {
+    return (
+      <p className="argus-list-row__meta">
+        {t(clipError ? 'Não foi possível carregar o clipe.' : 'Carregando clipe de evidência…')}
       </p>
-
-      <section className="argus-triage-detail__section">
-        <h3>{t('Resumo')}</h3>
-        <p>{detection?.summary ?? '—'}</p>
-      </section>
-
-      <section className="argus-triage-detail__section">
-        <h3>{t('Instruções acionadas')}</h3>
-        {hits.length === 0 ? (
-          <p className="argus-list-row__meta">—</p>
-        ) : (
-          <ul className="argus-prompt-hits">
-            {hits.map((hit, index) => {
-              const label = hit.name ?? hit.text ?? hit.prompt_id ?? 'prompt';
-              const hitPct = confidencePercent(hit.confidence);
-              return (
-                <li key={hit.prompt_id ?? `${label}-${index}`} className="argus-prompt-hits__row">
-                  <Badge variant="open">{label}</Badge>
-                  {hitPct != null ? (
-                    <span className="tabular-nums"> {hitPct}%</span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="argus-triage-detail__section">
-        <h3>{t('Evidência')}</h3>
-        {clipUrl ? (
-          clip?.isImage ? (
-            <img className="argus-evidence-media" src={clipUrl} alt={t('Evidência')} />
-          ) : (
-            <video className="argus-evidence-media" controls preload="metadata" src={clipUrl} />
-          )
-        ) : null}
-        {frames.length > 0 ? (
-          <div className="argus-evidence-frames">
-            {frames.map(url => (
-              <img key={url} src={url} alt="" className="argus-evidence-frame" />
-            ))}
-          </div>
-        ) : null}
-        {clipPath && !clipUrl ? (
-          <p className="argus-list-row__meta">{t(clipError ? 'Não foi possível carregar o clipe.' : 'Carregando clipe de evidência…')}</p>
-        ) : null}
-        {!clipPath && frames.length === 0 ? (
-          <p className="argus-list-row__meta">{t('Sem clipe ou frames de evidência.')}</p>
-        ) : null}
-      </section>
-
-      {isOpen ? (
-        <>
-          <Textarea
-            label={t('Justificativa (opcional; recomendada para falso positivo)')}
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-          />
-          <div className="argus-resolve-actions">
-            {onClose ? (
-              <Button variant="ghost" onClick={onClose}>
-                {t('Fechar')}
-              </Button>
-            ) : null}
-            <Button
-              variant="ghost"
-              onClick={() => void resolve('dismissed')}
-              disabled={submitting}
-            >
-              {t('Descartar')}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void resolve('false_positive')}
-              disabled={submitting}
-            >
-              {t('Falso positivo')}
-            </Button>
-            <Button variant="primary" onClick={() => void resolve('confirmed')} disabled={submitting}>
-              {t('Confirmar')}
-            </Button>
-          </div>
-        </>
-      ) : onClose ? (
-        <div className="argus-resolve-actions">
-          <Button variant="ghost" onClick={onClose}>
-            {t('Fechar')}
-          </Button>
-        </div>
-      ) : null}
-      <Message text={message} variant="error" />
-    </Card>
+    );
+  }
+  return clip?.isImage ? (
+    <img className="argus-evidence-media" src={clipUrl} alt={t('Evidência')} />
+  ) : (
+    <video className="argus-evidence-media" controls preload="metadata" src={clipUrl} />
   );
 }

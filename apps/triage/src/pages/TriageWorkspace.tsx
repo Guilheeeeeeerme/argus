@@ -1,31 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Card,
-  Button,
-  Badge,
-  Message,
-  ThemeToggle,
-  AppShell,
-  EmptyState,
-  Status,
-  Skeleton,
-  UserMenu,
   AlertDialog,
-  badgeVariantForTriageState,
+  AppShell,
+  Button,
+  Card,
+  Drawer,
+  EmptyState,
+  ThemeToggle,
+  UserMenu,
+  useToast,
 } from '@argus/design-system';
-import { useT, useLocale, SUPPORTED_LOCALES, triageStateLabel, roleLabel } from '@argus/i18n';
+import { useT, useLocale, SUPPORTED_LOCALES, localizeApiError, roleLabel } from '@argus/i18n';
+import { useAsync } from '@shared/hooks';
 import { clearToken, MAIN_ORIGIN } from '@shared/auth';
-import {
-  WS,
-  Session,
-  TriageCase,
-  authedFetch,
-  getToken,
-  redirectToLogin,
-  API,
-  confidencePercent,
-  selectCompany,
-} from '../api';
+import { API, cameraOverview, getToken, listUnits, selectCompany, switchUnit, type Session } from '../api';
+import { newestOpen, openCountByCamera } from '../feed';
+import { useCaseFeed } from '../hooks/useCaseFeed';
+import { CameraGrid } from '../components/CameraGrid';
+import { CaseRail } from '../components/CaseRail';
+import { UnitPicker } from '../components/UnitPicker';
 import { TriageDetail } from './TriageDetail';
 
 interface TriageWorkspaceProps {
@@ -37,71 +30,68 @@ const LOCALE_LABELS: Record<(typeof SUPPORTED_LOCALES)[number], string> = {
   'pt-BR': 'Português (Brasil)',
 };
 
-const LIVE_EVENTS = new Set(['detection.created', 'triage.updated']);
-
-function eventType(raw: string): string | null {
-  try {
-    const payload = JSON.parse(raw) as { type?: string; event?: string };
-    return payload.type ?? payload.event ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export function TriageWorkspace({ session }: TriageWorkspaceProps) {
+export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
   const t = useT();
+  const toast = useToast();
   const { locale, setLocale } = useLocale();
-  const [cases, setCases] = useState<TriageCase[]>([]);
-  const [selected, setSelected] = useState<TriageCase | null>(null);
-  const [message, setMessage] = useState('');
-  const [connection, setConnection] = useState<'connecting' | 'live' | 'error'>('connecting');
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(initial);
+  const [switching, setSwitching] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const company = session.company_id;
+  const companyId = session.company_id;
+  const unit = session.establishment;
+  const unitId = unit?.id ?? null;
 
+  const units = useAsync(() => listUnits(companyId), [companyId]);
+  const overview = useAsync(() => cameraOverview(companyId, unitId ?? ''), [companyId, unitId], {
+    enabled: Boolean(unitId),
+  });
+  const cameraNames = useMemo(
+    () => new Map((overview.data ?? []).map(camera => [camera.id, camera.name])),
+    [overview.data],
+  );
+  const feed = useCaseFeed(companyId, unitId, { cameraNames });
+  const { onLiveEvent } = feed;
+  const reloadOverview = overview.reload;
   useEffect(() => {
-    if (!company) return;
+    onLiveEvent(() => void reloadOverview());
+    return () => onLiveEvent(null);
+  }, [onLiveEvent, reloadOverview]);
 
-    async function loadCases() {
-      const response = await authedFetch(`/v1/companies/${company}/triage-cases`);
-      if (response.status === 401) {
-        redirectToLogin();
-        return;
-      }
-      setCases(await response.json());
-      setLoading(false);
-      setMessage(t('Triagem conectada.'));
+  async function changeUnit(nextId: string | null) {
+    setSwitching(true);
+    try {
+      const next = await switchUnit(nextId);
+      if (next.ok && 'session' in next) setSession(next.session);
+      else if (next.ok) selectCompany();
+    } catch (error) {
+      toast.error(localizeApiError(error, t));
+    } finally {
+      setSwitching(false);
     }
+  }
 
-    void loadCases();
+  const cases = feed.state.cases;
+  const focusedCase = cases.find(item => item.id === feed.state.focusId) ?? null;
+  const alertCase = newestOpen(cases);
+  const openCounts = useMemo(() => openCountByCamera(cases), [cases]);
 
-    const ws = new WebSocket(`${WS}/v1/ws?token=${encodeURIComponent(getToken() ?? '')}`);
-    ws.onopen = () => setConnection('live');
-    ws.onmessage = event => {
-      const type = eventType(String(event.data));
-      if (type === 'ready' || type === 'heartbeat') return;
-      if (type && !LIVE_EVENTS.has(type)) return;
-      authedFetch(`/v1/companies/${company}/triage-cases`)
-        .then(x => x.json())
-        .then(setCases);
-    };
-    ws.onerror = () => {
-      setConnection('error');
-      setMessage(t('Falha na conexão com o WebSocket.'));
-    };
-    ws.onclose = () => {
-      setConnection('error');
-      setMessage(t('Conexão perdida. Atualize a página para reconectar.'));
-    };
+  function selectCamera(cameraId: string) {
+    feed.touch();
+    const target =
+      cases.find(item => item.state === 'open' && item.detection?.camera_id === cameraId) ??
+      cases.find(item => item.detection?.camera_id === cameraId);
+    if (target) feed.dispatch({ type: 'pin', id: target.id });
+    else toast.info(t('Sem casos para esta câmera.'));
+  }
 
-    return () => ws.close();
-  }, [company, t]);
+  function selectCase(id: string) {
+    feed.touch();
+    feed.dispatch({ type: 'pin', id });
+  }
 
-  async function selectCase(item: TriageCase) {
-    if (!company) return;
-    setSelected(
-      await authedFetch(`/v1/companies/${company}/triage-cases/${item.id}`).then(r => r.json()),
-    );
+  function closeDrawer() {
+    feed.touch();
+    feed.dispatch({ type: 'clear_focus' });
   }
 
   async function logout() {
@@ -120,34 +110,34 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
     window.location.assign(MAIN_ORIGIN);
   }
 
-  const where = session.establishment ? session.establishment.name : session.company_name;
-  const statusTone = connection === 'live' ? 'live' : connection === 'error' ? 'error' : 'neutral';
-  const statusLabel =
-    connection === 'live'
-      ? t('Ao vivo')
-      : connection === 'error'
-        ? t('Desconectado')
-        : t('Conectando…');
   const displayName = session.email.split('@')[0] || session.email;
+  const picker = (
+    <UnitPicker
+      units={units.data ?? []}
+      value={unitId}
+      loading={units.loading && !units.data}
+      switching={switching}
+      onChange={id => void changeUnit(id)}
+    />
+  );
 
   return (
     <AppShell
       brand="ARGUS"
       brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
-      meta={`${t('Triagem')} · ${where}`}
+      meta={`${t('Triagem')} · ${session.company_name}${unit ? ` · ${unit.name}` : ''}`}
       wide
       actions={
         <>
-          <Button variant="secondary" onClick={selectCompany}>{t('Trocar de empresa')}</Button>
+          <Button variant="secondary" size="sm" onClick={selectCompany}>
+            {t('Trocar de conta')}
+          </Button>
           <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />
           <UserMenu
             name={displayName}
             email={session.email}
             locale={locale}
-            locales={SUPPORTED_LOCALES.map(code => ({
-              value: code,
-              label: LOCALE_LABELS[code],
-            }))}
+            locales={SUPPORTED_LOCALES.map(code => ({ value: code, label: LOCALE_LABELS[code] }))}
             languageLabel={t('Idioma')}
             logoutLabel={t('Sair')}
             onLocaleChange={next => setLocale(next as typeof locale)}
@@ -156,74 +146,80 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
         </>
       }
     >
-      <div className="argus-triage-status-row">
-        <Status label={statusLabel} tone={statusTone} />
-        <p className="argus-list-row__meta">{roleLabel(session.role, t)}</p>
-      </div>
-      <Message text={message} variant={connection === 'error' ? 'error' : 'info'} />
-      <div className="argus-triage__grid">
-        <Card>
-          <h2>{t('Fila de casos')}</h2>
-          {loading ? (
-            <div className="argus-skeleton-stack">
-              <Skeleton height={36} aria-label={t('Carregando casos')} />
-              <Skeleton height={36} />
-              <Skeleton height={36} />
-            </div>
-          ) : cases.length === 0 ? (
-            <EmptyState
-              title={t('Nenhum caso ainda')}
-              description={t('Novas detecções aparecerão aqui em tempo real.')}
-            />
-          ) : (
-            <div className="argus-case-list" role="list">
-              {cases.map(item => {
-                const confidence = confidencePercent(item.detection?.confidence);
-                const label = item.detection?.summary ?? item.id.slice(0, 8);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="listitem"
-                    className="argus-case-btn"
-                    aria-current={selected?.id === item.id ? 'true' : undefined}
-                    onClick={() => void selectCase(item)}
-                  >
-                    <Badge variant={badgeVariantForTriageState(item.state)}>{triageStateLabel(item.state, t)}</Badge>
-                    <span className="argus-case-btn__meta">
-                      {label}
-                      {confidence != null
-                        ? ` · ${t('{confidence}% de confiança', { confidence })}`
-                        : ''}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-        {selected ? (
-          <TriageDetail
-            triageCase={selected}
-            company={company}
-            onResolved={() => {
-              setSelected(null);
-              setMessage(t('Caso atualizado.'));
-              void authedFetch(`/v1/companies/${company}/triage-cases`)
-                .then(x => x.json())
-                .then(setCases);
-            }}
-            onClose={() => setSelected(null)}
-          />
-        ) : (
+      {!unitId ? (
+        <div className="argus-triage-pick">
           <Card>
             <EmptyState
-              title={t('Selecione um caso')}
-              description={t('Escolha um item da lista para revisar e resolver.')}
+              title={t('Selecione uma unidade')}
+              description={t(
+                units.data && units.data.length === 0
+                  ? 'Nenhuma unidade cadastrada nesta conta. Crie uma na administração.'
+                  : 'Escolha a unidade cujas câmeras você vai acompanhar.',
+              )}
             />
+            {picker}
           </Card>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="argus-triage-layout">
+          <section className="argus-triage-main" aria-label={t('Câmeras')}>
+            <div className="argus-triage-toolbar">
+              {picker}
+              <p className="argus-list-row__meta">{roleLabel(session.role, t)}</p>
+            </div>
+            <CameraGrid
+              companyId={companyId}
+              cameras={overview.data}
+              loading={overview.loading}
+              error={overview.error}
+              openCounts={openCounts}
+              alertCameraId={alertCase?.state === 'open' ? (alertCase.detection?.camera_id ?? null) : null}
+              focusedCameraId={focusedCase?.detection?.camera_id ?? null}
+              onRetry={() => void overview.reload()}
+              onSelectCamera={selectCamera}
+            />
+          </section>
+          <CaseRail
+            cases={cases}
+            loading={feed.loading}
+            focusId={feed.state.focusId}
+            newCount={feed.state.newCount}
+            connection={feed.connection}
+            onSelect={selectCase}
+            onShowNew={() => {
+              feed.touch();
+              feed.dispatch({ type: 'idle' });
+            }}
+          />
+        </div>
+      )}
+
+      <Drawer
+        open={focusedCase !== null}
+        title={focusedCase?.detection?.camera_name ? `${t('Caso')} · ${focusedCase.detection.camera_name}` : t('Detalhes do caso')}
+        description={focusedCase?.detection?.summary ?? undefined}
+        size="lg"
+        onClose={closeDrawer}
+        closeLabel={t('Fechar')}
+      >
+        {focusedCase ? (
+          <TriageDetail
+            key={focusedCase.id}
+            companyId={companyId}
+            caseId={focusedCase.id}
+            onInteraction={feed.touch}
+            onResolved={result => {
+              feed.dispatch({
+                type: 'triage_updated',
+                id: result.id,
+                patch: { state: result.state, resolved_at: result.resolved_at },
+              });
+              feed.dispatch({ type: 'clear_focus' });
+              void overview.reload();
+            }}
+          />
+        ) : null}
+      </Drawer>
 
       <AlertDialog
         open={confirmLogout}
