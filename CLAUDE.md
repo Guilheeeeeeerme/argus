@@ -22,7 +22,7 @@ npm workspaces (`apps/*`, `apps/shared/*`, `packages/*`):
 | Path | Role |
 | --- | --- |
 | `apps/api` | FastAPI (Python 3.12), SQLAlchemy async, Alembic, Celery |
-| `apps/admin` | Vite/React admin + SSO host |
+| `apps/admin` | Vite/React admin + SSO host — react-router pages in `src/routes/*`, Drawer forms in `src/components/forms/*`, typed API in `src/api/`, session in `src/app/SessionProvider.tsx` |
 | `apps/triage` | Vite/React triage MFE |
 | `apps/shared/auth` | Shared auth client helpers |
 | `packages/ui` | `@argus/design-system` |
