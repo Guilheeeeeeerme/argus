@@ -9,7 +9,7 @@ export function Skeleton({
   width = '100%',
   height = 16,
   className,
-  'aria-label': ariaLabel = 'Loading',
+  'aria-label': ariaLabel = 'Carregando',
 }: SkeletonProps) {
   return (
     <span

@@ -9,10 +9,10 @@ CAMERAS = (
         "name": "US-101 — Broad Street",
         "site": "San Luis Obispo — Broad Street",
         "playlist": "https://wzmedia.dot.ca.gov/D5/101atBroadSt.stream/playlist.m3u8",
-        "watchlist": "Traffic density and queues",
+        "watchlist": "Densidade de tráfego e filas",
         "prompts": (
-            "Are one or more cars, trucks, buses or motorcycles clearly visible in the travel lanes? Describe the visible traffic and approximate counts only when distinguishable. This is a normal traffic observation, not an incident alarm.",
-            "Is there a clearly visible dense queue or obstruction occupying a travel lane? Describe image-relative position and uncertainty. Do not infer speed, stopped duration, a collision, identity, or intent from one frame. Glare and darkness are not evidence of an incident.",
+            "Há um ou mais carros, caminhões, ônibus ou motos claramente visíveis nas faixas de rolamento? Descreva o tráfego visível e dê contagens aproximadas apenas quando for possível distinguir. Esta é uma observação rotineira de tráfego, não um alarme de incidente.",
+            "Há uma fila densa ou uma obstrução claramente visível ocupando uma faixa de rolamento? Descreva a posição em relação à imagem e a incerteza. Não deduza velocidade, tempo parado, colisão, identidade ou intenção a partir de um único frame. Reflexo e escuridão não são evidência de incidente.",
         ),
     },
     {
@@ -20,10 +20,10 @@ CAMERAS = (
         "name": "US-101 — Monterey Street",
         "site": "San Luis Obispo — Monterey Street",
         "playlist": "https://wzmedia.dot.ca.gov/D5/101atMontereySt.stream/playlist.m3u8",
-        "watchlist": "Roadway activity and obstructions",
+        "watchlist": "Atividade na via e obstruções",
         "prompts": (
-            "Are vehicles clearly visible on this roadway or merge area? Describe their distribution across the image and vehicle types when distinguishable. Report visible evidence only; do not estimate speed or read license plates.",
-            "Is a person or substantial object clearly visible within a travel lane, creating a possible obstruction? Distinguish a vehicle merely visible in one frame from a confirmed stopped vehicle. Do not infer intent, identity, an accident, or motion direction. State uncertainty when occluded.",
+            "Há veículos claramente visíveis nesta via ou área de incorporação? Descreva a distribuição deles pela imagem e os tipos de veículo quando for possível distinguir. Relate apenas a evidência visível; não estime velocidade nem leia placas.",
+            "Há uma pessoa ou objeto de grande porte claramente visível dentro de uma faixa de rolamento, formando possível obstrução? Diferencie um veículo que apenas aparece em um frame de um veículo confirmadamente parado. Não deduza intenção, identidade, acidente ou direção do movimento. Indique a incerteza quando houver oclusão.",
         ),
     },
     {
@@ -31,10 +31,10 @@ CAMERAS = (
         "name": "US-101 — Madonna Road",
         "site": "San Luis Obispo — Madonna Road",
         "playlist": "https://wzmedia.dot.ca.gov/D5/101atMadonnaRd.stream/playlist.m3u8",
-        "watchlist": "Vehicle mix and traffic conditions",
+        "watchlist": "Tipos de veículos e condições do tráfego",
         "prompts": (
-            "Are cars, trucks or buses clearly visible on the road? Summarize the visible vehicle mix and distribution, using approximate counts only when distinguishable. Mention glare, darkness or poor visibility. This is a normal traffic observation.",
-            "Is an unusually dense queue or clearly visible obstruction present in a travel lane? Describe location using image-relative terms. Do not claim wrong-way movement, stopped duration, a collision, identities or speed from this single snapshot. Return no match when evidence is insufficient.",
+            "Há carros, caminhões ou ônibus claramente visíveis na pista? Resuma a mistura e a distribuição dos veículos visíveis, com contagens aproximadas apenas quando for possível distinguir. Mencione reflexo, escuridão ou baixa visibilidade. Esta é uma observação rotineira de tráfego.",
+            "Há uma fila muito densa ou uma obstrução claramente visível em uma faixa de rolamento? Descreva a localização usando termos relativos à imagem. Não afirme movimento na contramão, tempo parado, colisão, identidades ou velocidade a partir deste único snapshot. Retorne nenhum acerto quando a evidência for insuficiente.",
         ),
     },
 )

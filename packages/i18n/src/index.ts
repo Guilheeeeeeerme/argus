@@ -3,6 +3,8 @@ export {
   resolveLocale,
   translate,
   localizeApiError,
+  triageStateLabel,
+  roleLabel,
 } from './dictionary';
 export type {
   Locale,

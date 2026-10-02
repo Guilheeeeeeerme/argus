@@ -22,7 +22,7 @@ interface EstablishmentsProps {
 
 export function Establishments({ establishments, companyId, onReload }: EstablishmentsProps) {
   const t = useT();
-  const [name, setName] = useState('New establishment');
+  const [name, setName] = useState('Novo estabelecimento');
   const [address, setAddress] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -42,7 +42,7 @@ export function Establishments({ establishments, companyId, onReload }: Establis
         }),
       });
       onReload();
-      setMessage(t('Establishment created.'));
+      setMessage(t('Estabelecimento criado.'));
     } catch (error) {
       setMessage(localizeApiError(String(error), t));
     }
@@ -83,18 +83,18 @@ export function Establishments({ establishments, companyId, onReload }: Establis
 
   return (
     <Card>
-      <h2>{t('Establishments')}</h2>
+      <h2>{t('Estabelecimentos')}</h2>
       {establishments.length === 0 ? (
         <EmptyState
-          title={t('No establishments yet')}
-          description={t('Add an establishment, then manage its cameras and prompts.')}
+          title={t('Nenhum estabelecimento ainda')}
+          description={t('Adicione um estabelecimento para gerenciar câmeras e instruções.')}
         />
       ) : (
         establishments.map(establishment => (
           <ListRow
             key={establishment.id}
             title={establishment.name}
-            meta={`${establishment.address ?? t('no address')} · ${establishment.timezone}`}
+            meta={`${establishment.address ?? t('sem endereço')} · ${establishment.timezone}`}
             actions={
               <>
                 <Button
@@ -106,17 +106,17 @@ export function Establishments({ establishments, companyId, onReload }: Establis
                     setEditAddress(establishment.address ?? '');
                   }}
                 >
-                  {t('Edit')}
+                  {t('Editar')}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => setOpenId(openId === establishment.id ? null : establishment.id)}
                 >
-                  {openId === establishment.id ? t('Close cameras') : t('Cameras')}
+                  {openId === establishment.id ? t('Fechar câmeras') : t('Câmeras')}
                 </Button>
                 <Button size="sm" variant="danger" onClick={() => setPendingDelete(establishment)}>
-                  {t('Delete')}
+                  {t('Excluir')}
                 </Button>
               </>
             }
@@ -133,47 +133,47 @@ export function Establishments({ establishments, companyId, onReload }: Establis
       ) : null}
       <div className="argus-inline-form">
         <Input
-          label={t('Establishment name')}
+          label={t('Nome do estabelecimento')}
           value={name}
           onChange={e => setName(e.target.value)}
         />
-        <Input label={t('Address')} value={address} onChange={e => setAddress(e.target.value)} />
-        <Button onClick={createEstablishment}>{t('Create establishment')}</Button>
+        <Input label={t('Endereço')} value={address} onChange={e => setAddress(e.target.value)} />
+        <Button onClick={createEstablishment}>{t('Criar estabelecimento')}</Button>
       </div>
       <Message text={message} />
 
       <AlertDialog
         open={Boolean(pendingDelete)}
-        title={t('Delete establishment')}
-        description={t('Delete {name}? This cannot be undone.', {
+        title={t('Excluir estabelecimento')}
+        description={t('Excluir {name}? Essa ação não pode ser desfeita.', {
           name: pendingDelete?.name ?? '',
         })}
-        confirmLabel={t('Delete')}
-        cancelLabel={t('Cancel')}
+        confirmLabel={t('Excluir')}
+        cancelLabel={t('Cancelar')}
         onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}
       />
 
       <Dialog
         open={Boolean(editing)}
-        title={t('Edit establishment')}
+        title={t('Editar estabelecimento')}
         onClose={() => setEditing(null)}
       >
         <Input
-          label={t('Establishment name')}
+          label={t('Nome do estabelecimento')}
           value={editName}
           onChange={e => setEditName(e.target.value)}
         />
         <Input
-          label={t('Address')}
+          label={t('Endereço')}
           value={editAddress}
           onChange={e => setEditAddress(e.target.value)}
         />
         <div className="argus-dialog__actions">
           <Button variant="ghost" onClick={() => setEditing(null)}>
-            {t('Cancel')}
+            {t('Cancelar')}
           </Button>
-          <Button onClick={() => void saveEdit()}>{t('Save')}</Button>
+          <Button onClick={() => void saveEdit()}>{t('Salvar')}</Button>
         </div>
       </Dialog>
     </Card>
@@ -195,7 +195,7 @@ function EstablishmentDetail({
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const [promptSet, setPromptSet] = useState<PromptSet | null>(null);
-  const [cameraName, setCameraName] = useState('New camera');
+  const [cameraName, setCameraName] = useState('Nova câmera');
   const [streamUrl, setStreamUrl] = useState('rtsp://');
   const [promptText, setPromptText] = useState('');
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
@@ -261,7 +261,7 @@ function EstablishmentDetail({
         `/v1/companies/${companyId}/cameras/${selectedCameraId}/prompt-sets`,
         {
           method: 'POST',
-          body: JSON.stringify({ name: 'Default', prompts: [] }),
+          body: JSON.stringify({ name: 'Padrão', prompts: [] }),
         },
       )) as PromptSet;
       setPromptSet(created);
@@ -282,7 +282,7 @@ function EstablishmentDetail({
         body: JSON.stringify({ text: promptText.trim(), enabled: true }),
       });
       setPromptText('');
-      onMessage(t('Prompt created.'));
+      onMessage(t('Instrução criada.'));
       await reloadPromptSet(selectedCameraId!);
     } catch (error) {
       onMessage(localizeApiError(String(error), t));
@@ -297,7 +297,7 @@ function EstablishmentDetail({
         body: JSON.stringify({ text: editPromptText.trim(), enabled: editingPrompt.enabled }),
       });
       setEditingPrompt(null);
-      onMessage(t('Prompt saved.'));
+      onMessage(t('Instrução salva.'));
       if (selectedCameraId) await reloadPromptSet(selectedCameraId);
     } catch (error) {
       onMessage(localizeApiError(String(error), t));
@@ -321,11 +321,11 @@ function EstablishmentDetail({
 
   return (
     <div className="argus-establishment-detail">
-      <h3>{t('Cameras · {name}', { name: establishment.name })}</h3>
+      <h3>{t('Câmeras · {name}', { name: establishment.name })}</h3>
       {cameras.length === 0 ? (
         <EmptyState
-          title={t('No cameras yet')}
-          description={t('Add a camera with an RTSP stream URL.')}
+          title={t('Nenhuma câmera ainda')}
+          description={t('Adicione uma câmera com a URL RTSP do stream.')}
         />
       ) : (
         cameras.map(camera => (
@@ -336,7 +336,7 @@ function EstablishmentDetail({
             actions={
               <>
                 <Badge variant={camera.is_active ? 'normal' : 'neutral'}>
-                  {camera.is_active ? t('Enabled') : t('Disabled')}
+                  {camera.is_active ? t('Ativa') : t('Inativa')}
                 </Badge>
                 <Button
                   size="sm"
@@ -345,7 +345,7 @@ function EstablishmentDetail({
                     setSelectedCameraId(selectedCameraId === camera.id ? null : camera.id)
                   }
                 >
-                  {selectedCameraId === camera.id ? t('Close') : t('Prompts')}
+                  {selectedCameraId === camera.id ? t('Fechar') : t('Instruções')}
                 </Button>
               </>
             }
@@ -354,27 +354,27 @@ function EstablishmentDetail({
       )}
       <div className="argus-inline-form">
         <Input
-          label={t('Camera name')}
+          label={t('Nome da câmera')}
           value={cameraName}
           onChange={e => setCameraName(e.target.value)}
         />
         <Input
-          label={t('Stream URL (RTSP)')}
+          label={t('URL do stream (RTSP)')}
           value={streamUrl}
           onChange={e => setStreamUrl(e.target.value)}
         />
-        <Button onClick={() => void addCamera()}>{t('Add camera')}</Button>
+        <Button onClick={() => void addCamera()}>{t('Adicionar câmera')}</Button>
       </div>
 
       {selectedCamera ? (
         <>
           <h3>
-            {t('Prompt set')} · {selectedCamera.name}
+            {t('Conjunto de instruções')} · {selectedCamera.name}
           </h3>
           {prompts.length === 0 ? (
             <EmptyState
-              title={t('No prompts yet')}
-              description={t('Add prompts that define positive detections.')}
+              title={t('Nenhuma instrução ainda')}
+              description={t('Adicione instruções que definem detecções positivas.')}
             />
           ) : (
             prompts.map(prompt => (
@@ -385,7 +385,7 @@ function EstablishmentDetail({
                 actions={
                   <>
                     <Badge variant={prompt.enabled ? 'normal' : 'neutral'}>
-                      {prompt.enabled ? t('Enabled') : t('Disabled')}
+                      {prompt.enabled ? t('Ativa') : t('Inativa')}
                     </Badge>
                     <Button
                       size="sm"
@@ -395,10 +395,10 @@ function EstablishmentDetail({
                         setEditPromptText(prompt.text);
                       }}
                     >
-                      {t('Edit')}
+                      {t('Editar')}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => void togglePrompt(prompt)}>
-                      {prompt.enabled ? t('Disable') : t('Enable')}
+                      {prompt.enabled ? t('Desativar') : t('Ativar')}
                     </Button>
                   </>
                 }
@@ -407,30 +407,30 @@ function EstablishmentDetail({
           )}
           <div className="argus-inline-form argus-inline-form--stack">
             <Textarea
-              label={t('Prompt body')}
+              label={t('Texto da instrução')}
               value={promptText}
               onChange={e => setPromptText(e.target.value)}
             />
-            <Button onClick={() => void addPrompt()}>{t('Add prompt')}</Button>
+            <Button onClick={() => void addPrompt()}>{t('Adicionar instrução')}</Button>
           </div>
         </>
       ) : null}
 
       <Dialog
         open={Boolean(editingPrompt)}
-        title={t('Edit prompt')}
+        title={t('Editar instrução')}
         onClose={() => setEditingPrompt(null)}
       >
         <Textarea
-          label={t('Prompt body')}
+          label={t('Texto da instrução')}
           value={editPromptText}
           onChange={e => setEditPromptText(e.target.value)}
         />
         <div className="argus-dialog__actions">
           <Button variant="ghost" onClick={() => setEditingPrompt(null)}>
-            {t('Cancel')}
+            {t('Cancelar')}
           </Button>
-          <Button onClick={() => void savePromptEdit()}>{t('Save')}</Button>
+          <Button onClick={() => void savePromptEdit()}>{t('Salvar')}</Button>
         </div>
       </Dialog>
     </div>

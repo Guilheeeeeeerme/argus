@@ -19,7 +19,7 @@ interface WebhooksProps {
 export function Webhooks({ establishments, companyId }: WebhooksProps) {
   const t = useT();
   const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
-  const [name, setName] = useState('New webhook');
+  const [name, setName] = useState('Novo webhook');
   const [establishmentId, setEstablishmentId] = useState('');
   const [message, setMessage] = useState('');
   const [createdToken, setCreatedToken] = useState<string | null>(null);
@@ -56,7 +56,7 @@ export function Webhooks({ establishments, companyId }: WebhooksProps) {
       })) as WebhookEndpoint;
       setCreatedToken(created.token ?? null);
       setMessage(
-        t('Webhook created. Copy the token now — it will not be shown again.'),
+        t('Webhook criado. Copie o token agora — ele não será exibido novamente.'),
       );
       await load();
     } catch (error) {
@@ -72,8 +72,8 @@ export function Webhooks({ establishments, companyId }: WebhooksProps) {
       <h2>{t('Webhooks')}</h2>
       {endpoints.length === 0 ? (
         <EmptyState
-          title={t('No webhook endpoints yet')}
-          description={t('Create an endpoint to receive external context events.')}
+          title={t('Nenhum webhook ainda')}
+          description={t('Crie um webhook para receber eventos externos.')}
         />
       ) : (
         endpoints.map(endpoint => (
@@ -85,23 +85,23 @@ export function Webhooks({ establishments, companyId }: WebhooksProps) {
         ))
       )}
       <div className="argus-inline-form">
-        <Input label={t('Webhook name')} value={name} onChange={e => setName(e.target.value)} />
+        <Input label={t('Nome do webhook')} value={name} onChange={e => setName(e.target.value)} />
         <Select
-          label={t('Establishment')}
+          label={t('Estabelecimento')}
           value={establishmentId}
           onChange={e => setEstablishmentId(e.target.value)}
           options={[
-            { value: '', label: t('Select…') },
+            { value: '', label: t('Selecione…') },
             ...establishments.map(e => ({ value: e.id, label: e.name })),
           ]}
         />
         <Button onClick={() => void createWebhook()} disabled={!establishmentId}>
-          {t('Create webhook')}
+          {t('Criar webhook')}
         </Button>
       </div>
       {createdToken ? (
         <div className="argus-webhook-token">
-          <p className="argus-webhook-token__label">{t('Token (copy now)')}</p>
+          <p className="argus-webhook-token__label">{t('Token (copie agora)')}</p>
           <code className="argus-webhook-token__value">{createdToken}</code>
         </div>
       ) : null}

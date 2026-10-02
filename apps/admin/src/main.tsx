@@ -82,7 +82,7 @@ function App({ initial }: { initial: Session }) {
       await load(next);
       const target = returnTo();
       if (target !== APP && next.activeCompany) window.location.assign(withToken(target));
-      else setMessage(t('Company context updated.'));
+      else setMessage(t('Empresa atualizada.'));
     } catch (error) {
       setMessage(String(error));
     }
@@ -94,10 +94,10 @@ function App({ initial }: { initial: Session }) {
       await load(next);
       setMessage(
         id
-          ? t('Active establishment: {name}', {
+          ? t('Estabelecimento ativo: {name}', {
               name: next.activeEstablishment?.name ?? '',
             })
-          : t('Establishment cleared.'),
+          : t('Estabelecimento removido.'),
       );
     } catch (error) {
       setMessage(String(error));
@@ -122,10 +122,10 @@ function App({ initial }: { initial: Session }) {
     <AppShell
       brand="ARGUS"
       brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
-      meta={t('Administration')}
+      meta={t('Administração')}
       actions={
         <>
-          <ThemeToggle />
+          <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />
           <UserMenu
             name={displayName}
             email={session.user.email}
@@ -134,8 +134,8 @@ function App({ initial }: { initial: Session }) {
               value: code,
               label: LOCALE_LABELS[code],
             }))}
-            languageLabel={t('Language')}
-            logoutLabel={t('Log out')}
+            languageLabel={t('Idioma')}
+            logoutLabel={t('Sair')}
             onLocaleChange={next => setLocale(next as typeof locale)}
             onLogout={() => setConfirmSignOut(true)}
           />
@@ -145,21 +145,21 @@ function App({ initial }: { initial: Session }) {
         <Sidenav
           brand="ARGUS"
           brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
-          subtitle={t('Administration')}
-          aria-label={t('Tenant context')}
+          subtitle={t('Administração')}
+          aria-label={t('Contexto de empresa')}
         >
           <div className="argus-sidenav__section">
               <label className="argus-sidenav__section-label" htmlFor="company-switcher">
-                {t('Company')}
+                {t('Empresa')}
               </label>
               <select
                 id="company-switcher"
                 className="argus-select"
-                aria-label={t('Active company')}
+                aria-label={t('Empresa ativa')}
                 value={session.activeCompany?.id ?? ''}
                 onChange={e => void switchCompany(e.target.value)}
               >
-                <option value="">{t('No company selected')}</option>
+                <option value="">{t('Nenhuma empresa selecionada')}</option>
                 {companies.map(company => (
                   <option key={company.id} value={company.id}>
                     {company.name}
@@ -170,16 +170,16 @@ function App({ initial }: { initial: Session }) {
           {session.activeCompany && (
             <div className="argus-sidenav__section">
               <label className="argus-sidenav__section-label" htmlFor="establishment-switcher">
-                {t('Establishment')}
+                {t('Estabelecimento')}
               </label>
               <select
                 id="establishment-switcher"
                 className="argus-select"
-                aria-label={t('Active establishment')}
+                aria-label={t('Estabelecimento ativo')}
                 value={session.activeEstablishment?.id ?? ''}
                 onChange={e => void switchEstablishment(e.target.value)}
               >
-                <option value="">{t('No establishment selected')}</option>
+                <option value="">{t('Nenhum estabelecimento selecionado')}</option>
                 {establishments.map(establishment => (
                   <option key={establishment.id} value={establishment.id}>
                     {establishment.name}
@@ -197,7 +197,7 @@ function App({ initial }: { initial: Session }) {
                 )
               }
             >
-              {t('Open Triage')}
+              {t('Abrir Triagem')}
             </Button>
           </div>
         </Sidenav>
@@ -208,8 +208,8 @@ function App({ initial }: { initial: Session }) {
       <div className="argus-admin-sections">
         {!session.activeCompany && (
           <EmptyState
-            title={t(companies.length ? 'Select a company' : 'No company assigned yet.')}
-            description={t(companies.length ? 'Choose a company in the sidebar to continue.' : 'Contact an administrator to get access to a company.')}
+            title={t(companies.length ? 'Selecione uma empresa' : 'Nenhuma empresa atribuída ainda.')}
+            description={t(companies.length ? 'Escolha uma empresa na barra lateral para continuar.' : 'Fale com um administrador para ter acesso.')}
           />
         )}
         {isPlatform(session.user.role) && (
@@ -240,10 +240,10 @@ function App({ initial }: { initial: Session }) {
 
       <AlertDialog
         open={confirmSignOut}
-        title={t('Log out?')}
-        description={t('End your session on this device?')}
-        confirmLabel={t('Log out')}
-        cancelLabel={t('Cancel')}
+        title={t('Sair?')}
+        description={t('Encerrar a sessão neste dispositivo?')}
+        confirmLabel={t('Sair')}
+        cancelLabel={t('Cancelar')}
         tone="primary"
         onConfirm={signOut}
         onCancel={() => setConfirmSignOut(false)}
@@ -301,7 +301,7 @@ function LocaleAware() {
   if (!booted) {
     return (
       <div className="argus-boot" role="status" aria-live="polite">
-        <Skeleton width={180} height={20} aria-label={t('Loading')} />
+        <Skeleton width={180} height={20} aria-label={t('Carregando')} />
         <Skeleton width={120} height={14} />
       </div>
     );

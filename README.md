@@ -25,7 +25,7 @@ Multi-company vision platform (MVP): admin SSO host, near-realtime triage micro-
 | --- | --- |
 | Pipeline `stream-gateway → stream-prep → prompt-eval → API WS → triage` | **VERIFIED** |
 | Live multimodal LLM in **prompt-eval**; SAMPLE_FPS=1, WINDOW=6, POLL=30s, confidence 0.5, VLM 60s | **VERIFIED** |
-| Product i18n en + pt-BR; session 7d; opaque Redis SSO | **VERIFIED** |
+| Product i18n pt-BR first (+ en opt-in); session 7d; opaque Redis SSO | **VERIFIED** |
 | Agents framework / offline eval product | **NOT FOUND** |
 | API LLM + Celery model rank | **UNUSED** on live triage path |
 | RAG (`RAG_LIMIT=5`, lookback 900s) | **PARTIAL** — no `query_embedding` on live path |

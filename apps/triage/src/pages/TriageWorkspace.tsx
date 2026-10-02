@@ -13,7 +13,7 @@ import {
   AlertDialog,
   badgeVariantForTriageState,
 } from '@argus/design-system';
-import { useT, useLocale, SUPPORTED_LOCALES } from '@argus/i18n';
+import { useT, useLocale, SUPPORTED_LOCALES, triageStateLabel, roleLabel } from '@argus/i18n';
 import { clearToken, MAIN_ORIGIN } from '@shared/auth';
 import {
   WS,
@@ -70,7 +70,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
       }
       setCases(await response.json());
       setLoading(false);
-      setMessage(t('Live triage connected.'));
+      setMessage(t('Triagem conectada.'));
     }
 
     void loadCases();
@@ -87,11 +87,11 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
     };
     ws.onerror = () => {
       setConnection('error');
-      setMessage(t('WebSocket connection failed.'));
+      setMessage(t('Falha na conexão com o WebSocket.'));
     };
     ws.onclose = () => {
       setConnection('error');
-      setMessage(t('WebSocket disconnected; refresh to reconnect.'));
+      setMessage(t('Conexão perdida. Atualize a página para reconectar.'));
     };
 
     return () => ws.close();
@@ -124,22 +124,22 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
   const statusTone = connection === 'live' ? 'live' : connection === 'error' ? 'error' : 'neutral';
   const statusLabel =
     connection === 'live'
-      ? t('Live')
+      ? t('Ao vivo')
       : connection === 'error'
-        ? t('Disconnected')
-        : t('Connecting…');
+        ? t('Desconectado')
+        : t('Conectando…');
   const displayName = session.email.split('@')[0] || session.email;
 
   return (
     <AppShell
       brand="ARGUS"
       brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
-      meta={`${t('Triage')} · ${where}`}
+      meta={`${t('Triagem')} · ${where}`}
       wide
       actions={
         <>
-          <Button variant="secondary" onClick={selectCompany}>{t('Change company')}</Button>
-          <ThemeToggle />
+          <Button variant="secondary" onClick={selectCompany}>{t('Trocar de empresa')}</Button>
+          <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />
           <UserMenu
             name={displayName}
             email={session.email}
@@ -148,8 +148,8 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
               value: code,
               label: LOCALE_LABELS[code],
             }))}
-            languageLabel={t('Language')}
-            logoutLabel={t('Log out')}
+            languageLabel={t('Idioma')}
+            logoutLabel={t('Sair')}
             onLocaleChange={next => setLocale(next as typeof locale)}
             onLogout={() => setConfirmLogout(true)}
           />
@@ -158,22 +158,22 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
     >
       <div className="argus-triage-status-row">
         <Status label={statusLabel} tone={statusTone} />
-        <p className="argus-list-row__meta">{session.role}</p>
+        <p className="argus-list-row__meta">{roleLabel(session.role, t)}</p>
       </div>
       <Message text={message} variant={connection === 'error' ? 'error' : 'info'} />
       <div className="argus-triage__grid">
         <Card>
-          <h2>{t('Case feed')}</h2>
+          <h2>{t('Fila de casos')}</h2>
           {loading ? (
             <div className="argus-skeleton-stack">
-              <Skeleton height={36} aria-label={t('Loading cases')} />
+              <Skeleton height={36} aria-label={t('Carregando casos')} />
               <Skeleton height={36} />
               <Skeleton height={36} />
             </div>
           ) : cases.length === 0 ? (
             <EmptyState
-              title={t('No cases yet')}
-              description={t('New detections will appear here in real time.')}
+              title={t('Nenhum caso ainda')}
+              description={t('Novas detecções aparecerão aqui em tempo real.')}
             />
           ) : (
             <div className="argus-case-list" role="list">
@@ -189,11 +189,11 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
                     aria-current={selected?.id === item.id ? 'true' : undefined}
                     onClick={() => void selectCase(item)}
                   >
-                    <Badge variant={badgeVariantForTriageState(item.state)}>{item.state}</Badge>
+                    <Badge variant={badgeVariantForTriageState(item.state)}>{triageStateLabel(item.state, t)}</Badge>
                     <span className="argus-case-btn__meta">
                       {label}
                       {confidence != null
-                        ? ` · ${t('{confidence}% confidence', { confidence })}`
+                        ? ` · ${t('{confidence}% de confiança', { confidence })}`
                         : ''}
                     </span>
                   </button>
@@ -208,7 +208,7 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
             company={company}
             onResolved={() => {
               setSelected(null);
-              setMessage(t('Case updated.'));
+              setMessage(t('Caso atualizado.'));
               void authedFetch(`/v1/companies/${company}/triage-cases`)
                 .then(x => x.json())
                 .then(setCases);
@@ -218,8 +218,8 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
         ) : (
           <Card>
             <EmptyState
-              title={t('Select a case')}
-              description={t('Choose an item from the feed to review evidence and resolve.')}
+              title={t('Selecione um caso')}
+              description={t('Escolha um item da lista para revisar e resolver.')}
             />
           </Card>
         )}
@@ -227,10 +227,10 @@ export function TriageWorkspace({ session }: TriageWorkspaceProps) {
 
       <AlertDialog
         open={confirmLogout}
-        title={t('Log out?')}
-        description={t('End your session on this device?')}
-        confirmLabel={t('Log out')}
-        cancelLabel={t('Cancel')}
+        title={t('Sair?')}
+        description={t('Encerrar a sessão neste dispositivo?')}
+        confirmLabel={t('Sair')}
+        cancelLabel={t('Cancelar')}
         tone="primary"
         onConfirm={() => void logout()}
         onCancel={() => setConfirmLogout(false)}
