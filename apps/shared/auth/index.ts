@@ -88,8 +88,10 @@ export function redirectToLogin(returnUrl: string = window.location.href): void 
 export type FieldErrors = Record<string, string>;
 
 /**
- * Typed API failure. `detail` mirrors FastAPI's `{detail}`; 422 validation bodies
- * (`{detail: [{loc, msg}]}`) are flattened into `fieldErrors` keyed by the last `loc` segment.
+ * Typed API failure. `detail` is the server message: the API answers
+ * `{error: {code, message, status, details?}}` (see `argus.core.exceptions`);
+ * FastAPI's plain `{detail}` is accepted as a fallback. Validation `details`
+ * (`[{loc, msg}]`) are flattened into `fieldErrors` keyed by the last `loc` segment.
  * `status` is 0 when the request never reached the server.
  */
 export class ApiError extends Error {
@@ -120,18 +122,25 @@ async function toApiError(response: Response): Promise<ApiError> {
   let detail = text || response.statusText || `HTTP ${response.status}`;
   const fieldErrors: FieldErrors = {};
   try {
-    const body = JSON.parse(text) as { detail?: unknown };
-    if (typeof body.detail === 'string') {
-      detail = body.detail;
-    } else if (Array.isArray(body.detail)) {
-      for (const item of body.detail as ValidationItem[]) {
+    const body = JSON.parse(text) as {
+      error?: { message?: unknown; details?: unknown };
+      detail?: unknown;
+    };
+    const message = body.error?.message ?? body.detail;
+    const items = body.error?.details ?? body.detail;
+    if (Array.isArray(items)) {
+      for (const item of items as ValidationItem[]) {
         const loc = Array.isArray(item.loc) ? item.loc : [];
         const field = loc.length ? String(loc[loc.length - 1]) : '';
         if (field && typeof item.msg === 'string' && !(field in fieldErrors)) {
           fieldErrors[field] = item.msg;
         }
       }
-      detail = Object.values(fieldErrors)[0] ?? 'Validation error';
+    }
+    if (typeof message === 'string' && message) {
+      detail = message;
+    } else if (Object.keys(fieldErrors).length) {
+      detail = Object.values(fieldErrors)[0];
     }
   } catch {
     /* non-JSON body: keep raw text */
