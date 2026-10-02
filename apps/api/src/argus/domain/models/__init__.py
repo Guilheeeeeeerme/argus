@@ -177,7 +177,9 @@ class PromptSet(Base, CompanyScopedMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     camera: Mapped[Camera] = relationship(back_populates="prompt_sets")
-    prompts: Mapped[list["Prompt"]] = relationship(back_populates="prompt_set")
+    prompts: Mapped[list["Prompt"]] = relationship(
+        back_populates="prompt_set", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Prompt(Base, CompanyScopedMixin, TimestampMixin):
