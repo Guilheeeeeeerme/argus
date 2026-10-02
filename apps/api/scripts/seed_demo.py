@@ -67,25 +67,25 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
     if company is None:
         company = Company(
             id=COMPANY_DEMO_ID,
-            name="Demo Company",
+            name="Argus Demo Brasil",
             slug="demo-company",
         )
         session.add(company)
         await session.flush()
     ids["company_id"] = str(company.id)
 
-    if company.name == "Demo Company":
-        company.name = "Argus Public Camera Demo"
+    if company.name in {"Demo Company", "Argus Public Camera Demo"}:
+        company.name = "Argus Demo Brasil"
     company.settings = {
         **(company.settings or {}),
-        "demo_source": "Caltrans public traffic cameras",
+        "demo_source": "Câmeras públicas de tráfego (Caltrans, EUA) — vídeo de demonstração",
         "demo_source_url": SOURCE_PAGE,
         "demo_source_terms": SOURCE_TERMS,
     }
     sandbox = await session.get(Company, SANDBOX_COMPANY_ID)
     if sandbox is None:
         session.add(
-            Company(id=SANDBOX_COMPANY_ID, name="Demo Sandbox", slug="demo-sandbox")
+            Company(id=SANDBOX_COMPANY_ID, name="Sandbox de Demonstração", slug="demo-sandbox")
         )
         await session.flush()
     ids["sandbox_company_id"] = str(SANDBOX_COMPANY_ID)
@@ -112,16 +112,16 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
                 id=site_id,
                 company_id=company.id,
                 name=item["site"],
-                address="US-101, San Luis Obispo, California",
-                timezone="America/Los_Angeles",
+                address="São Paulo, SP, Brasil",
+                timezone="America/Sao_Paulo",
                 active=True,
             )
             session.add(establishment)
             await session.flush()
         elif establishment.name == "Demo Establishment":
             establishment.name = item["site"]
-            establishment.address = "US-101, San Luis Obispo, California"
-            establishment.timezone = "America/Los_Angeles"
+            establishment.address = "São Paulo, SP, Brasil"
+            establishment.timezone = "America/Sao_Paulo"
         camera = await session.get(Camera, camera_id)
         stream = "ffmpeg:" + item["playlist"] + "#video=copy"
         if camera is None:
@@ -186,7 +186,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             id=WEBHOOK_ID,
             company_id=company.id,
             establishment_id=ESTABLISHMENT_DEMO_ID,
-            name="Demo inbound context",
+            name="Contexto externo de demonstração",
             token_hash=hash_password(token),
             active=True,
         )
