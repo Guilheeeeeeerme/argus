@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 from argus.api.deps import get_company_db, require_role
 from argus.core.auth import AuthContext
 from argus.domain.enums import FeedbackDisposition, TriageCaseState, UserRole
-from argus.domain.models import Detection, TriageCase
+from argus.domain.models import Camera, Detection, Establishment, TriageCase
 from argus.domain.schemas.triage import (
     DetectionSummary,
     ResolveTriageCaseRequest,
@@ -36,13 +36,39 @@ _DISPOSITION_TO_STATE = {
 }
 
 
-def _detection_summary(detection: Detection | None) -> DetectionSummary | None:
+async def _resolve_names(
+    session: AsyncSession, detections: list[Detection]
+) -> tuple[dict[UUID, str], dict[UUID, str]]:
+    """Camera and establishment names for a page of detections in two ``IN`` queries (no N+1)."""
+    camera_ids = {d.camera_id for d in detections}
+    establishment_ids = {d.establishment_id for d in detections}
+    camera_names: dict[UUID, str] = {}
+    establishment_names: dict[UUID, str] = {}
+    if camera_ids:
+        rows = await session.execute(select(Camera.id, Camera.name).where(Camera.id.in_(camera_ids)))
+        camera_names = dict(rows.all())
+    if establishment_ids:
+        rows = await session.execute(
+            select(Establishment.id, Establishment.name).where(Establishment.id.in_(establishment_ids))
+        )
+        establishment_names = dict(rows.all())
+    return camera_names, establishment_names
+
+
+def _detection_summary(
+    detection: Detection | None,
+    camera_names: dict[UUID, str] | None = None,
+    establishment_names: dict[UUID, str] | None = None,
+) -> DetectionSummary | None:
     if detection is None:
         return None
     return DetectionSummary(
         id=detection.id,
         camera_id=detection.camera_id,
         establishment_id=detection.establishment_id,
+        camera_name=(camera_names or {}).get(detection.camera_id),
+        establishment_name=(establishment_names or {}).get(detection.establishment_id),
+        sequence_id=getattr(detection, "sequence_id", None),
         summary=detection.summary,
         confidence=float(detection.confidence) if detection.confidence is not None else None,
         prompt_hits=list(detection.prompt_hits or []),
@@ -56,6 +82,9 @@ def _detection_summary(detection: Detection | None) -> DetectionSummary | None:
 @router.get("", response_model=list[TriageCaseSummary])
 async def list_open_triage_cases(
     state: str | None = Query(default="open"),
+    establishment_id: UUID | None = Query(default=None),
+    camera_id: UUID | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
     session: AsyncSession = Depends(get_company_db),
     _auth: AuthContext = Depends(
         require_role(UserRole.OPERATOR, UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
@@ -65,10 +94,20 @@ async def list_open_triage_cases(
         select(TriageCase)
         .options(selectinload(TriageCase.detection))
         .order_by(TriageCase.updated_at.desc())
+        .limit(limit)
     )
     if state:
         stmt = stmt.where(TriageCase.state == TriageCaseState(state))
+    if establishment_id is not None or camera_id is not None:
+        stmt = stmt.join(Detection, Detection.id == TriageCase.detection_id)
+        if establishment_id is not None:
+            stmt = stmt.where(Detection.establishment_id == establishment_id)
+        if camera_id is not None:
+            stmt = stmt.where(Detection.camera_id == camera_id)
     rows = list((await session.scalars(stmt)).all())
+    camera_names, establishment_names = await _resolve_names(
+        session, [case.detection for case in rows if case.detection is not None]
+    )
     return [
         TriageCaseSummary(
             id=case.id,
@@ -77,7 +116,7 @@ async def list_open_triage_cases(
             resolved_at=case.resolved_at,
             resolved_by=case.resolved_by,
             updated_at=case.updated_at,
-            detection=_detection_summary(case.detection),
+            detection=_detection_summary(case.detection, camera_names, establishment_names),
         )
         for case in rows
     ]
@@ -104,6 +143,9 @@ async def get_triage_case(
     detection = case.detection
     if detection is not None and detection.clip_uri and detection.clip_uri.startswith("s3://"):
         clip_playback_url = f"/v1/companies/{company_id}/triage-cases/{triage_case_id}/clip"
+    camera_names, establishment_names = await _resolve_names(
+        session, [detection] if detection is not None else []
+    )
 
     return TriageCaseDetail(
         id=case.id,
@@ -112,7 +154,7 @@ async def get_triage_case(
         resolved_at=case.resolved_at,
         resolved_by=case.resolved_by,
         updated_at=case.updated_at,
-        detection=_detection_summary(detection),
+        detection=_detection_summary(detection, camera_names, establishment_names),
         clip_playback_url=clip_playback_url,
     )
 

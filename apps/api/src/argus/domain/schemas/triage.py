@@ -11,10 +11,22 @@ from pydantic import BaseModel, Field, model_validator
 from argus.domain.enums import TriageCaseState
 
 
+class CameraOverviewItem(BaseModel):
+    """One tile of the triage camera grid."""
+
+    id: UUID
+    name: str
+    is_active: bool
+    last_frame_at: datetime | None = None
+    open_case_count: int = 0
+
+
 class DetectionSummary(BaseModel):
     id: UUID
     camera_id: UUID
     establishment_id: UUID
+    camera_name: str | None = None
+    establishment_name: str | None = None
     sequence_id: str | None = None
     summary: str | None = None
     confidence: float | None = None

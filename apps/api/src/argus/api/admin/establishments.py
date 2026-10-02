@@ -24,12 +24,14 @@ router = APIRouter(
 )
 
 _MANAGER_PLUS = (UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
+# Operators need the unit list for the triage grid picker (RLS already scopes to the company).
+_READ_ROLES = (UserRole.OPERATOR, *_MANAGER_PLUS)
 
 
 @router.get("", response_model=list[EstablishmentResponse])
 async def list_establishments(
     session: AsyncSession = Depends(get_company_db),
-    _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
+    _auth: AuthContext = Depends(require_role(*_READ_ROLES)),
 ) -> list[Establishment]:
     return list(
         (

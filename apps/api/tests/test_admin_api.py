@@ -293,3 +293,13 @@ async def test_camera_update_keeps_or_clears_credentials(client: AsyncClient) ->
     assert cleared.json()["stream_url"] == "rtsp://cam.local/stream"
 
     await client.delete(camera_url, headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_operator_can_list_establishments_for_triage_picker(client: AsyncClient) -> None:
+    response = await client.get(
+        f"/v1/companies/{SEED_COMPANY_ID}/establishments",
+        headers=bearer(await _token(UserRole.OPERATOR)),
+    )
+    assert response.status_code == 200
+    assert any(unit["id"] == SEED_ESTABLISHMENT_ID for unit in response.json())

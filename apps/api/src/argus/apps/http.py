@@ -1,5 +1,6 @@
 """FastAPI application factory for HTTP deployables."""
 
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -16,6 +17,17 @@ from argus.services.database import check_database_connection
 RATE_LIMIT_EXEMPT_PATHS = frozenset(
     {"/health", "/health/db", "/docs", "/redoc", "/openapi.json"}
 )
+# Triage grid polling (~2 s per camera) would exhaust the per-IP default limit.
+RATE_LIMIT_EXEMPT_PATTERNS = (
+    re.compile(r"/cameras/[^/]+/latest-frame$"),
+    re.compile(r"/cameras/overview$"),
+)
+
+
+def is_rate_limit_exempt(path: str) -> bool:
+    if path in RATE_LIMIT_EXEMPT_PATHS:
+        return True
+    return any(pattern.search(path) for pattern in RATE_LIMIT_EXEMPT_PATTERNS)
 
 
 def _remote_address(request) -> str:
@@ -35,7 +47,7 @@ def build_limiter(s: Settings) -> Limiter:
 
 class RateLimitExemptingMiddleware(SlowAPIMiddleware):
     async def dispatch(self, request, call_next):
-        if request.url.path in RATE_LIMIT_EXEMPT_PATHS:
+        if is_rate_limit_exempt(request.url.path):
             return await call_next(request)
         return await super().dispatch(request, call_next)
 
