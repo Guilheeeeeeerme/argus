@@ -1,6 +1,7 @@
 # Skill: argus-ui-workflow
 
-Use this skill when discussing UI changes or generating frontend code for the ARGUS platform.
+Use this skill when discussing UI changes or generating frontend code for the ARGUS platform
+(`apps/admin`, `apps/triage`, `packages/ui`).
 
 ## When to Use
 
@@ -13,102 +14,120 @@ Use this skill when discussing UI changes or generating frontend code for the AR
 
 ### 1. UI Feature Discussion
 
-When the user wants to discuss a UI change:
-
-1. **Understand the context** — which app (admin or triage), which role (root/admin/manager/agent)
-2. **Identify affected components** — check if existing `@argus/design-system` components can be reused
-3. **Propose design** — describe the UI change using available tokens and components
+1. **Understand the context** — which app (admin or triage), which role (root/admin/manager/operator)
+2. **Identify affected components** — reuse `@argus/design-system` before adding anything to `packages/ui`
+3. **Propose design** — describe the change using existing tokens and components
 4. **Confirm before implementing** — present design, wait for approval
 
 ### 2. Code Generation
 
-When generating UI code:
-
-1. **Always import from `@argus/design-system`** — never create raw HTML elements for interactive components
-2. **Always use CSS custom properties** — never hardcode colors
-3. **Always use accessible labels** — every `<Input>` and `<Select>` must have a `label` prop
-4. **Always wrap app root in `<ThemeProvider>`** — theme toggle works automatically
-5. **Follow the layout pattern** — max-width containers, responsive grid
-6. **Reference the style guide** — see `STYLE_GUIDE.md` at the repo root for full rules
+1. **Import from `@argus/design-system`** — never raw HTML for interactive controls
+2. **Tokens only** — `var(--bg-surface)`, never hex; app CSS holds page layout only
+3. **Every control has a label** — `Input`/`Select`/`Textarea` `label` prop, `Switch` `label`
+4. **Async states are explicit** — see table below; no list may show `EmptyState` while loading
+5. **Mutations never double-submit** — `Button loading`, `Form busy`, `AlertDialog busy`
+6. **Copy is pt-BR through `useT()`** — keys are the Portuguese text; add the `en` entry in `packages/i18n/src/dictionary.ts`
+7. **Domain labels** — say *Conta* / *Unidade* in UI copy even where code identifiers still read `company` / `establishment`
+8. **Reference `STYLE_GUIDE.md`** at the repo root for the full rule list
 
 ## Component Reference
 
-Import all components from `@argus/design-system`:
 ```tsx
 import {
-  Button, Input, Select, Textarea,
-  Card, Badge, Header, Sidenav,
-  Message, ThemeToggle
+  ThemeProvider, ThemeToggle, LocaleToggle, UserMenu,
+  AppShell, Sidenav, PageHeader, Tabs, TabPanel, Status,
+  Button, Spinner, Input, Select, Textarea, Switch,
+  Form, FormField, FormActions, FormError,
+  Card, Badge, badgeVariantForTriageState, ListRow, Message,
+  EmptyState, Skeleton, ListSkeleton, GridSkeleton, FormSkeleton,
+  AlertDialog, Dialog, Drawer, ToastProvider, useToast,
 } from '@argus/design-system';
 ```
 
+Shared app helpers:
+
+- `@shared/auth` — `apiFetch<T>()`, `ApiError` (`status`, `detail`, `fieldErrors`), token helpers, `Session`
+- `@shared/hooks` — `useAsync(fn, deps)` → `{ data, loading, error, reload }`; `useMutation(fn)` → `{ run, pending, error }`
+- `@argus/i18n` — `useT()`, `localizeApiError(error, t)`, `roleLabel`, `triageStateLabel`
+
+## Async state table
+
+| Situation | Render |
+|-----------|--------|
+| List fetching | `<ListSkeleton rows={4} />` |
+| Grid fetching | `<GridSkeleton />` |
+| Edit form loading its record | `<FormSkeleton />` |
+| Empty result | `<EmptyState title description action>` |
+| Submit pending | `<Button type="submit" loading={m.pending}>` inside `<Form busy={m.pending}>` |
+| Toggle pending | `<Switch loading>` |
+| Delete pending | `<AlertDialog busy={m.pending}>` — close only after the promise settles |
+| Success / failure | `useToast().success(t('…'))` / `.error(localizeApiError(err, t))` |
+| Field validation | `error` prop on the control (from `ApiError.fieldErrors` or local checks) |
+
 ## Token Reference
 
-Use CSS custom properties for all styling:
-- Surface: `--bg-page`, `--bg-surface`, `--bg-input`
+- Surface: `--bg-page`, `--bg-surface`, `--bg-overlay`, `--bg-input`, `--hover-secondary`
 - Text: `--text-primary`, `--text-secondary`, `--text-muted`, `--text-accent`
-- State: `--color-normal`, `--color-weird`, `--color-warning`, `--color-resolved`
-- Action: `--color-primary`, `--color-danger`
-- Spacing: `--space-xs` (4px) to `--space-xl` (32px)
-- Radius: `--radius-sm` (4px) to `--radius-lg` (8px)
-
-## Decision State Colors
-
-Always use `<Badge>` for decision states:
-- Normal → `<Badge variant="normal">`
-- Weird → `<Badge variant="weird">`
-- Warning → `<Badge variant="warning">`
-- Resolved → `<Badge variant="resolved">`
+- Triage: `--color-open`, `--color-confirmed`, `--color-dismissed`, `--color-false-positive`
+- Action: `--color-primary`, `--color-danger`, `--color-focus`
+- Spacing: `--space-1` (4px) … `--space-8`; default gap `--gap` (5px)
+- Radius: `--radius-sm` / `--radius-md` (6px), `--radius-lg` (8px)
 
 ## App Layouts
 
-### Admin App (max-width: 960px)
+### Admin (router + shell)
+
 ```tsx
-<main className="argus-admin">
-  <Header title="ARGUS" subtitle="Administration" actions={<ThemeToggle />} />
-  <Sidenav>{/* navigation */}</Sidenav>
-  <Card>{/* content */}</Card>
-</main>
+<AppShell brand="ARGUS" meta={t('Administração')} actions={<ThemeToggle /> /* + UserMenu */}
+  sidebar={<Sidenav subtitle={t('Administração')}>{/* Conta/Unidade Selects + nav */}</Sidenav>}>
+  <Outlet />   {/* react-router pages: PageHeader + Card/ListRow + Drawer forms */}
+</AppShell>
 ```
 
-### Triage App (max-width: 1100px, responsive grid)
+Pages live in `apps/admin/src/routes/*`, forms in `apps/admin/src/components/forms/*`,
+typed API in `apps/admin/src/api/`. Create/edit are URL-addressable (`/units/new`, `/units/:id/edit`).
+
+### Triage (grid + rail)
+
 ```tsx
-<main className="argus-triage">
-  <Header title="ARGUS Triage" subtitle="..." actions={<ThemeToggle />} />
-  <div className="argus-triage__grid">
-    <Card>{/* feed */}</Card>
-    <Card>{/* detail */}</Card>
-  </div>
-</main>
+<AppShell brand="ARGUS" meta={t('Triagem')} wide>
+  <CameraGrid />   {/* tiles; alert ring on the camera that fired */}
+  <CaseRail />     {/* sticky list; FOLLOW / PINNED per docs/realtime-page.md */}
+  <Drawer>{/* TriageDetail */}</Drawer>
+</AppShell>
 ```
 
 ## Common Patterns
 
-### CRUD List
+### CRUD list page
+
 ```tsx
+const units = useAsync(() => listUnits(companyId), [companyId]);
+const remove = useMutation(deleteUnit);
+
+<PageHeader title={t('Unidades')} actions={<Button onClick={() => navigate('new')}>{t('Nova unidade')}</Button>} />
 <Card>
-  <h2>Items</h2>
-  {items.map(item => (
-    <article key={item.id} className="argus-list-item">
-      <b>{item.name}</b>
-      <Button size="sm" variant="ghost" onClick={() => edit(item)}>Edit</Button>
-      <Button size="sm" variant="danger" onClick={() => remove(item)}>Delete</Button>
-    </article>
-  ))}
-  <div className="argus-inline-form">
-    <Input label="New item" value={name} onChange={e => setName(e.target.value)} />
-    <Button onClick={create}>Create</Button>
-  </div>
+  {units.loading ? <ListSkeleton /> : units.error ? <FormError message={localizeApiError(units.error, t)} />
+    : units.data.length === 0 ? <EmptyState title={t('Nenhuma unidade ainda')} action={…} />
+    : units.data.map(unit => <ListRow key={unit.id} title={unit.name} meta={unit.timezone} actions={…} />)}
 </Card>
+<AlertDialog open={!!pending} busy={remove.pending} … onConfirm={async () => { await remove.run(pending.id); setPending(null); units.reload(); }} />
 ```
 
-### Form
+### Drawer form (create or edit)
+
 ```tsx
-<Card>
-  <h2>Form Title</h2>
-  <Input label="Field 1" value={v1} onChange={e => setV1(e.target.value)} />
-  <Select label="Field 2" value={v2} onChange={e => setV2(e.target.value)} options={[...]} />
-  <Textarea label="Field 3" value={v3} onChange={e => setV3(e.target.value)} />
-  <Button onClick={submit}>Submit</Button>
-</Card>
+<Drawer open title={unit ? t('Editar unidade') : t('Nova unidade')} busy={save.pending} onClose={close}
+  footer={<>
+    <Button variant="ghost" onClick={close} disabled={save.pending}>{t('Cancelar')}</Button>
+    <Button type="submit" form="unit-form" loading={save.pending}>{t('Salvar')}</Button>
+  </>}>
+  {loadingRecord ? <FormSkeleton /> : (
+    <Form id="unit-form" busy={save.pending} onSubmit={submit}>
+      <FormError message={formError} />
+      <Input label={t('Nome')} value={name} error={fieldErrors.name} onChange={e => setName(e.target.value)} required />
+      <Select label={t('Fuso horário')} value={tz} options={TIMEZONES} onChange={…} />
+    </Form>
+  )}
+</Drawer>
 ```

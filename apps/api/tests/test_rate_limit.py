@@ -13,6 +13,7 @@ from argus.apps.http import (  # noqa: E402
     RATE_LIMIT_EXEMPT_PATHS,
     build_limiter,
     create_admin_app,
+    is_rate_limit_exempt,
 )
 from argus.config import get_settings, settings  # noqa: E402
 
@@ -44,3 +45,11 @@ async def test_limit_returns_429_and_health_exempt(monkeypatch: pytest.MonkeyPat
     assert second.status_code == 401
     assert limited.status_code == 429
     assert health.status_code == 200
+
+
+def test_triage_grid_polling_paths_are_exempt() -> None:
+    """2 s per-camera polling must not count against the per-IP default limit."""
+    assert is_rate_limit_exempt("/v1/companies/c/cameras/cam/latest-frame")
+    assert is_rate_limit_exempt("/v1/companies/c/establishments/e/cameras/overview")
+    assert not is_rate_limit_exempt("/v1/companies/c/cameras")
+    assert not is_rate_limit_exempt("/v1/companies/c/triage-cases")

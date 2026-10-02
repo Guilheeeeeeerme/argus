@@ -294,6 +294,8 @@ services:
       POLL_INTERVAL: ${POLL_INTERVAL:-30}
       WINDOW_SIZE: ${WINDOW_SIZE:-6}
       ALLOW_SYNTHETIC_FRAMES: ${ALLOW_SYNTHETIC_FRAMES:-true}
+      LATEST_FRAME_ENABLED: ${LATEST_FRAME_ENABLED:-true}
+      LATEST_FRAME_TTL: ${LATEST_FRAME_TTL:-30}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
       - ./services/stream-prep:/app

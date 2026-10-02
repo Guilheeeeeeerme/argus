@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     allow_synthetic_frames: bool = Field(alias="ALLOW_SYNTHETIC_FRAMES", default=True)
     """If go2rtc snapshot fails, generate a synthetic JPEG for local tests."""
 
+    latest_frame_enabled: bool = Field(alias="LATEST_FRAME_ENABLED", default=True)
+    """Also keep one stable ``latest.jpg`` per camera (triage grid) and a Redis pointer."""
+
+    latest_frame_ttl_seconds: int = Field(alias="LATEST_FRAME_TTL", default=30)
+    """Expiry of ``frame:latest:{camera_id}``; after it the grid shows "Sem sinal"."""
+
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
 
 

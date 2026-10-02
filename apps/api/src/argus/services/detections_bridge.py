@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from redis.exceptions import ResponseError
@@ -78,6 +79,7 @@ async def run_detections_bridge(stop_event: asyncio.Event | None = None) -> None
                         company_id=company_id,
                         detection_id=detection_id,
                         triage_case_id=triage_case_id,
+                        # Enough for the triage rail to render a row without a refetch.
                         payload={
                             "clip_uri": fields.get("clip_uri"),
                             "summary": fields.get("summary"),
@@ -85,6 +87,10 @@ async def run_detections_bridge(stop_event: asyncio.Event | None = None) -> None
                             "prompt_hits": _decode(fields.get("prompt_hits"), []),
                             "establishment_id": fields.get("establishment_id"),
                             "camera_id": fields.get("camera_id"),
+                            "sequence_id": fields.get("sequence_id") or None,
+                            "state": fields.get("state") or "open",
+                            "created_at": fields.get("created_at")
+                            or datetime.now(UTC).isoformat(),
                         },
                     )
                     await redis.xack(

@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "build": "npm run build -w ./apps/admin && npm run build -w ./apps/triage",
-    "lint": "npm run lint -w ./apps/admin && npm run lint -w ./apps/triage"
+    "lint": "npm run lint -w ./apps/admin && npm run lint -w ./apps/triage",
+    "test": "npm run test -w ./apps/triage"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
@@ -24,6 +25,7 @@
     "react-dom": "^19.2.8",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^3.2.7"
   }
 }

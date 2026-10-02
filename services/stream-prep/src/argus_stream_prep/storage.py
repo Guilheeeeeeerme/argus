@@ -25,6 +25,11 @@ def frame_object_key(
     return f"{company_id}/{establishment_id}/{camera_id}/{sequence_id}/{index}.jpg"
 
 
+def latest_frame_object_key(company_id: str, establishment_id: str, camera_id: str) -> str:
+    """Stable key overwritten on every sample: ``{company}/{establishment}/{camera}/latest.jpg``."""
+    return f"{company_id}/{establishment_id}/{camera_id}/latest.jpg"
+
+
 class FrameStorage:
     """Upload JPEG frames to the configured S3-compatible bucket."""
 
@@ -66,6 +71,31 @@ class FrameStorage:
             Body=jpeg_bytes,
             ContentType="image/jpeg",
             Metadata={"ttl-seconds": str(ttl)},
+        )
+        return f"s3://{self.settings.s3_bucket_name}/{key}"
+
+    def upload_latest(
+        self,
+        *,
+        company_id: str,
+        establishment_id: str,
+        camera_id: str,
+        jpeg_bytes: bytes,
+        captured_at: str,
+    ) -> str:
+        """Overwrite the camera's ``latest.jpg``; return its ``s3://`` URI.
+
+        ``Cache-Control: no-store`` keeps proxies from serving a stale frame and
+        ``captured-at`` metadata lets the API build an ETag without Redis.
+        """
+        key = latest_frame_object_key(company_id, establishment_id, camera_id)
+        self._client.put_object(
+            Bucket=self.settings.s3_bucket_name,
+            Key=key,
+            Body=jpeg_bytes,
+            ContentType="image/jpeg",
+            CacheControl="no-store",
+            Metadata={"captured-at": captured_at},
         )
         return f"s3://{self.settings.s3_bucket_name}/{key}"
 

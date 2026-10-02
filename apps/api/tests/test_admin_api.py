@@ -19,6 +19,7 @@ from argus.services.database import dispose_engine
 from argus.services.redis import close_redis
 from tests.conftest import (
     SEED_COMPANY_ID,
+    SEED_ESTABLISHMENT_ID,
     SEED_PASSWORD,
     SEED_ROOT_EMAIL,
 )
@@ -199,3 +200,106 @@ async def test_manager_can_update_establishment(client: AsyncClient) -> None:
     )
     assert response.status_code == 200
     assert response.json()["address"] == "New Address 42"
+
+
+@pytest.mark.asyncio
+async def test_manager_gets_establishment_by_id(client: AsyncClient) -> None:
+    headers = bearer(await _token(UserRole.MANAGER))
+    response = await client.get(
+        f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["id"] == SEED_ESTABLISHMENT_ID
+
+    missing = await client.get(
+        f"/v1/companies/{SEED_COMPANY_ID}/establishments/{uuid.uuid4()}",
+        headers=headers,
+    )
+    assert missing.status_code == 404
+    assert missing.json()["error"]["message"] == "Establishment not found"
+
+
+@pytest.mark.asyncio
+async def test_operator_cannot_get_establishment(client: AsyncClient) -> None:
+    response = await client.get(
+        f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}",
+        headers=bearer(await _token(UserRole.OPERATOR)),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_camera_list_sorted_and_include_inactive(client: AsyncClient) -> None:
+    headers = bearer(await _token(UserRole.MANAGER))
+    base = f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}/cameras"
+    suffix = uuid.uuid4().hex[:6]
+    zeta = (await client.post(base, json={"name": f"Zeta {suffix}"}, headers=headers)).json()
+    alpha = (await client.post(base, json={"name": f"Alpha {suffix}"}, headers=headers)).json()
+
+    listed = (await client.get(base, headers=headers)).json()
+    names = [camera["name"] for camera in listed]
+    assert names == sorted(names)
+    assert names.index(alpha["name"]) < names.index(zeta["name"])
+
+    disabled = await client.patch(
+        f"/v1/companies/{SEED_COMPANY_ID}/cameras/{zeta['id']}",
+        json={"is_active": False},
+        headers=headers,
+    )
+    assert disabled.status_code == 200
+    default_ids = {camera["id"] for camera in (await client.get(base, headers=headers)).json()}
+    assert zeta["id"] not in default_ids
+    assert alpha["id"] in default_ids
+
+    with_inactive = (await client.get(f"{base}?include_inactive=true", headers=headers)).json()
+    inactive_ids = {camera["id"] for camera in with_inactive}
+    assert zeta["id"] in inactive_ids
+    assert next(c for c in with_inactive if c["id"] == zeta["id"])["is_active"] is False
+
+    for camera in (zeta, alpha):
+        await client.delete(f"/v1/companies/{SEED_COMPANY_ID}/cameras/{camera['id']}", headers=headers)
+    after_delete = (await client.get(f"{base}?include_inactive=true", headers=headers)).json()
+    assert zeta["id"] not in {camera["id"] for camera in after_delete}
+
+
+@pytest.mark.asyncio
+async def test_camera_update_keeps_or_clears_credentials(client: AsyncClient) -> None:
+    headers = bearer(await _token(UserRole.MANAGER))
+    base = f"/v1/companies/{SEED_COMPANY_ID}/establishments/{SEED_ESTABLISHMENT_ID}/cameras"
+    created = (
+        await client.post(
+            base,
+            json={
+                "name": f"Cred {uuid.uuid4().hex[:6]}",
+                "stream_url": "rtsp://cam.local/stream",
+                "stream_username": "user1",
+                "stream_password": "secret",
+            },
+            headers=headers,
+        )
+    ).json()
+    camera_url = f"/v1/companies/{SEED_COMPANY_ID}/cameras/{created['id']}"
+
+    renamed = await client.patch(camera_url, json={"name": "Renamed"}, headers=headers)
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "Renamed"
+    assert renamed.json()["stream_username"] == "user1"
+    assert renamed.json()["stream_url"] == "rtsp://cam.local/stream"
+
+    cleared = await client.patch(camera_url, json={"stream_username": ""}, headers=headers)
+    assert cleared.status_code == 200
+    assert cleared.json()["stream_username"] is None
+    assert cleared.json()["stream_url"] == "rtsp://cam.local/stream"
+
+    await client.delete(camera_url, headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_operator_can_list_establishments_for_triage_picker(client: AsyncClient) -> None:
+    response = await client.get(
+        f"/v1/companies/{SEED_COMPANY_ID}/establishments",
+        headers=bearer(await _token(UserRole.OPERATOR)),
+    )
+    assert response.status_code == 200
+    assert any(unit["id"] == SEED_ESTABLISHMENT_ID for unit in response.json())

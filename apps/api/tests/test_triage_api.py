@@ -117,3 +117,29 @@ async def test_resolve_triage_case_writes_feedback(client: AsyncClient) -> None:
     assert detail.status_code == 200
     assert detail.json()["state"] == "false_positive"
     assert detail.json()["detection"]["id"] == detection_id
+
+
+@pytest.mark.asyncio
+async def test_list_filters_by_unit_and_camera_with_names(client: AsyncClient) -> None:
+    case_id, _ = await _seed_open_case()
+    headers = bearer(await _operator_token())
+    base = f"/v1/companies/{SEED_COMPANY_ID}/triage-cases"
+
+    by_unit = await client.get(f"{base}?establishment_id={SEED_ESTABLISHMENT_ID}&limit=5", headers=headers)
+    assert by_unit.status_code == 200
+    rows = by_unit.json()
+    assert 1 <= len(rows) <= 5
+    row = next(r for r in rows if r["id"] == case_id)
+    assert row["detection"]["camera_name"]
+    assert row["detection"]["establishment_name"]
+    assert row["detection"]["sequence_id"].startswith("seq-")
+
+    by_camera = await client.get(f"{base}?camera_id={SEED_CAMERA_ID}", headers=headers)
+    assert any(r["id"] == case_id for r in by_camera.json())
+
+    none = await client.get(f"{base}?camera_id={uuid.uuid4()}", headers=headers)
+    assert none.status_code == 200
+    assert none.json() == []
+
+    too_many = await client.get(f"{base}?limit=501", headers=headers)
+    assert too_many.status_code == 422

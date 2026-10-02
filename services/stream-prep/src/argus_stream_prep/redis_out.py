@@ -13,6 +13,12 @@ from argus_stream_prep.config import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 FRAMES_READY_STREAM = "frames:ready"
+LATEST_FRAME_KEY = "frame:latest:{camera_id}"
+
+
+def latest_frame_key(camera_id: str) -> str:
+    """Hash holding the newest frame pointer for one camera (``HSET`` + ``EXPIRE``)."""
+    return LATEST_FRAME_KEY.format(camera_id=camera_id)
 
 
 class RedisOut:
@@ -56,3 +62,28 @@ class RedisOut:
             entry_id,
         )
         return entry_id
+
+    def set_latest_frame(
+        self,
+        *,
+        camera_id: str,
+        uri: str,
+        captured_at: str,
+        company_id: str,
+        establishment_id: str,
+        ttl_seconds: int,
+    ) -> None:
+        """``HSET frame:latest:{camera_id}`` with the newest pointer and refresh its TTL."""
+        key = latest_frame_key(camera_id)
+        pipe = self._client.pipeline(transaction=True)
+        pipe.hset(
+            key,
+            mapping={
+                "uri": uri,
+                "captured_at": captured_at,
+                "company_id": company_id,
+                "establishment_id": establishment_id,
+            },
+        )
+        pipe.expire(key, max(int(ttl_seconds), 1))
+        pipe.execute()

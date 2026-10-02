@@ -10,110 +10,117 @@ Near-realtime operator screen for **TriageCase** rows backed by positive
 
 ## Goal
 
-An always-on operator screen: the **main area** shows the focused triage case
-(evidence clip / frame snapshots, prompt hits, confidence, summary, disposition
-controls); the **far right** has a narrow rail listing open/recent cases as
-they arrive.
+An always-on operator screen for one **Unidade**: the **main area** is a grid
+with every camera of the unit (latest frame, refreshed ~2 s); the camera that
+produced the newest open detection is highlighted. The **right rail** lists
+open/recent cases as they arrive. Clicking a tile or a rail row opens the case
+in a **Drawer** (evidence clip, prompt hits, confidence, summary, disposition
+controls); the grid stays mounted behind it.
 
 ## Layout
 
 ```
 ┌─────────────────────────────────────────────┬──────────────┐
-│  Header (ARGUS Triage · company · site)     │  Case rail   │
-│                                             │  (narrow)    │
-│   Main focus area:                          ├──────────────┤
-│   - evidence clip / snapshots               │  ⚠ 14:02:11  │
-│   - prompt_hits + confidence + summary      │  open · cam  │
-│   - disposition controls                    │──────────────│
-│     (confirm / dismiss / false_positive)    │  ● 14:01:40  │
-│                                             │  confirmed   │
-│                                             │──────────────│
-│                                             │  ○ 13:58:02  │
-│                                             │  dismissed   │
+│  Header (ARGUS · Triagem · Conta · Unidade) │  Case rail   │
+│  [Unidade ▾]                                │  ● Ao vivo   │
+│  ┌────────┐ ┌────────┐ ┌────────┐           │  [3 novos]   │
+│  │ cam 1  │ │ cam 2 ⚠│ │ cam 3  │           ├──────────────┤
+│  │ Ao vivo│ │ Ao vivo│ │Sem sinal│          │  14:02:11    │
+│  └────────┘ └────────┘ └────────┘           │  open · cam 2│
+│  ┌────────┐ ┌────────┐                      │──────────────│
+│  │ cam 4  │ │ cam 5  │                      │  14:01:40    │
+│  └────────┘ └────────┘                      │  confirmed   │
 └─────────────────────────────────────────────┴──────────────┘
+          ⚠ = ring in --color-open on the camera of the newest open case
 ```
+
+## Camera grid
+
+- `GET /v1/companies/{c}/establishments/{e}/cameras/overview` → tiles
+  (`name`, `is_active`, `last_frame_at`, `open_case_count`).
+- Each tile polls `GET /v1/companies/{c}/cameras/{cam}/latest-frame` every
+  `VITE_LATEST_FRAME_MS` (2000) with `If-None-Match`; `304` keeps the current
+  blob, `404`/stale (`VITE_LATEST_FRAME_TTL_MS`, 30 000) shows **Sem sinal**.
+  Polling pauses while the tab is hidden. Both paths are exempt from the API
+  rate limit. The browser never talks to MinIO or go2rtc.
+- Tile = `<button>`: image/placeholder, name, `Status` Ao vivo/Sem sinal,
+  `Badge` with open cases. `--alert` modifier (ring in `--color-open`, pulse
+  ≤200 ms, off under `prefers-reduced-motion`) marks the camera of the newest
+  open case; `--focused` marks the camera of the case open in the drawer.
+- Clicking a tile pins the newest open case of that camera (or the newest
+  case of any state); with none, a toast says so.
 
 ## Case rail (right side, narrow column)
 
-Each row (newest first):
+Each row (newest first, capacity 50):
 
-1. **Timestamp** — `HH:mm:ss` of detection / case creation (or last update).
-2. **State indicator** — maps `TriageCase` state:
-   - `open` → accent / warning treatment
-   - `confirmed` → strong positive / attention retained
-   - `dismissed` → muted
-   - `false_positive` → muted distinct variant
-   Use design-system `<Badge variant=...>` colors; icons are token-colored
-   dots/glyphs (not emoji in code).
-3. **Short label** — camera name or truncated `summary` / primary prompt hit.
+1. **Timestamp** — `HH:mm:ss` of `detection.created_at` (fallback `updated_at`).
+2. **State** — `<Badge variant={badgeVariantForTriageState(state)}>`.
+3. **Label** — `camera_name` (from the API or the overview map), else summary.
 
-Row behavior:
-
-- Active row highlighted (token `--border-strong` / accent text).
-- Click a row → sets it as the focused case in the main area.
-- Rail updates in place: WS `detection.created` inserts/bumps a row;
-  `triage.updated` patches state without a full feed refetch when possible.
+The rail head shows the WebSocket `Status` (Conectando… / Ao vivo /
+Reconectando… / Desconectado) and, in PINNED mode, an "N novos" pill that
+returns to FOLLOW when clicked.
 
 ## Auto-follow ("stick to the most recent")
 
-State machine for the focused case (`focus`):
+Pure reducer in `apps/triage/src/feed.ts` (`caseFeedReducer`, tested with
+vitest):
 
-- **FOLLOW** (default): focus = newest open (or newest overall) case. On every
-  `detection.created`, main area switches to it.
-- **PINNED**: operator clicked a specific row → focus stays on it. New cases
-  arrive in the rail only. An "N new" pill appears at the rail top.
-- **Return to FOLLOW**: after **IDLE_TIMEOUT without interaction** (default
-  **2 minutes**, env `VITE_TRIAGE_IDLE_MS`), focus snaps back to the newest
-  case and the pill clears.
+- **FOLLOW** (default): focus = newest open case; every `detection.created`
+  for this unit opens it in the drawer.
+- **PINNED**: the operator clicked a row/tile (or closed the drawer). New
+  cases only increment `newCount`; duplicates (at-least-once stream) do not.
+- **idle** → FOLLOW after `VITE_TRIAGE_IDLE_MS` (120 000) without interaction
+  (pin, drawer close, pointer/keyboard inside the detail, disposition).
+- `triage.updated` patches the row in place; in FOLLOW a resolved focus moves
+  to the next open case.
 
-Interactions that count as "interaction": clicking a rail row, changing
-disposition, hovering the main area (resets the idle timer), keyboard nav.
-
-Implementation sketch:
-
-- `apps/triage/src/pages/TriageWorkspace.tsx` (or successor):
-  - list of triage cases + `selected` / `pinnedId` / `lastActivityAt`;
-  - WS `onmessage`: `detection.created` → prepend/patch; if `!pinnedId` →
-    select newest; `triage.updated` → patch matching row;
-  - idle timer: clear pin after `VITE_TRIAGE_IDLE_MS`.
-- Detail pane: disposition controls write TriageCase state + optional
-  Feedback; treat resolve as interaction (reset idle timer).
+Hooks: `useCaseFeed` (initial `GET /triage-cases?establishment_id=&limit=50`,
+WS events filtered by `establishment_id`, idle timer), `useTriageSocket`
+(exponential backoff 1→30 s, stops on close codes 4001/4003),
+`useLatestFrame` (ETag poll, blob URL revocation, visibility pause).
 
 ## Data needs
 
-- Feed: company-scoped triage cases (state, camera, summary, confidence,
-  timestamps) — e.g. `GET /v1/companies/{company_id}/triage-cases`.
+- Units: `GET /v1/companies/{company_id}/establishments` (operator+);
+  `PATCH /v1/auth/context {establishmentId}` selects the unit.
+- Feed: `GET /v1/companies/{company_id}/triage-cases?establishment_id=&camera_id=&limit=`
+  (state, camera_name, establishment_name, summary, confidence, timestamps).
 - Detail: case + linked Detection (`prompt_hits`, clip / snapshot URLs,
   summary).
 - Live updates: `WS /v1/ws?token=<session>` — `ready`, `heartbeat`,
-  `detection.created`, `triage.updated`; company-scoped rooms; role gate
-  manager/operator.
+  `detection.created` (payload carries `establishment_id`, `camera_id`,
+  `sequence_id`, `state`, `created_at`, `summary`, `confidence`,
+  `prompt_hits`), `triage.updated`; company-scoped rooms, filtered per unit
+  on the client; role gate manager/operator.
 
 Detection creation is owned by prompt-eval (positive only); the API exposes
 reads and fan-out. See Redis `detections:positive` in `docs/SPEC.md`.
 
 ## Styling rules
 
-- Follow `STYLE_GUIDE.md`: tokens only, badges for TriageCase states,
-  max-width 1100px main grid, rail fixed-width ~200px on the right
-  (`position: sticky; top: 0; height: 100vh; overflow-y: auto`).
-- Prefer classes such as `.argus-triage__rail`, `.argus-rail-row`,
-  `.argus-rail-row--active`, `.argus-rail-new-pill` with design tokens.
+- Follow `STYLE_GUIDE.md`: tokens only, badges for TriageCase states, grid
+  `repeat(auto-fill, minmax(16rem, 1fr))`, rail 17rem sticky on the right
+  (`max-height: calc(100dvh - …); overflow-y: auto`), single column below 64rem.
+- Classes: `.argus-cam-grid`, `.argus-cam-tile[--alert|--focused]`,
+  `.argus-rail`, `.argus-rail-row[--active]`, `.argus-rail__pill`.
 
 ## Acceptance checks
 
-1. New detection arrives while FOLLOW → main area switches; rail row appears
-   at top as `open`.
-2. Click an older row → PINNED: subsequent `detection.created` events do not
-   steal focus; "N new" pill counts them.
-3. Wait 2 minutes without interaction → focus returns to newest, pill clears.
-4. Confirm / dismiss / mark false_positive from the main area → rail row
-   updates via `triage.updated`, stays in rail.
-5. WS disconnect → rail shows reconnecting hint.
+1. 12 tiles refresh every ~2 s without a 429; stopping stream-prep turns
+   tiles into "Sem sinal" after the TTL.
+2. New detection arrives while FOLLOW → its camera gets the ring, a rail row
+   appears at top as `open`, the drawer opens on it.
+3. Click an older row → PINNED: subsequent `detection.created` events do not
+   steal focus; "N novos" pill counts them; clicking the pill returns to FOLLOW.
+4. Wait 2 minutes without interaction → focus returns to newest, pill clears.
+5. Confirm / dismiss / false_positive from the drawer → toast, rail row updates,
+   drawer closes, tile count drops.
+6. Restart the API → rail shows "Reconectando…" then "Ao vivo".
 
 ## Open decisions
 
-- Rail capacity (render last N=50, drop older silently?).
 - Sound/haptic on new `open` cases (operator request — later).
-- Multi-establishment operator view: rail grouping per establishment (needs
-  session establishment interplay).
+- Per-frame evidence (`frame_uris`) is no longer exposed to the client; an
+  authenticated per-frame proxy is a follow-up.

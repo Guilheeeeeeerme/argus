@@ -1,34 +1,5 @@
 /* Admin page layouts — tokens only; primitives live in @argus/design-system */
 
-.argus-admin-sections {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.argus-establishment-detail {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: var(--border-width) solid var(--border);
-}
-
-.argus-establishment-detail h3 {
-  margin: var(--space-4) 0 var(--space-2);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-  text-wrap: balance;
-}
-
-.argus-establishment-detail h3:first-child {
-  margin-top: 0;
-}
-
-.argus-inline-form--stack {
-  flex-direction: column;
-  align-items: stretch;
-}
-
 .argus-webhook-token {
   margin-top: var(--space-3);
   padding: var(--space-3);
@@ -68,4 +39,156 @@
   .argus-shell__body {
     padding: var(--space-4) var(--space-5);
   }
+}
+
+/* ——— Router shell ——— */
+.argus-admin-context .argus-field {
+  margin-bottom: var(--space-3);
+}
+
+.argus-admin-context__pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.argus-auth__brand-mark {
+  vertical-align: middle;
+  margin-right: var(--space-2);
+}
+
+/* ——— Unit tabs ——— */
+.argus-tab-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.argus-tab-toolbar--stack {
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.argus-tab-toolbar__field {
+  flex: 1 1 14rem;
+  max-width: 24rem;
+}
+
+.argus-tab-toolbar__field .argus-field {
+  margin-bottom: 0;
+}
+
+.argus-tab-toolbar__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  text-wrap: pretty;
+}
+
+.argus-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.argus-card-head > h2 {
+  margin: 0;
+}
+
+.argus-card-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  flex-wrap: wrap;
+}
+
+.argus-form__hint {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
+}
+
+.argus-webhook-token__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+/* ——— Overview ——— */
+.argus-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.argus-overview-section {
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.argus-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: 0;
+}
+
+.argus-stat__title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.argus-stat__value {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.argus-stat__error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  text-wrap: pretty;
+}
+
+.argus-stat__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  flex-wrap: wrap;
+  margin-top: auto;
+  font-size: var(--font-size-sm);
+}
+
+.argus-stat__footer a:not(.argus-btn) {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+.argus-stat__footer a:not(.argus-btn):hover {
+  text-decoration: underline;
+}
+
+/* ——— Switch lists (memberships) ——— */
+.argus-switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
 }

@@ -76,8 +76,9 @@ async def test_detail_returns_authenticated_api_path():
         id=case_id, detection_id=detection_id, state=TriageCaseState.OPEN,
         resolved_at=None, resolved_by=None, updated_at=now, detection=detection,
     )
-    result = await triage_cases.get_triage_case(
-        company_id, case_id, session=SimpleNamespace(scalar=AsyncMock(return_value=case)),
-        _auth=None,
+    session = SimpleNamespace(
+        scalar=AsyncMock(return_value=case),
+        execute=AsyncMock(return_value=SimpleNamespace(all=lambda: [])),
     )
+    result = await triage_cases.get_triage_case(company_id, case_id, session=session, _auth=None)
     assert result.clip_playback_url == f"/v1/companies/{company_id}/triage-cases/{case_id}/clip"

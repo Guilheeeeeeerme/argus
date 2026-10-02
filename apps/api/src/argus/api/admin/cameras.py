@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,21 +53,20 @@ async def create_camera(
     return camera
 
 
+def _camera_query(*, include_inactive: bool):
+    query = select(Camera).where(Camera.deleted_at.is_(None))
+    if not include_inactive:
+        query = query.where(Camera.is_active.is_(True))
+    return query.order_by(Camera.name, Camera.id)
+
+
 @router.get("/cameras", response_model=list[CameraResponse])
 async def list_cameras(
+    include_inactive: bool = Query(default=False),
     session: AsyncSession = Depends(get_company_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> list[Camera]:
-    return list(
-        (
-            await session.scalars(
-                select(Camera).where(
-                    Camera.is_active.is_(True),
-                    Camera.deleted_at.is_(None),
-                )
-            )
-        ).all()
-    )
+    return list((await session.scalars(_camera_query(include_inactive=include_inactive))).all())
 
 
 @router.get(
@@ -77,21 +76,15 @@ async def list_cameras(
 async def list_establishment_cameras(
     company_id: UUID,
     establishment_id: UUID,
+    include_inactive: bool = Query(default=False),
     session: AsyncSession = Depends(get_company_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> list[Camera]:
-    return list(
-        (
-            await session.scalars(
-                select(Camera).where(
-                    Camera.establishment_id == establishment_id,
-                    Camera.company_id == company_id,
-                    Camera.is_active.is_(True),
-                    Camera.deleted_at.is_(None),
-                )
-            )
-        ).all()
+    query = _camera_query(include_inactive=include_inactive).where(
+        Camera.establishment_id == establishment_id,
+        Camera.company_id == company_id,
     )
+    return list((await session.scalars(query)).all())
 
 
 @router.patch("/cameras/{camera_id}", response_model=CameraResponse)
@@ -107,10 +100,15 @@ async def update_camera(
     )
     if camera is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-    for field in ("name", "stream_url", "stream_username", "stream_password", "is_active"):
+    for field in ("name", "is_active"):
         value = getattr(body, field)
         if value is not None:
             setattr(camera, field, value)
+    # Credentials: omitted/None keeps the stored value, "" clears it.
+    for field in ("stream_url", "stream_username", "stream_password"):
+        value = getattr(body, field)
+        if value is not None:
+            setattr(camera, field, value or None)
     await session.flush()
     return camera
 

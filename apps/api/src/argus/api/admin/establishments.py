@@ -24,12 +24,14 @@ router = APIRouter(
 )
 
 _MANAGER_PLUS = (UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
+# Operators need the unit list for the triage grid picker (RLS already scopes to the company).
+_READ_ROLES = (UserRole.OPERATOR, *_MANAGER_PLUS)
 
 
 @router.get("", response_model=list[EstablishmentResponse])
 async def list_establishments(
     session: AsyncSession = Depends(get_company_db),
-    _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
+    _auth: AuthContext = Depends(require_role(*_READ_ROLES)),
 ) -> list[Establishment]:
     return list(
         (
@@ -40,6 +42,24 @@ async def list_establishments(
             )
         ).all()
     )
+
+
+@router.get("/{establishment_id}", response_model=EstablishmentResponse)
+async def get_establishment(
+    company_id: UUID,
+    establishment_id: UUID,
+    session: AsyncSession = Depends(get_company_db),
+    _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
+) -> Establishment:
+    establishment = await session.scalar(
+        select(Establishment).where(
+            Establishment.id == establishment_id,
+            Establishment.company_id == company_id,
+        )
+    )
+    if establishment is None:
+        raise HTTPException(status_code=404, detail="Establishment not found")
+    return establishment
 
 
 @router.post("", response_model=EstablishmentResponse, status_code=status.HTTP_201_CREATED)

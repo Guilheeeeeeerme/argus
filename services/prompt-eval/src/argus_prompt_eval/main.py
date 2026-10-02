@@ -245,6 +245,12 @@ async def _publish_positive(detection, triage, **metadata) -> None:
             "establishment_id": str(detection.establishment_id),
             "camera_id": str(detection.camera_id),
             "sequence_id": detection.sequence_id,
+            "state": "open",
+            "created_at": (
+                detection.created_at.isoformat()
+                if getattr(detection, "created_at", None)
+                else datetime.now(UTC).isoformat()
+            ),
             **metadata,
         }
     )

@@ -43,6 +43,26 @@ prompt-eval
 - Downstream services receive URIs (presigned GET as needed); they never get
   MinIO credentials from this path.
 
+### Latest frame per camera (triage grid)
+
+Every sampled frame is also written to a **stable** key
+`{company}/{establishment}/{camera}/latest.jpg` (`Cache-Control: no-store`,
+metadata `captured-at`) and pointed to from the Redis hash
+`frame:latest:{camera_id}`:
+
+| Field | Notes |
+|-------|-------|
+| `uri` | `s3://bucket/{company}/{establishment}/{camera}/latest.jpg` |
+| `captured_at` | ISO-8601 (UTC) of the sample |
+| `company_id` / `establishment_id` | Same ids as `frames:ready` |
+
+The hash expires after `LATEST_FRAME_TTL` seconds (default 30), so a camera
+whose stream stopped drops out of the grid as "Sem sinal". The API serves the
+bytes through `GET /v1/companies/{c}/cameras/{cam}/latest-frame` (ETag =
+`captured_at`); the browser never talks to MinIO or go2rtc. Set
+`LATEST_FRAME_ENABLED=false` to skip it. Failures are logged and never block
+the `frames:ready` pipeline. Cost: one extra PUT per camera per sample.
+
 ### Redis stream `frames:ready`
 
 | Field | Type / notes |
@@ -64,6 +84,7 @@ prompt-eval
 4. **Window** frames into sequences (`temporal_window`).
 5. **Store** frames in MinIO with TTL.
 6. **Publish** one `frames:ready` message per sequence.
+7. **Point** `frame:latest:{camera_id}` at the newest `latest.jpg` (best effort).
 
 ## Non-responsibilities
 
