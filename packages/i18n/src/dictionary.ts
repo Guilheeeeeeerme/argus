@@ -89,7 +89,7 @@ const en: Record<string, string> = {
   'Mudar para modo escuro': 'Switch to dark mode',
   'Verificando sessão…': 'Checking session…',
   'Redirecionando para o login…': 'Redirecting to sign in…',
-  'Fale com um administrador para ter acesso.': 'Contact an administrator to get access to a company.',
+  'Fale com um administrador para ter acesso.': 'Contact an administrator to get access to an account.',
   'Triagem': 'Triage',
   'Fila de casos': 'Case feed',
   '{confidence}% de confiança': '{confidence}% confidence',
