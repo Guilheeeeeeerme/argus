@@ -29,14 +29,14 @@ API /v1/hooks -> context:events -> fusion       consensus
                                         Detection + TriageCase
 ```
 
-Existing Company, Establishment, Camera, PromptSet, Detection, TriageCase and
+Existing Account, Unit, Camera, PromptSet, Detection, TriageCase and
 WebhookEndpoint entities remain authoritative. Deprecated Decision, RuleSet and
 Recipe entities are not reintroduced.
 
 ## Sensor contract and alignment
 
 `POST /v1/hooks/{endpoint_id}` keeps bearer-token authentication and derives
-company from the authenticated endpoint. Establishment and camera are verified
+account from the authenticated endpoint. Unit and camera are verified
 within that tenant. Existing `kind`, `payload`, and optional camera scope remain.
 
 New request/stream fields are `confidence` (optional finite number in [0,1]),
@@ -46,10 +46,10 @@ New request/stream fields are `confidence` (optional finite number in [0,1]),
 extra fields are an ephemeral stream contract, not new ContextEvent columns.
 
 `SensorFusionBuffer` is shared from `argus.services.sensor_fusion`. It correlates
-by company AND establishment, and by camera when the event has camera scope.
+by account AND unit, and by camera when the event has camera scope.
 It matches inclusive ±5-second event-time windows and bounds retained event
 count (10,000 by default). Malformed events are ignored. A sensor event cannot cross tenants even
-when camera or establishment strings coincide.
+when camera or unit strings coincide.
 
 `stream-prep` adds each frame's `captured_at` to `preproc_meta.frames[]`; the
 window-level `captured_at` remains the last frame's capture time. This additive
@@ -70,7 +70,7 @@ scaling requires partitioning by camera or shared correlation state.
 4. Emit at most K=3 selected frame URIs with scores, tracks and aligned sensors.
 
 The new `candidates:ready` stream preserves the original frame identity fields:
-`company_id`, `establishment_id`, `camera_id`, `sequence_id`, `captured_at`,
+`account_id`, `unit_id`, `camera_id`, `sequence_id`, `captured_at`,
 `frame_uris`, and `preproc_meta`. Additional fields are `edge_score`,
 `motion_score`, `tracks`, `sensor_ids`, `sensors`, and `temporal_span_seconds`.
 Lists and objects are JSON-encoded in Redis. Consumers use separate groups:

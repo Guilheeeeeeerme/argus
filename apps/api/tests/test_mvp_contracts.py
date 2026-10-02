@@ -76,8 +76,8 @@ def test_parse_prompt_eval_result_clamps_confidence() -> None:
 def test_parse_frames_ready_field_shape() -> None:
     parsed = parse_frames_ready(
         {
-            "company_id": "c1",
-            "establishment_id": "e1",
+            "account_id": "c1",
+            "unit_id": "e1",
             "camera_id": "cam1",
             "sequence_id": "seq-1",
             "captured_at": "2026-09-11T12:00:00Z",
@@ -86,8 +86,8 @@ def test_parse_frames_ready_field_shape() -> None:
         }
     )
     assert set(parsed) >= {
-        "company_id",
-        "establishment_id",
+        "account_id",
+        "unit_id",
         "camera_id",
         "sequence_id",
         "captured_at",
@@ -101,8 +101,8 @@ def test_parse_frames_ready_field_shape() -> None:
 def test_parse_context_event_field_shape() -> None:
     parsed = parse_context_event(
         {
-            "company_id": "c1",
-            "establishment_id": "e1",
+            "account_id": "c1",
+            "unit_id": "e1",
             "camera_id": "",
             "kind": "pos.sale",
             "payload": '{"sku":"X"}',

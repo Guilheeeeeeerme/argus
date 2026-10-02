@@ -7,7 +7,7 @@ from argus_stream_prep.main import StreamConfig, _publish_latest
 from argus_stream_prep.redis_out import RedisOut, latest_frame_key
 from argus_stream_prep.storage import FrameStorage, latest_frame_object_key
 
-CFG = StreamConfig(camera_id="cam", company_id="tenant", establishment_id="site", name="Door")
+CFG = StreamConfig(camera_id="cam", account_id="tenant", unit_id="site", name="Door")
 
 
 def test_latest_frame_object_key_is_stable_per_camera():
@@ -27,8 +27,8 @@ def test_upload_latest_overwrites_with_no_store_and_captured_at():
     storage._client = Client()
 
     uri = storage.upload_latest(
-        company_id="tenant",
-        establishment_id="site",
+        account_id="tenant",
+        unit_id="site",
         camera_id="cam",
         jpeg_bytes=b"jpeg",
         captured_at="2026-10-02T12:00:00+00:00",
@@ -78,8 +78,8 @@ def test_set_latest_frame_writes_hash_and_ttl():
         camera_id="cam",
         uri="s3://frames/tenant/site/cam/latest.jpg",
         captured_at="2026-10-02T12:00:00+00:00",
-        company_id="tenant",
-        establishment_id="site",
+        account_id="tenant",
+        unit_id="site",
         ttl_seconds=30,
     )
     assert out._client.log == [
@@ -89,8 +89,8 @@ def test_set_latest_frame_writes_hash_and_ttl():
             {
                 "uri": "s3://frames/tenant/site/cam/latest.jpg",
                 "captured_at": "2026-10-02T12:00:00+00:00",
-                "company_id": "tenant",
-                "establishment_id": "site",
+                "account_id": "tenant",
+                "unit_id": "site",
             },
         ),
         ("expire", "frame:latest:cam", 30),
@@ -103,7 +103,7 @@ def test_set_latest_frame_clamps_ttl_to_at_least_one_second():
     out.settings = SimpleNamespace()
     out._client = FakeRedis()
     out.set_latest_frame(
-        camera_id="cam", uri="u", captured_at="t", company_id="c", establishment_id="e", ttl_seconds=0
+        camera_id="cam", uri="u", captured_at="t", account_id="c", unit_id="e", ttl_seconds=0
     )
     assert ("expire", "frame:latest:cam", 1) in out._client.log
 
@@ -132,8 +132,8 @@ def test_publish_latest_uploads_then_points_redis_at_it():
     )
     assert uploads == [
         {
-            "company_id": "tenant",
-            "establishment_id": "site",
+            "account_id": "tenant",
+            "unit_id": "site",
             "camera_id": "cam",
             "jpeg_bytes": b"jpeg",
             "captured_at": captured_at.isoformat(),
@@ -144,8 +144,8 @@ def test_publish_latest_uploads_then_points_redis_at_it():
             "camera_id": "cam",
             "uri": "s3://frames/tenant/site/cam/latest.jpg",
             "captured_at": captured_at.isoformat(),
-            "company_id": "tenant",
-            "establishment_id": "site",
+            "account_id": "tenant",
+            "unit_id": "site",
             "ttl_seconds": 45,
         }
     ]

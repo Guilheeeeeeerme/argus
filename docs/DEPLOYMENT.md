@@ -59,3 +59,22 @@ cp .env.example .env.local.docker && cp .env.local.docker .env
 
 Local Postgres is the Compose container; there is no remote-DB mode.
 Full infra view: `infra/docs/DEPLOYMENT.md`.
+
+
+## Account/Unit rename (migration `014_rename_accounts_units`)
+
+The release that renames Company → Account and Establishment → Unit changes
+table and column names, RLS policies (`app.current_account_id`) and every API
+path (`/v1/accounts/{id}/…`, `/v1/admin/accounts`, `/v1/auth/accounts`). The
+previous application code cannot run against the migrated schema, so:
+
+1. Deploy it with infra **Deploy app** and `migrate=true` (Argus already
+   migrates before rollout). Expect a short maintenance window between the
+   migration and the new image starting.
+2. Rollback = `alembic downgrade 013_public_app_grants` + deploy the previous
+   SHA (the migration is fully reversible).
+3. Old URLs answer **410 Gone** for one release (`argus/api/legacy.py`).
+   Redis stream consumers accept the legacy `company_id` / `establishment_id`
+   fields for one release; `infra/containers/argus/bootstrap.py` keeps working
+   through the deprecated `CompanyUser` / `set_session_context(company_id=…)`
+   aliases, which are removed in the following release.

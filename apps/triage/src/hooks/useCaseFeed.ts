@@ -30,7 +30,7 @@ interface UseCaseFeedOptions {
   idleMs?: number;
 }
 
-export function useCaseFeed(companyId: string, unitId: string | null, options: UseCaseFeedOptions = {}): CaseFeed {
+export function useCaseFeed(accountId: string, unitId: string | null, options: UseCaseFeedOptions = {}): CaseFeed {
   const [state, dispatch] = useReducer(caseFeedReducer, undefined, initialFeedState);
   const [loading, setLoading] = useState(Boolean(unitId));
   const [error, setError] = useState<unknown>(null);
@@ -54,7 +54,7 @@ export function useCaseFeed(companyId: string, unitId: string | null, options: U
     setLoading(true);
     setError(null);
     try {
-      const cases = await listCases(companyId, { establishmentId: unitId, state: null, limit: FEED_CAPACITY });
+      const cases = await listCases(accountId, { unitId: unitId, state: null, limit: FEED_CAPACITY });
       if (id !== requestId.current) return;
       dispatch({ type: 'loaded', cases });
     } catch (err) {
@@ -63,7 +63,7 @@ export function useCaseFeed(companyId: string, unitId: string | null, options: U
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [companyId, unitId]);
+  }, [accountId, unitId]);
 
   useEffect(() => {
     if (!unitId) {
@@ -79,7 +79,7 @@ export function useCaseFeed(companyId: string, unitId: string | null, options: U
       const type = envelope.type ?? envelope.event;
       const payload = envelope.payload ?? {};
       if (type === 'detection.created') {
-        if (!unitId || payload.establishment_id !== unitId) return;
+        if (!unitId || payload.unit_id !== unitId) return;
         const cameraId = String(payload.camera_id ?? '');
         const item: TriageCase = {
           id: String(payload.triage_case_id),
@@ -89,7 +89,7 @@ export function useCaseFeed(companyId: string, unitId: string | null, options: U
           detection: {
             id: String(payload.detection_id),
             camera_id: cameraId,
-            establishment_id: unitId,
+            unit_id: unitId,
             camera_name: cameraNames.current?.get(cameraId) ?? null,
             sequence_id: typeof payload.sequence_id === 'string' ? payload.sequence_id : null,
             summary: typeof payload.summary === 'string' ? payload.summary : null,

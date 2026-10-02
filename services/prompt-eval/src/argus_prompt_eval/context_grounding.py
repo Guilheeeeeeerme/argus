@@ -35,8 +35,8 @@ class GroundedContext:
 async def load_recent_context_events(
     session: AsyncSession,
     *,
-    company_id: UUID,
-    establishment_id: UUID,
+    account_id: UUID,
+    unit_id: UUID,
     camera_id: UUID | None = None,
     lookback_seconds: int | None = None,
 ) -> list[ContextEvent]:
@@ -47,10 +47,10 @@ async def load_recent_context_events(
     )
     since = datetime.now(UTC) - timedelta(seconds=lookback)
     conditions = [
-        ContextEvent.company_id == company_id,
+        ContextEvent.account_id == account_id,
         or_(
-            ContextEvent.establishment_id.is_(None),
-            ContextEvent.establishment_id == establishment_id,
+            ContextEvent.unit_id.is_(None),
+            ContextEvent.unit_id == unit_id,
         ),
         ContextEvent.received_at >= since,
     ]
@@ -75,7 +75,7 @@ def _format_events(events: list[ContextEvent]) -> str:
     for event in events:
         received = ensure_aware(event.received_at).isoformat()
         payload = json.dumps(event.payload, default=str)[:500]
-        cam = str(event.camera_id) if event.camera_id else "establishment"
+        cam = str(event.camera_id) if event.camera_id else "unit"
         lines.append(f"- [{received}] kind={event.kind} scope={cam} payload={payload}")
     return "\n".join(lines)
 
@@ -89,21 +89,21 @@ def _format_feedback(feedback: list[Feedback]) -> str:
 async def ground_context(
     session: AsyncSession,
     *,
-    company_id: UUID,
-    establishment_id: UUID,
+    account_id: UUID,
+    unit_id: UUID,
     camera_id: UUID,
     query_embedding: list[float] | None = None,
 ) -> GroundedContext:
     """Load recent events + RAG FP feedback; screen then fence for the VLM."""
     events = await load_recent_context_events(
         session,
-        company_id=company_id,
-        establishment_id=establishment_id,
+        account_id=account_id,
+        unit_id=unit_id,
         camera_id=camera_id,
     )
     feedback = await retrieve_fp_feedback(
         session,
-        company_id=company_id,
+        account_id=account_id,
         camera_id=camera_id,
         query_embedding=query_embedding,
     )

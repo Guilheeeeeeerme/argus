@@ -21,7 +21,7 @@ from tests.helpers import bearer, session_token
 
 get_settings.cache_clear()
 
-SEED_COMPANY_ID = "11111111-1111-4111-8111-111111111111"
+SEED_ACCOUNT_ID = "11111111-1111-4111-8111-111111111111"
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -40,11 +40,11 @@ async def client():
 
 @pytest.mark.asyncio
 async def test_session_roundtrip() -> None:
-    token = await session_token(UserRole.MANAGER, SEED_COMPANY_ID)
+    token = await session_token(UserRole.MANAGER, SEED_ACCOUNT_ID)
     data = await get_session(token)
     assert data is not None
     assert data.role == UserRole.MANAGER.value
-    assert data.company_id == SEED_COMPANY_ID
+    assert data.account_id == SEED_ACCOUNT_ID
 
 
 @pytest.mark.asyncio
@@ -54,24 +54,24 @@ async def test_unknown_session_is_none() -> None:
 
 @pytest.mark.asyncio
 async def test_manager_gets_me(client: AsyncClient) -> None:
-    token = await session_token(UserRole.MANAGER, SEED_COMPANY_ID)
+    token = await session_token(UserRole.MANAGER, SEED_ACCOUNT_ID)
     response = await client.get("/v1/auth/me", headers=bearer(token))
     assert response.status_code == 200
     body = response.json()
     assert body["user"]["role"] == "manager"
-    assert body["activeCompany"]["id"] == SEED_COMPANY_ID
+    assert body["activeAccount"]["id"] == SEED_ACCOUNT_ID
 
 
 @pytest.mark.asyncio
-async def test_operator_can_select_assigned_company(client: AsyncClient) -> None:
-    token = await session_token(UserRole.OPERATOR, SEED_COMPANY_ID)
+async def test_operator_can_select_assigned_account(client: AsyncClient) -> None:
+    token = await session_token(UserRole.OPERATOR, SEED_ACCOUNT_ID)
     response = await client.patch(
         "/v1/auth/context",
-        json={"companyId": SEED_COMPANY_ID},
+        json={"accountId": SEED_ACCOUNT_ID},
         headers=bearer(token),
     )
     assert response.status_code == 200
-    assert response.json()["activeCompany"]["id"] == SEED_COMPANY_ID
+    assert response.json()["activeAccount"]["id"] == SEED_ACCOUNT_ID
 
 
 @pytest.mark.asyncio
@@ -84,7 +84,7 @@ async def test_missing_bearer_rejected(client: AsyncClient) -> None:
 async def test_edge_m2m_token_accepted_by_ingest() -> None:
     token = create_mock_m2m_token(
         sub="edge-test@clients",
-        company_id=SEED_COMPANY_ID,
+        account_id=SEED_ACCOUNT_ID,
         camera_id="33333333-3333-4333-8333-333333333333",
     )
     transport = ASGITransport(app=create_ingest_app())

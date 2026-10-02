@@ -31,7 +31,7 @@ prompt-eval
 
 - Stable media endpoints from **go2rtc** / stream-gateway (never vendor RTSP
   URLs directly).
-- Camera + establishment + company identity from gateway naming / API sync
+- Camera + unit + account identity from gateway naming / API sync
   (same ids the API stores).
 
 ## Outputs
@@ -46,19 +46,19 @@ prompt-eval
 ### Latest frame per camera (triage grid)
 
 Every sampled frame is also written to a **stable** key
-`{company}/{establishment}/{camera}/latest.jpg` (`Cache-Control: no-store`,
+`{account}/{unit}/{camera}/latest.jpg` (`Cache-Control: no-store`,
 metadata `captured-at`) and pointed to from the Redis hash
 `frame:latest:{camera_id}`:
 
 | Field | Notes |
 |-------|-------|
-| `uri` | `s3://bucket/{company}/{establishment}/{camera}/latest.jpg` |
+| `uri` | `s3://bucket/{account}/{unit}/{camera}/latest.jpg` |
 | `captured_at` | ISO-8601 (UTC) of the sample |
-| `company_id` / `establishment_id` | Same ids as `frames:ready` |
+| `account_id` / `unit_id` | Same ids as `frames:ready` |
 
 The hash expires after `LATEST_FRAME_TTL` seconds (default 30), so a camera
 whose stream stopped drops out of the grid as "Sem sinal". The API serves the
-bytes through `GET /v1/companies/{c}/cameras/{cam}/latest-frame` (ETag =
+bytes through `GET /v1/accounts/{c}/cameras/{cam}/latest-frame` (ETag =
 `captured_at`); the browser never talks to MinIO or go2rtc. Set
 `LATEST_FRAME_ENABLED=false` to skip it. Failures are logged and never block
 the `frames:ready` pipeline. Cost: one extra PUT per camera per sample.
@@ -67,8 +67,8 @@ the `frames:ready` pipeline. Cost: one extra PUT per camera per sample.
 
 | Field | Type / notes |
 |-------|----------------|
-| `company_id` | UUID |
-| `establishment_id` | UUID |
+| `account_id` | UUID |
+| `unit_id` | UUID |
 | `camera_id` | UUID |
 | `sequence_id` | UUID / opaque sequence id |
 | `captured_at` | ISO-8601 timestamp |

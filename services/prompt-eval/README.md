@@ -44,7 +44,7 @@ Each module docstring names the AI Engineering pattern it implements.
 4. `prompt_set_eval` → `vlm.analyze` with structured schema
 5. `negative_discard` when no hits clear `PROMPT_EVAL_CONFIDENCE_FLOOR`
 6. `evidence_retention` — see clip strategy below
-7. `persist` Detection + TriageCase(`open`) with RLS company context
+7. `persist` Detection + TriageCase(`open`) with RLS account context
 8. `XADD detections:positive`
 
 ## Evidence clip strategy
@@ -91,7 +91,7 @@ With `true`, prompt-eval consumes `candidates:ready` instead, in the same
 `prompt-eval` consumer group, and continues consuming `context:events`.
 Restart with the flag disabled to roll back.
 
-Candidates retain `company_id`, `establishment_id`, `camera_id`, `sequence_id`,
+Candidates retain `account_id`, `unit_id`, `camera_id`, `sequence_id`,
 `captured_at`, `frame_uris` and optional `preproc_meta`. They add `edge_score`,
 `motion_score`, JSON arrays `tracks`, `sensor_ids`, `sensors`, and
 `temporal_span_seconds`. Frames are ordered by descending track confidence;

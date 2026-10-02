@@ -33,7 +33,7 @@ function UsersList() {
   const toast = useToast();
   const { session } = useSession();
   const users = useAsync(() => usersApi.list(), []);
-  const companies = useAsync(() => accountsApi.list(), []);
+  const accounts = useAsync(() => accountsApi.list(), []);
   const remove = useMutation((id: string) => usersApi.remove(id));
   const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
 
@@ -49,8 +49,8 @@ function UsersList() {
     void users.reload();
   }
 
-  const companyName = (id: string) => companies.data?.find(c => c.id === id)?.name ?? id.slice(0, 8);
-  const outletContext: UsersOutletContext = { companies: companies.data ?? [], reload: users.reload };
+  const accountName = (id: string) => accounts.data?.find(c => c.id === id)?.name ?? id.slice(0, 8);
+  const outletContext: UsersOutletContext = { accounts: accounts.data ?? [], reload: users.reload };
 
   return (
     <>
@@ -84,8 +84,8 @@ function UsersList() {
               key={user.id}
               title={user.email}
               meta={
-                user.company_ids.length
-                  ? user.company_ids.map(companyName).join(' · ')
+                user.account_ids.length
+                  ? user.account_ids.map(accountName).join(' · ')
                   : t('Nenhum acesso')
               }
               actions={

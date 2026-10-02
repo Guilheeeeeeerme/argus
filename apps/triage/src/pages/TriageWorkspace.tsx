@@ -13,7 +13,7 @@ import {
 import { useT, useLocale, SUPPORTED_LOCALES, localizeApiError, roleLabel } from '@argus/i18n';
 import { useAsync } from '@shared/hooks';
 import { clearToken, MAIN_ORIGIN } from '@shared/auth';
-import { API, cameraOverview, getToken, listUnits, selectCompany, switchUnit, type Session } from '../api';
+import { API, cameraOverview, getToken, listUnits, selectAccount, switchUnit, type Session } from '../api';
 import { newestOpen, openCountByCamera } from '../feed';
 import { useCaseFeed } from '../hooks/useCaseFeed';
 import { CameraGrid } from '../components/CameraGrid';
@@ -37,19 +37,19 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
   const [session, setSession] = useState(initial);
   const [switching, setSwitching] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const companyId = session.company_id;
-  const unit = session.establishment;
+  const accountId = session.account_id;
+  const unit = session.unit;
   const unitId = unit?.id ?? null;
 
-  const units = useAsync(() => listUnits(companyId), [companyId]);
-  const overview = useAsync(() => cameraOverview(companyId, unitId ?? ''), [companyId, unitId], {
+  const units = useAsync(() => listUnits(accountId), [accountId]);
+  const overview = useAsync(() => cameraOverview(accountId, unitId ?? ''), [accountId, unitId], {
     enabled: Boolean(unitId),
   });
   const cameraNames = useMemo(
     () => new Map((overview.data ?? []).map(camera => [camera.id, camera.name])),
     [overview.data],
   );
-  const feed = useCaseFeed(companyId, unitId, { cameraNames });
+  const feed = useCaseFeed(accountId, unitId, { cameraNames });
   const { onLiveEvent } = feed;
   const reloadOverview = overview.reload;
   useEffect(() => {
@@ -62,7 +62,7 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
     try {
       const next = await switchUnit(nextId);
       if (next.ok && 'session' in next) setSession(next.session);
-      else if (next.ok) selectCompany();
+      else if (next.ok) selectAccount();
     } catch (error) {
       toast.error(localizeApiError(error, t));
     } finally {
@@ -125,11 +125,11 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
     <AppShell
       brand="ARGUS"
       brandMark={<img src="/brand.svg" alt="" width={24} height={24} />}
-      meta={`${t('Triagem')} · ${session.company_name}${unit ? ` · ${unit.name}` : ''}`}
+      meta={`${t('Triagem')} · ${session.account_name}${unit ? ` · ${unit.name}` : ''}`}
       wide
       actions={
         <>
-          <Button variant="secondary" size="sm" onClick={selectCompany}>
+          <Button variant="secondary" size="sm" onClick={selectAccount}>
             {t('Trocar de conta')}
           </Button>
           <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />
@@ -168,7 +168,7 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
               <p className="argus-list-row__meta">{roleLabel(session.role, t)}</p>
             </div>
             <CameraGrid
-              companyId={companyId}
+              accountId={accountId}
               cameras={overview.data}
               loading={overview.loading}
               error={overview.error}
@@ -205,7 +205,7 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
         {focusedCase ? (
           <TriageDetail
             key={focusedCase.id}
-            companyId={companyId}
+            accountId={accountId}
             caseId={focusedCase.id}
             onInteraction={feed.touch}
             onResolved={result => {

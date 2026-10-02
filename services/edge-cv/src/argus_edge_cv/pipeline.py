@@ -45,10 +45,24 @@ def timestamp(value):
     return parsed.timestamp()
 
 
+_LEGACY_IDENTITY = (("account_id", "company_id"), ("unit_id", "establishment_id"))
+
+
+def normalize_identity(fields):
+    """Accept pre-rename producers (company_id / establishment_id) for one release."""
+    if not isinstance(fields, dict):
+        return fields
+    for new, old in _LEGACY_IDENTITY:
+        if not fields.get(new) and fields.get(old):
+            fields = {**fields, new: fields[old]}
+    return fields
+
+
 def parse(fields):
+    fields = normalize_identity(fields)
     for key in (
-        "company_id",
-        "establishment_id",
+        "account_id",
+        "unit_id",
         "camera_id",
         "sequence_id",
         "captured_at",
@@ -108,9 +122,10 @@ class EdgeInferencePipeline:
         self.states = OrderedDict()
 
     def process(self, fields, sensors=None, sensor_buffer=None):
+        fields = normalize_identity(fields)
         uris, meta, interval = parse(fields)
         identity = tuple(
-            fields[k] for k in ("company_id", "establishment_id", "camera_id")
+            fields[k] for k in ("account_id", "unit_id", "camera_id")
         )
         # Copy state: failed loads/inference must not advance sampling on retries.
         state = dict(self.states.get(identity, {}))
@@ -137,8 +152,8 @@ class EdgeInferencePipeline:
             events = list(sensors or [])
             if sensor_buffer is not None:
                 events = sensor_buffer.match(
-                    company_id=identity[0],
-                    establishment_id=identity[1],
+                    account_id=identity[0],
+                    unit_id=identity[1],
                     camera_id=identity[2],
                     timestamp=datetime.fromtimestamp(now, timezone.utc),
                 )

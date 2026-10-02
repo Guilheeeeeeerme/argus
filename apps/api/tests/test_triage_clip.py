@@ -15,11 +15,11 @@ from argus.domain.enums import UserRole
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("scenario,expected", [
-    ("playback", 200), ("jpeg_fallback", 200), ("anonymous", 401), ("other_company", 403),
+    ("playback", 200), ("jpeg_fallback", 200), ("anonymous", 401), ("other_account", 403),
     ("missing_case", 404), ("missing_clip", 404),
 ])
-async def test_clip_requires_session_and_company(monkeypatch, scenario, expected):
-    company_id, case_id = uuid4(), uuid4()
+async def test_clip_requires_session_and_account(monkeypatch, scenario, expected):
+    account_id, case_id = uuid4(), uuid4()
     case = SimpleNamespace(detection=SimpleNamespace(clip_uri="s3://private/clips/test.mp4"))
     if scenario == "missing_case":
         case = None
@@ -36,24 +36,24 @@ async def test_clip_requires_session_and_company(monkeypatch, scenario, expected
     if scenario != "anonymous":
         app.dependency_overrides[get_auth_context] = lambda: AuthContext(
             sub="user", email="operator@example.com", role=UserRole.OPERATOR,
-            company_id=uuid4() if scenario == "other_company" else company_id,
+            account_id=uuid4() if scenario == "other_account" else account_id,
             token="opaque-session",
         )
-    monkeypatch.setattr(deps, "set_company_context", AsyncMock())
+    monkeypatch.setattr(deps, "set_account_context", AsyncMock())
     payload, content_type = (b"\xff\xd8\xff", "image/jpeg") if scenario == "jpeg_fallback" else (b"\x00\x00\x00\x18ftypmp42", "video/mp4")
     download = AsyncMock(return_value=(payload, content_type))
     monkeypatch.setattr(triage_cases, "download_bytes", download)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.get(f"/v1/companies/{company_id}/triage-cases/{case_id}/clip")
+        response = await client.get(f"/v1/accounts/{account_id}/triage-cases/{case_id}/clip")
     assert response.status_code == expected
     if expected == 200:
         assert response.content == payload
         assert response.headers["content-type"] == content_type
         assert response.headers["cache-control"] == "private, no-store"
         download.assert_awaited_once_with("s3://private/clips/test.mp4")
-        # Explicit company constraint supplements RLS, including platform-role requests.
+        # Explicit account constraint supplements RLS, including platform-role requests.
         params = session.scalar.call_args.args[0].compile().params
-        assert company_id in params.values()
+        assert account_id in params.values()
         assert case_id in params.values()
     else:
         download.assert_not_awaited()
@@ -64,10 +64,10 @@ async def test_detail_returns_authenticated_api_path():
     from datetime import UTC, datetime
     from argus.domain.enums import TriageCaseState
 
-    company_id, case_id, detection_id = uuid4(), uuid4(), uuid4()
+    account_id, case_id, detection_id = uuid4(), uuid4(), uuid4()
     now = datetime.now(UTC)
     detection = SimpleNamespace(
-        id=detection_id, camera_id=uuid4(), establishment_id=uuid4(),
+        id=detection_id, camera_id=uuid4(), unit_id=uuid4(),
         summary="Person visible", confidence=0.9, prompt_hits=[],
         clip_uri="s3://private/clip.mp4", window_started_at=now,
         window_ended_at=now, created_at=now,
@@ -80,5 +80,5 @@ async def test_detail_returns_authenticated_api_path():
         scalar=AsyncMock(return_value=case),
         execute=AsyncMock(return_value=SimpleNamespace(all=lambda: [])),
     )
-    result = await triage_cases.get_triage_case(company_id, case_id, session=session, _auth=None)
-    assert result.clip_playback_url == f"/v1/companies/{company_id}/triage-cases/{case_id}/clip"
+    result = await triage_cases.get_triage_case(account_id, case_id, session=session, _auth=None)
+    assert result.clip_playback_url == f"/v1/accounts/{account_id}/triage-cases/{case_id}/clip"

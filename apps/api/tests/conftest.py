@@ -28,8 +28,8 @@ from argus.services.redis import close_redis  # noqa: E402
 
 get_settings.cache_clear()
 
-SEED_COMPANY_ID = "11111111-1111-4111-8111-111111111111"
-SEED_ESTABLISHMENT_ID = "22222222-2222-4222-8222-222222222222"
+SEED_ACCOUNT_ID = "11111111-1111-4111-8111-111111111111"
+SEED_UNIT_ID = "22222222-2222-4222-8222-222222222222"
 SEED_CAMERA_ID = "33333333-3333-4333-8333-333333333333"
 SEED_PROMPT_SET_ID = "55555555-5555-4555-8555-555555555555"
 SEED_PROMPT_ID = "77777777-7777-4777-8777-777777777777"
@@ -38,7 +38,7 @@ SEED_ROOT_EMAIL = "root@argus.local"
 SEED_PASSWORD = "Password123!"
 
 # Backward-compatible alias used by older test names.
-SEED_LOCATION_ID = SEED_ESTABLISHMENT_ID
+SEED_LOCATION_ID = SEED_UNIT_ID
 
 
 @pytest_asyncio.fixture
@@ -53,8 +53,8 @@ async def admin_client():
 @pytest.fixture
 def seed_ids() -> dict[str, str]:
     return {
-        "company_id": SEED_COMPANY_ID,
-        "establishment_id": SEED_ESTABLISHMENT_ID,
+        "account_id": SEED_ACCOUNT_ID,
+        "unit_id": SEED_UNIT_ID,
         "camera_id": SEED_CAMERA_ID,
         "prompt_set_id": SEED_PROMPT_SET_ID,
         "prompt_id": SEED_PROMPT_ID,

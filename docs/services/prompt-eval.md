@@ -30,17 +30,17 @@ API / Triage MFE
 
 ### Redis stream `frames:ready`
 
-From stream-prep: `company_id`, `establishment_id`, `camera_id`, `sequence_id`,
+From stream-prep: `account_id`, `unit_id`, `camera_id`, `sequence_id`,
 `captured_at`, `frame_uris[]`, `preproc_meta`.
 
 ### Redis stream `context:events`
 
-From API inbound webhooks: `company_id`, `establishment_id`, optional
+From API inbound webhooks: `account_id`, `unit_id`, optional
 `camera_id`, `kind`, `payload`, `received_at`, `webhook_id`.
 
 ### Config / data plane
 
-- Active **PromptSet / Prompt** bindings for the camera or establishment.
+- Active **PromptSet / Prompt** bindings for the camera or unit.
 - RAG retrieval over prior **Feedback** (pgvector).
 - Provider keys / budgets via `provider_router`.
 

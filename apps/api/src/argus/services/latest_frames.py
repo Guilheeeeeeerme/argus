@@ -1,7 +1,7 @@
 """Read the per-camera latest-frame pointers written by stream-prep.
 
-stream-prep keeps ``HSET frame:latest:{camera_id} {uri, captured_at, company_id,
-establishment_id}`` with a short TTL; an absent hash means the camera has no
+stream-prep keeps ``HSET frame:latest:{camera_id} {uri, captured_at, account_id,
+unit_id}`` with a short TTL; an absent hash means the camera has no
 recent signal.
 """
 
@@ -26,8 +26,8 @@ class LatestFrame:
     camera_id: str
     uri: str
     captured_at: str
-    company_id: str | None = None
-    establishment_id: str | None = None
+    account_id: str | None = None
+    unit_id: str | None = None
 
     def captured_at_datetime(self) -> datetime | None:
         try:
@@ -43,8 +43,8 @@ def _from_hash(camera_id: str, fields: dict[str, str] | None) -> LatestFrame | N
         camera_id=camera_id,
         uri=fields["uri"],
         captured_at=fields["captured_at"],
-        company_id=fields.get("company_id") or None,
-        establishment_id=fields.get("establishment_id") or None,
+        account_id=fields.get("account_id") or fields.get("company_id") or None,
+        unit_id=fields.get("unit_id") or fields.get("establishment_id") or None,
     )
 
 

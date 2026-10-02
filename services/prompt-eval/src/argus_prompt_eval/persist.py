@@ -16,24 +16,24 @@ from argus_prompt_eval.structured_output import PromptEvalResult
 
 
 async def find_positive(
-    session: AsyncSession, *, company_id: UUID, camera_id: UUID, sequence_id: str
+    session: AsyncSession, *, account_id: UUID, camera_id: UUID, sequence_id: str
 ) -> tuple[Detection, TriageCase] | None:
     """Serialize a sequence and reuse a committed positive on stream redelivery.
 
     The transaction-scoped lock covers evaluation and persistence in the caller,
     so reclaiming a slow in-flight message cannot create a second detection.
     """
-    key = f"prompt-eval:{company_id}:{camera_id}:{sequence_id}"
+    key = f"prompt-eval:{account_id}:{camera_id}:{sequence_id}"
     lock_id = int.from_bytes(sha256(key.encode()).digest()[:8], "big", signed=True)
     await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_id})
     rows = await session.execute(
         select(Detection, TriageCase)
         .join(TriageCase, TriageCase.detection_id == Detection.id)
         .where(
-            Detection.company_id == company_id,
+            Detection.account_id == account_id,
             Detection.camera_id == camera_id,
             Detection.sequence_id == sequence_id,
-            TriageCase.company_id == company_id,
+            TriageCase.account_id == account_id,
         )
         .limit(1)
     )
@@ -44,8 +44,8 @@ async def find_positive(
 async def persist_positive(
     session: AsyncSession,
     *,
-    company_id: UUID,
-    establishment_id: UUID,
+    account_id: UUID,
+    unit_id: UUID,
     camera_id: UUID,
     sequence_id: str,
     result: PromptEvalResult,
@@ -60,8 +60,8 @@ async def persist_positive(
     ]
 
     detection = Detection(
-        company_id=company_id,
-        establishment_id=establishment_id,
+        account_id=account_id,
+        unit_id=unit_id,
         camera_id=camera_id,
         sequence_id=sequence_id,
         prompt_hits=prompt_hits,
@@ -76,7 +76,7 @@ async def persist_positive(
     await session.flush()
 
     triage = TriageCase(
-        company_id=company_id,
+        account_id=account_id,
         detection_id=detection.id,
         state=TriageCaseState.OPEN,
     )

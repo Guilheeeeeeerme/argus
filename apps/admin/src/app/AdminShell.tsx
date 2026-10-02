@@ -29,12 +29,12 @@ export function AdminShell() {
   const { locale, setLocale } = useLocale();
   const {
     session,
-    companies,
-    establishments,
+    accounts,
+    units,
     switching,
     isPlatform,
-    switchCompany,
-    switchEstablishment,
+    switchAccount,
+    switchUnit,
     signOut,
   } = useSession();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -69,24 +69,24 @@ export function AdminShell() {
             <Select
               label={t('Conta')}
               aria-label={t('Conta ativa')}
-              value={session.activeCompany?.id ?? ''}
+              value={session.activeAccount?.id ?? ''}
               disabled={switching}
-              onChange={e => void switchCompany(e.target.value || null)}
+              onChange={e => void switchAccount(e.target.value || null)}
               options={[
                 { value: '', label: t('Nenhuma conta selecionada') },
-                ...companies.map(company => ({ value: company.id, label: company.name })),
+                ...accounts.map(account => ({ value: account.id, label: account.name })),
               ]}
             />
-            {session.activeCompany ? (
+            {session.activeAccount ? (
               <Select
                 label={t('Unidade')}
                 aria-label={t('Unidade ativa')}
-                value={session.activeEstablishment?.id ?? ''}
+                value={session.activeUnit?.id ?? ''}
                 disabled={switching}
-                onChange={e => void switchEstablishment(e.target.value || null)}
+                onChange={e => void switchUnit(e.target.value || null)}
                 options={[
                   { value: '', label: t('Nenhuma unidade selecionada') },
-                  ...establishments.map(unit => ({ value: unit.id, label: unit.name })),
+                  ...units.map(unit => ({ value: unit.id, label: unit.name })),
                 ]}
               />
             ) : null}
@@ -101,7 +101,7 @@ export function AdminShell() {
             <NavLink to="/" end className={navClass}>
               {t('Visão geral')}
             </NavLink>
-            {session.activeCompany ? (
+            {session.activeAccount ? (
               <NavLink to="/units" className={navClass}>
                 {t('Unidades')}
               </NavLink>

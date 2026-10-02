@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from argus.api.deps import get_company_db, require_role
+from argus.api.deps import get_account_db, require_role
 from argus.core.auth import AuthContext
 from argus.domain.enums import UserRole
 from argus.domain.models import Camera, Prompt, PromptSet
@@ -22,14 +22,14 @@ from argus.domain.schemas.admin import (
     UpdatePromptSetRequest,
 )
 
-router = APIRouter(prefix="/companies/{company_id}", tags=["admin-prompt-sets"])
+router = APIRouter(prefix="/accounts/{account_id}", tags=["admin-prompt-sets"])
 
 _MANAGER_PLUS = (UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
 
 
-async def _get_camera(session: AsyncSession, company_id: UUID, camera_id: UUID) -> Camera:
+async def _get_camera(session: AsyncSession, account_id: UUID, camera_id: UUID) -> Camera:
     camera = await session.scalar(
-        select(Camera).where(Camera.id == camera_id, Camera.company_id == company_id)
+        select(Camera).where(Camera.id == camera_id, Camera.account_id == account_id)
     )
     if camera is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
@@ -56,17 +56,17 @@ def _prompt_set_response(prompt_set: PromptSet) -> PromptSetResponse:
 
 @router.get("/cameras/{camera_id}/prompt-sets", response_model=list[PromptSetResponse])
 async def list_prompt_sets(
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> list[PromptSetResponse]:
-    await _get_camera(session, company_id, camera_id)
+    await _get_camera(session, account_id, camera_id)
     rows = list(
         (
             await session.scalars(
                 select(PromptSet)
-                .where(PromptSet.camera_id == camera_id, PromptSet.company_id == company_id)
+                .where(PromptSet.camera_id == camera_id, PromptSet.account_id == account_id)
                 .options(selectinload(PromptSet.prompts))
                 .order_by(PromptSet.name)
             )
@@ -81,20 +81,20 @@ async def list_prompt_sets(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_prompt_set(
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
     body: CreatePromptSetRequest,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> PromptSetResponse:
-    await _get_camera(session, company_id, camera_id)
-    prompt_set = PromptSet(company_id=company_id, camera_id=camera_id, name=body.name)
+    await _get_camera(session, account_id, camera_id)
+    prompt_set = PromptSet(account_id=account_id, camera_id=camera_id, name=body.name)
     session.add(prompt_set)
     await session.flush()
     for i, prompt_body in enumerate(body.prompts):
         session.add(
             Prompt(
-                company_id=company_id,
+                account_id=account_id,
                 prompt_set_id=prompt_set.id,
                 text=prompt_body.text,
                 enabled=prompt_body.enabled,
@@ -108,15 +108,15 @@ async def create_prompt_set(
 
 @router.patch("/prompt-sets/{prompt_set_id}", response_model=PromptSetResponse)
 async def update_prompt_set(
-    company_id: UUID,
+    account_id: UUID,
     prompt_set_id: UUID,
     body: UpdatePromptSetRequest,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> PromptSetResponse:
     prompt_set = await session.scalar(
         select(PromptSet)
-        .where(PromptSet.id == prompt_set_id, PromptSet.company_id == company_id)
+        .where(PromptSet.id == prompt_set_id, PromptSet.account_id == account_id)
         .options(selectinload(PromptSet.prompts))
     )
     if prompt_set is None:
@@ -129,13 +129,13 @@ async def update_prompt_set(
 
 @router.delete("/prompt-sets/{prompt_set_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_prompt_set(
-    company_id: UUID,
+    account_id: UUID,
     prompt_set_id: UUID,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> None:
     prompt_set = await session.scalar(
-        select(PromptSet).where(PromptSet.id == prompt_set_id, PromptSet.company_id == company_id)
+        select(PromptSet).where(PromptSet.id == prompt_set_id, PromptSet.account_id == account_id)
     )
     if prompt_set is None:
         raise HTTPException(status_code=404, detail="PromptSet not found")
@@ -148,19 +148,19 @@ async def delete_prompt_set(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_prompt(
-    company_id: UUID,
+    account_id: UUID,
     prompt_set_id: UUID,
     body: CreatePromptRequest,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> Prompt:
     prompt_set = await session.scalar(
-        select(PromptSet).where(PromptSet.id == prompt_set_id, PromptSet.company_id == company_id)
+        select(PromptSet).where(PromptSet.id == prompt_set_id, PromptSet.account_id == account_id)
     )
     if prompt_set is None:
         raise HTTPException(status_code=404, detail="PromptSet not found")
     prompt = Prompt(
-        company_id=company_id,
+        account_id=account_id,
         prompt_set_id=prompt_set_id,
         text=body.text,
         enabled=body.enabled,
@@ -173,14 +173,14 @@ async def create_prompt(
 
 @router.patch("/prompts/{prompt_id}", response_model=PromptResponse)
 async def update_prompt(
-    company_id: UUID,
+    account_id: UUID,
     prompt_id: UUID,
     body: UpdatePromptRequest,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> Prompt:
     prompt = await session.scalar(
-        select(Prompt).where(Prompt.id == prompt_id, Prompt.company_id == company_id)
+        select(Prompt).where(Prompt.id == prompt_id, Prompt.account_id == account_id)
     )
     if prompt is None:
         raise HTTPException(status_code=404, detail="Prompt not found")
@@ -194,13 +194,13 @@ async def update_prompt(
 
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_prompt(
-    company_id: UUID,
+    account_id: UUID,
     prompt_id: UUID,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> None:
     prompt = await session.scalar(
-        select(Prompt).where(Prompt.id == prompt_id, Prompt.company_id == company_id)
+        select(Prompt).where(Prompt.id == prompt_id, Prompt.account_id == account_id)
     )
     if prompt is None:
         raise HTTPException(status_code=404, detail="Prompt not found")

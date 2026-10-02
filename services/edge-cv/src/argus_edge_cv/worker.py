@@ -1,5 +1,6 @@
 """Redis delivery: publish before ACK; malformed entries are acknowledged safely."""
 
+from argus_edge_cv.pipeline import normalize_identity
 import json
 import logging
 
@@ -40,9 +41,10 @@ class Worker:
                 else:
                     loader = self.pipeline.load_frame
                     if hasattr(loader, "identity"):
+                        fields = normalize_identity(fields)
                         loader.identity = tuple(
                             fields[k]
-                            for k in ("company_id", "establishment_id", "camera_id")
+                            for k in ("account_id", "unit_id", "camera_id")
                         )
                     candidate = self.pipeline.process(
                         fields, sensor_buffer=self.sensors

@@ -15,19 +15,19 @@ logger = logging.getLogger(__name__)
 
 
 def frame_object_key(
-    company_id: str,
-    establishment_id: str,
+    account_id: str,
+    unit_id: str,
     camera_id: str,
     sequence_id: str,
     index: int,
 ) -> str:
-    """Build ``{company}/{establishment}/{camera}/{sequence}/{n}.jpg``."""
-    return f"{company_id}/{establishment_id}/{camera_id}/{sequence_id}/{index}.jpg"
+    """Build ``{account}/{unit}/{camera}/{sequence}/{n}.jpg``."""
+    return f"{account_id}/{unit_id}/{camera_id}/{sequence_id}/{index}.jpg"
 
 
-def latest_frame_object_key(company_id: str, establishment_id: str, camera_id: str) -> str:
-    """Stable key overwritten on every sample: ``{company}/{establishment}/{camera}/latest.jpg``."""
-    return f"{company_id}/{establishment_id}/{camera_id}/latest.jpg"
+def latest_frame_object_key(account_id: str, unit_id: str, camera_id: str) -> str:
+    """Stable key overwritten on every sample: ``{account}/{unit}/{camera}/latest.jpg``."""
+    return f"{account_id}/{unit_id}/{camera_id}/latest.jpg"
 
 
 class FrameStorage:
@@ -52,8 +52,8 @@ class FrameStorage:
     def upload_frame(
         self,
         *,
-        company_id: str,
-        establishment_id: str,
+        account_id: str,
+        unit_id: str,
         camera_id: str,
         sequence_id: str,
         index: int,
@@ -62,7 +62,7 @@ class FrameStorage:
     ) -> str:
         """Upload one JPEG; return ``s3://bucket/key`` URI."""
         key = frame_object_key(
-            company_id, establishment_id, camera_id, sequence_id, index
+            account_id, unit_id, camera_id, sequence_id, index
         )
         ttl = frame_ttl_seconds if frame_ttl_seconds is not None else self.settings.frame_ttl_seconds
         self._client.put_object(
@@ -77,8 +77,8 @@ class FrameStorage:
     def upload_latest(
         self,
         *,
-        company_id: str,
-        establishment_id: str,
+        account_id: str,
+        unit_id: str,
         camera_id: str,
         jpeg_bytes: bytes,
         captured_at: str,
@@ -88,7 +88,7 @@ class FrameStorage:
         ``Cache-Control: no-store`` keeps proxies from serving a stale frame and
         ``captured-at`` metadata lets the API build an ETag without Redis.
         """
-        key = latest_frame_object_key(company_id, establishment_id, camera_id)
+        key = latest_frame_object_key(account_id, unit_id, camera_id)
         self._client.put_object(
             Bucket=self.settings.s3_bucket_name,
             Key=key,

@@ -36,9 +36,9 @@ controls); the grid stays mounted behind it.
 
 ## Camera grid
 
-- `GET /v1/companies/{c}/establishments/{e}/cameras/overview` → tiles
+- `GET /v1/accounts/{c}/units/{e}/cameras/overview` → tiles
   (`name`, `is_active`, `last_frame_at`, `open_case_count`).
-- Each tile polls `GET /v1/companies/{c}/cameras/{cam}/latest-frame` every
+- Each tile polls `GET /v1/accounts/{c}/cameras/{cam}/latest-frame` every
   `VITE_LATEST_FRAME_MS` (2000) with `If-None-Match`; `304` keeps the current
   blob, `404`/stale (`VITE_LATEST_FRAME_TTL_MS`, 30 000) shows **Sem sinal**.
   Polling pauses while the tab is hidden. Both paths are exempt from the API
@@ -76,23 +76,23 @@ vitest):
 - `triage.updated` patches the row in place; in FOLLOW a resolved focus moves
   to the next open case.
 
-Hooks: `useCaseFeed` (initial `GET /triage-cases?establishment_id=&limit=50`,
-WS events filtered by `establishment_id`, idle timer), `useTriageSocket`
+Hooks: `useCaseFeed` (initial `GET /triage-cases?unit_id=&limit=50`,
+WS events filtered by `unit_id`, idle timer), `useTriageSocket`
 (exponential backoff 1→30 s, stops on close codes 4001/4003),
 `useLatestFrame` (ETag poll, blob URL revocation, visibility pause).
 
 ## Data needs
 
-- Units: `GET /v1/companies/{company_id}/establishments` (operator+);
-  `PATCH /v1/auth/context {establishmentId}` selects the unit.
-- Feed: `GET /v1/companies/{company_id}/triage-cases?establishment_id=&camera_id=&limit=`
-  (state, camera_name, establishment_name, summary, confidence, timestamps).
+- Units: `GET /v1/accounts/{account_id}/units` (operator+);
+  `PATCH /v1/auth/context {unitId}` selects the unit.
+- Feed: `GET /v1/accounts/{account_id}/triage-cases?unit_id=&camera_id=&limit=`
+  (state, camera_name, unit_name, summary, confidence, timestamps).
 - Detail: case + linked Detection (`prompt_hits`, clip / snapshot URLs,
   summary).
 - Live updates: `WS /v1/ws?token=<session>` — `ready`, `heartbeat`,
-  `detection.created` (payload carries `establishment_id`, `camera_id`,
+  `detection.created` (payload carries `unit_id`, `camera_id`,
   `sequence_id`, `state`, `created_at`, `summary`, `confidence`,
-  `prompt_hits`), `triage.updated`; company-scoped rooms, filtered per unit
+  `prompt_hits`), `triage.updated`; account-scoped rooms, filtered per unit
   on the client; role gate manager/operator.
 
 Detection creation is owned by prompt-eval (positive only); the API exposes

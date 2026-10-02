@@ -2,13 +2,18 @@
 
 from argus.domain.base import Base
 from argus.domain.models import (
+    Account,
+    AccountUser,
+    AccountUserMembership,
     AuditRecord,
     Camera,
     Company,
     CompanyUser,
+    CompanyUserMembership,
     ContextEvent,
     Detection,
     Establishment,
+    Unit,
     Feedback,
     Prompt,
     PromptSet,
@@ -18,8 +23,13 @@ from argus.domain.models import (
 
 __all__ = [
     "Base",
+    "Account",
+    "AccountUser",
+    "AccountUserMembership",
+    "Unit",
     "Company",
     "CompanyUser",
+    "CompanyUserMembership",
     "Establishment",
     "Camera",
     "PromptSet",

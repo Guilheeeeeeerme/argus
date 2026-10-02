@@ -39,16 +39,16 @@ class LoadedPromptSet:
 async def load_prompt_set_for_camera(
     session: AsyncSession,
     *,
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
-    establishment_id: UUID | None = None,
+    unit_id: UUID | None = None,
 ) -> LoadedPromptSet | None:
     """Resolve PromptSet for camera (first by name, with enabled prompts)."""
-    del establishment_id  # reserved for future establishment-level defaults
+    del unit_id  # reserved for future unit-level defaults
     prompt_set = await session.scalar(
         select(PromptSet)
         .where(
-            PromptSet.company_id == company_id,
+            PromptSet.account_id == account_id,
             PromptSet.camera_id == camera_id,
         )
         .options(selectinload(PromptSet.prompts))
@@ -115,23 +115,23 @@ async def evaluate_prompt_set(
     session: AsyncSession,
     redis: Redis,
     *,
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
-    establishment_id: UUID,
+    unit_id: UUID,
     frame_uris: list[str],
     user_context: str = "",
 ) -> tuple[LoadedPromptSet, PromptEvalResult, str] | None:
     """Run multi-prompt VLM eval. Returns None when no PromptSet is configured."""
     loaded = await load_prompt_set_for_camera(
         session,
-        company_id=company_id,
+        account_id=account_id,
         camera_id=camera_id,
-        establishment_id=establishment_id,
+        unit_id=unit_id,
     )
     if loaded is None:
         logger.warning(
-            "No PromptSet for company=%s camera=%s",
-            company_id,
+            "No PromptSet for account=%s camera=%s",
+            account_id,
             camera_id,
         )
         return None
@@ -139,7 +139,7 @@ async def evaluate_prompt_set(
     system_prompt = build_system_prompt(loaded.prompt_set, loaded.prompts)
     provider, raw = await analyze_with_failover(
         redis=redis,
-        company_id=company_id,
+        account_id=account_id,
         system_prompt=system_prompt,
         frame_uris=frame_uris,
         output_schema=output_schema(),

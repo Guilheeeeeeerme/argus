@@ -16,7 +16,7 @@ import { useAsync, useMutation } from '@shared/hooks';
 import type { FieldErrors } from '@shared/auth';
 import { cameras as camerasApi, type CameraInput } from '../../api/client';
 import type { Camera } from '../../api/types';
-import { useCompanyId } from '../../app/SessionProvider';
+import { useAccountId } from '../../app/SessionProvider';
 import { hasFieldErrors, useFieldErrors } from './useFieldErrors';
 
 export interface CameraFormValues {
@@ -108,14 +108,14 @@ export function CameraFormDrawer() {
   const t = useT();
   const toast = useToast();
   const navigate = useNavigate();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { cameraId } = useParams();
   const editing = Boolean(cameraId);
   const { unitId, reload } = useOutletContext<CamerasOutletContext>();
 
   const record = useAsync(
-    () => camerasApi.list(companyId, unitId, true).then(list => list.find(c => c.id === cameraId) ?? null),
-    [companyId, unitId, cameraId],
+    () => camerasApi.list(accountId, unitId, true).then(list => list.find(c => c.id === cameraId) ?? null),
+    [accountId, unitId, cameraId],
     { enabled: editing },
   );
   const save = useMutation((values: CameraFormValues) => {
@@ -127,9 +127,9 @@ export function CameraFormDrawer() {
         is_active: values.is_active,
       };
       if (values.stream_password) body.stream_password = values.stream_password;
-      return camerasApi.update(companyId, cameraId ?? '', body);
+      return camerasApi.update(accountId, cameraId ?? '', body);
     }
-    return camerasApi.create(companyId, unitId, {
+    return camerasApi.create(accountId, unitId, {
       name: values.name,
       stream_url: values.stream_url || null,
       stream_username: values.stream_username || null,

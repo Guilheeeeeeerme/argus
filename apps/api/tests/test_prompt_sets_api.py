@@ -17,7 +17,7 @@ from argus.config import get_settings
 from argus.domain.enums import UserRole
 from argus.services.database import dispose_engine
 from argus.services.redis import close_redis
-from tests.conftest import SEED_CAMERA_ID, SEED_COMPANY_ID
+from tests.conftest import SEED_CAMERA_ID, SEED_ACCOUNT_ID
 from tests.helpers import bearer, session_token
 
 get_settings.cache_clear()
@@ -33,13 +33,13 @@ async def client():
 
 
 async def _headers() -> dict[str, str]:
-    return bearer(await session_token(UserRole.MANAGER, SEED_COMPANY_ID))
+    return bearer(await session_token(UserRole.MANAGER, SEED_ACCOUNT_ID))
 
 
 @pytest.mark.asyncio
 async def test_prompt_set_crud_on_camera(client: AsyncClient) -> None:
     headers = await _headers()
-    base = f"/v1/companies/{SEED_COMPANY_ID}"
+    base = f"/v1/accounts/{SEED_ACCOUNT_ID}"
 
     created = await client.post(
         f"{base}/cameras/{SEED_CAMERA_ID}/prompt-sets",

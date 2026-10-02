@@ -1,4 +1,4 @@
-"""Structured JSON logging with request and company context."""
+"""Structured JSON logging with request and account context."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from starlette.responses import Response
 from argus.config import settings
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
-company_id_var: ContextVar[str | None] = ContextVar("company_id", default=None)
+account_id_var: ContextVar[str | None] = ContextVar("account_id", default=None)
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -28,7 +28,7 @@ class JsonLogFormatter(logging.Formatter):
             "message": record.getMessage(),
             "service_role": settings.service_role,
             "request_id": request_id_var.get(),
-            "company_id": company_id_var.get(),
+            "account_id": account_id_var.get(),
         }
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
@@ -50,11 +50,11 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         rid = request.headers.get("x-request-id") or str(uuid.uuid4())
         token_rid = request_id_var.set(rid)
-        token_tid = company_id_var.set(request.headers.get("x-tenant-id"))
+        token_tid = account_id_var.set(request.headers.get("x-tenant-id"))
         try:
             response = await call_next(request)
             response.headers["x-request-id"] = rid
             return response
         finally:
             request_id_var.reset(token_rid)
-            company_id_var.reset(token_tid)
+            account_id_var.reset(token_tid)

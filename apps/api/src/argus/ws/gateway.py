@@ -9,7 +9,7 @@ from collections import defaultdict
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 
-from argus.services.memberships import can_receive_company_events
+from argus.services.memberships import can_receive_account_events
 
 MAX_CONNECTIONS_PER_SUB = 5
 
@@ -20,36 +20,36 @@ class ConnectionManager:
         self._subs: dict[str, int] = defaultdict(int)
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, *, company_id: str, sub: str) -> bool:
+    async def connect(self, websocket: WebSocket, *, account_id: str, sub: str) -> bool:
         async with self._lock:
             if self._subs[sub] >= MAX_CONNECTIONS_PER_SUB:
                 return False
             await websocket.accept()
-            self._rooms[company_id].add(websocket)
+            self._rooms[account_id].add(websocket)
             self._subs[sub] += 1
-            websocket.state.company_id = company_id
+            websocket.state.account_id = account_id
             websocket.state.sub = sub
             return True
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
-            company_id = getattr(websocket.state, "company_id", None)
+            account_id = getattr(websocket.state, "account_id", None)
             sub = getattr(websocket.state, "sub", None)
-            if company_id and websocket in self._rooms[company_id]:
-                self._rooms[company_id].remove(websocket)
+            if account_id and websocket in self._rooms[account_id]:
+                self._rooms[account_id].remove(websocket)
                 if sub and self._subs[sub] > 0:
                     self._subs[sub] -= 1
 
-    async def broadcast(self, company_id: str, message: dict) -> None:
+    async def broadcast(self, account_id: str, message: dict) -> None:
         payload = json.dumps(message)
         dead: list[WebSocket] = []
-        for ws in list(self._rooms.get(company_id, set())):
+        for ws in list(self._rooms.get(account_id, set())):
             if ws.client_state != WebSocketState.CONNECTED:
                 dead.append(ws)
                 continue
             try:
-                if not await can_receive_company_events(getattr(ws.state, "token", None), company_id):
-                    await ws.close(code=4003, reason="Company access denied")
+                if not await can_receive_account_events(getattr(ws.state, "token", None), account_id):
+                    await ws.close(code=4003, reason="Account access denied")
                     dead.append(ws)
                     continue
                 await ws.send_text(payload)

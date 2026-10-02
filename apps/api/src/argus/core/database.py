@@ -7,7 +7,7 @@ from argus.services.database import (
     get_engine,
     get_session_factory,
     set_session_context,
-    company_session,
+    account_session,
 )
 
 __all__ = [
@@ -17,5 +17,5 @@ __all__ = [
     "get_engine",
     "get_session_factory",
     "set_session_context",
-    "company_session",
+    "account_session",
 ]

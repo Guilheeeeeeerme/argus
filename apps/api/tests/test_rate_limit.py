@@ -49,7 +49,7 @@ async def test_limit_returns_429_and_health_exempt(monkeypatch: pytest.MonkeyPat
 
 def test_triage_grid_polling_paths_are_exempt() -> None:
     """2 s per-camera polling must not count against the per-IP default limit."""
-    assert is_rate_limit_exempt("/v1/companies/c/cameras/cam/latest-frame")
-    assert is_rate_limit_exempt("/v1/companies/c/establishments/e/cameras/overview")
-    assert not is_rate_limit_exempt("/v1/companies/c/cameras")
-    assert not is_rate_limit_exempt("/v1/companies/c/triage-cases")
+    assert is_rate_limit_exempt("/v1/accounts/c/cameras/cam/latest-frame")
+    assert is_rate_limit_exempt("/v1/accounts/c/units/e/cameras/overview")
+    assert not is_rate_limit_exempt("/v1/accounts/c/cameras")
+    assert not is_rate_limit_exempt("/v1/accounts/c/triage-cases")

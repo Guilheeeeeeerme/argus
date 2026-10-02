@@ -1,4 +1,4 @@
-"""Camera management routes nested under establishments."""
+"""Camera management routes nested under units."""
 
 from __future__ import annotations
 
@@ -9,39 +9,39 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from argus.api.deps import get_company_db, require_role
+from argus.api.deps import get_account_db, require_role
 from argus.core.auth import AuthContext
 from argus.domain.enums import UserRole
-from argus.domain.models import Camera, Establishment
+from argus.domain.models import Camera, Unit
 from argus.domain.schemas.admin import (
     CameraResponse,
     CreateCameraRequest,
     UpdateCameraRequest,
 )
 
-router = APIRouter(prefix="/companies/{company_id}", tags=["admin-cameras"])
+router = APIRouter(prefix="/accounts/{account_id}", tags=["admin-cameras"])
 
 _MANAGER_PLUS = (UserRole.MANAGER, UserRole.ROOT, UserRole.ADMIN)
 
 
 @router.post(
-    "/establishments/{establishment_id}/cameras",
+    "/units/{unit_id}/cameras",
     response_model=CameraResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_camera(
-    company_id: UUID,
-    establishment_id: UUID,
+    account_id: UUID,
+    unit_id: UUID,
     body: CreateCameraRequest,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> Camera:
-    establishment = await session.get(Establishment, establishment_id)
-    if establishment is None or establishment.company_id != company_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Establishment not found")
+    unit = await session.get(Unit, unit_id)
+    if unit is None or unit.account_id != account_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
     camera = Camera(
-        company_id=company_id,
-        establishment_id=establishment_id,
+        account_id=account_id,
+        unit_id=unit_id,
         name=body.name,
         stream_url=body.stream_url,
         stream_username=body.stream_username,
@@ -63,40 +63,40 @@ def _camera_query(*, include_inactive: bool):
 @router.get("/cameras", response_model=list[CameraResponse])
 async def list_cameras(
     include_inactive: bool = Query(default=False),
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> list[Camera]:
     return list((await session.scalars(_camera_query(include_inactive=include_inactive))).all())
 
 
 @router.get(
-    "/establishments/{establishment_id}/cameras",
+    "/units/{unit_id}/cameras",
     response_model=list[CameraResponse],
 )
-async def list_establishment_cameras(
-    company_id: UUID,
-    establishment_id: UUID,
+async def list_unit_cameras(
+    account_id: UUID,
+    unit_id: UUID,
     include_inactive: bool = Query(default=False),
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> list[Camera]:
     query = _camera_query(include_inactive=include_inactive).where(
-        Camera.establishment_id == establishment_id,
-        Camera.company_id == company_id,
+        Camera.unit_id == unit_id,
+        Camera.account_id == account_id,
     )
     return list((await session.scalars(query)).all())
 
 
 @router.patch("/cameras/{camera_id}", response_model=CameraResponse)
 async def update_camera(
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
     body: UpdateCameraRequest,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> Camera:
     camera = await session.scalar(
-        select(Camera).where(Camera.id == camera_id, Camera.company_id == company_id)
+        select(Camera).where(Camera.id == camera_id, Camera.account_id == account_id)
     )
     if camera is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
@@ -115,13 +115,13 @@ async def update_camera(
 
 @router.delete("/cameras/{camera_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_camera(
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
-    session: AsyncSession = Depends(get_company_db),
+    session: AsyncSession = Depends(get_account_db),
     _auth: AuthContext = Depends(require_role(*_MANAGER_PLUS)),
 ) -> None:
     camera = await session.scalar(
-        select(Camera).where(Camera.id == camera_id, Camera.company_id == company_id)
+        select(Camera).where(Camera.id == camera_id, Camera.account_id == account_id)
     )
     if camera is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")

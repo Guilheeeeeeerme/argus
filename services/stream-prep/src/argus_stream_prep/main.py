@@ -26,8 +26,8 @@ class StreamConfig:
     """Active camera stream identity from ``GET /v1/internal/stream-configs``."""
 
     camera_id: str
-    company_id: str
-    establishment_id: str
+    account_id: str
+    unit_id: str
     name: str
     stream_url: str | None = None
 
@@ -53,8 +53,8 @@ def fetch_stream_configs(settings: Settings) -> list[StreamConfig]:
         configs.append(
             StreamConfig(
                 camera_id=str(item["camera_id"]),
-                company_id=str(item["company_id"]),
-                establishment_id=str(item["establishment_id"]),
+                account_id=str(item.get("account_id") or item["company_id"]),
+                unit_id=str(item.get("unit_id") or item["establishment_id"]),
                 name=str(item.get("name") or item["camera_id"]),
                 stream_url=item.get("stream_url"),
             )
@@ -74,8 +74,8 @@ def _publish_window(
     for index, sample in enumerate(window.frames):
         prepared: PreparedFrame = sample.payload
         uri = storage.upload_frame(
-            company_id=window.company_id,
-            establishment_id=window.establishment_id,
+            account_id=window.account_id,
+            unit_id=window.unit_id,
             camera_id=window.camera_id,
             sequence_id=window.sequence_id,
             index=index,
@@ -94,8 +94,8 @@ def _publish_window(
     if captured_at.tzinfo is None:
         captured_at = captured_at.replace(tzinfo=timezone.utc)
     redis_out.publish_frames_ready(
-        company_id=window.company_id,
-        establishment_id=window.establishment_id,
+        account_id=window.account_id,
+        unit_id=window.unit_id,
         camera_id=window.camera_id,
         sequence_id=window.sequence_id,
         captured_at=captured_at.isoformat(),
@@ -118,8 +118,8 @@ def _publish_latest(
         captured_at = captured_at.replace(tzinfo=timezone.utc)
     stamp = captured_at.isoformat()
     uri = storage.upload_latest(
-        company_id=cfg.company_id,
-        establishment_id=cfg.establishment_id,
+        account_id=cfg.account_id,
+        unit_id=cfg.unit_id,
         camera_id=cfg.camera_id,
         jpeg_bytes=jpeg_bytes,
         captured_at=stamp,
@@ -128,8 +128,8 @@ def _publish_latest(
         camera_id=cfg.camera_id,
         uri=uri,
         captured_at=stamp,
-        company_id=cfg.company_id,
-        establishment_id=cfg.establishment_id,
+        account_id=cfg.account_id,
+        unit_id=cfg.unit_id,
         ttl_seconds=settings.latest_frame_ttl_seconds,
     )
 
@@ -225,8 +225,8 @@ def run_loop(settings: Settings | None = None) -> None:
                     payload=PreparedFrame(jpeg_bytes=jpeg, meta=meta),
                     captured_at=captured_at,
                     camera_id=cfg.camera_id,
-                    company_id=cfg.company_id,
-                    establishment_id=cfg.establishment_id,
+                    account_id=cfg.account_id,
+                    unit_id=cfg.unit_id,
                 )
                 completed = windows.add(sample)
                 if completed is not None:

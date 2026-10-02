@@ -31,10 +31,10 @@ class Detector:
         ]
 
 
-def fields(company="a"):
+def fields(account="a"):
     return {
-        "company_id": company,
-        "establishment_id": "b",
+        "account_id": account,
+        "unit_id": "b",
         "camera_id": "c",
         "sequence_id": "seq",
         "captured_at": "2026-10-01T12:00:00+00:00",
@@ -76,7 +76,7 @@ class PipelineTests(unittest.TestCase):
         for change in (
             {"frame_uris": "{}"},
             {"captured_at": "bad"},
-            {"company_id": ""},
+            {"account_id": ""},
             {"preproc_meta": '{"sample_interval_seconds": NaN}'},
         ):
             with self.subTest(change=change), self.assertRaises(ValueError):

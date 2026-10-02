@@ -3,16 +3,21 @@ import type { Session as AuthSession, User } from '@shared/auth';
 export type Session = AuthSession;
 export type { User };
 
-/** Conta (account) in the UI; code identifiers stay `company` until the Phase 3 rename. */
-export interface Company {
+/** Conta (account) in the UI; code identifiers stay `account` until the Phase 3 rename. */
+export type AccountKind = 'company' | 'ngo' | 'school' | 'university' | 'other';
+
+export const ACCOUNT_KINDS: ReadonlyArray<AccountKind> = ['company', 'ngo', 'school', 'university', 'other'];
+
+export interface Account {
   id: string;
   name: string;
   slug: string;
+  kind: AccountKind;
   aggregation_window_secs?: number;
 }
 
-/** Unidade (unit) in the UI; code identifiers stay `establishment` until the Phase 3 rename. */
-export interface Establishment {
+/** Unidade (unit) in the UI; code identifiers stay `unit` until the Phase 3 rename. */
+export interface Unit {
   id: string;
   name: string;
   address: string | null;
@@ -22,7 +27,7 @@ export interface Establishment {
 
 export interface Camera {
   id: string;
-  establishment_id: string;
+  unit_id: string;
   name: string;
   stream_url: string | null;
   stream_username: string | null;
@@ -47,7 +52,7 @@ export interface PromptSet {
 export interface WebhookEndpoint {
   id: string;
   name: string;
-  establishment_id: string | null;
+  unit_id: string | null;
   active: boolean;
   /** Raw token, present only on create and rotate responses. */
   token?: string | null;
@@ -57,8 +62,8 @@ export interface AdminUser {
   id: string;
   email: string;
   role: string;
-  company_id: string | null;
-  company_ids: string[];
+  account_id: string | null;
+  account_ids: string[];
   idp_subject: string | null;
 }
 

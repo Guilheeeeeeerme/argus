@@ -19,7 +19,7 @@ function makeCase(id: string, state = 'open', createdAt = '2026-10-02T12:00:00Z'
     detection: {
       id: `det-${id}`,
       camera_id: cameraId,
-      establishment_id: 'unit-1',
+      unit_id: 'unit-1',
       summary: null,
       confidence: null,
       prompt_hits: [],

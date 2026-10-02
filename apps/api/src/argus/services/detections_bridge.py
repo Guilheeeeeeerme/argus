@@ -72,11 +72,11 @@ async def run_detections_bridge(stop_event: asyncio.Event | None = None) -> None
         for _stream, messages in batches:
             for message_id, fields in messages:
                 try:
-                    company_id = UUID(fields["company_id"])
+                    account_id = UUID(fields.get("account_id") or fields["company_id"])
                     detection_id = UUID(fields["detection_id"])
                     triage_case_id = UUID(fields["triage_case_id"])
                     await publish_detection_created(
-                        company_id=company_id,
+                        account_id=account_id,
                         detection_id=detection_id,
                         triage_case_id=triage_case_id,
                         # Enough for the triage rail to render a row without a refetch.
@@ -85,7 +85,7 @@ async def run_detections_bridge(stop_event: asyncio.Event | None = None) -> None
                             "summary": fields.get("summary"),
                             "confidence": _decode(fields.get("confidence")),
                             "prompt_hits": _decode(fields.get("prompt_hits"), []),
-                            "establishment_id": fields.get("establishment_id"),
+                            "unit_id": fields.get("unit_id"),
                             "camera_id": fields.get("camera_id"),
                             "sequence_id": fields.get("sequence_id") or None,
                             "state": fields.get("state") or "open",

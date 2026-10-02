@@ -11,24 +11,24 @@ import { useToast } from '@argus/design-system';
 import { useT, localizeApiError } from '@argus/i18n';
 import { clearToken, consumeTokenFromUrl, getToken } from '@shared/auth';
 import { auth, units as unitsApi, APP, returnTo, withToken } from '../api/client';
-import { isPlatformRole, type Company, type Establishment, type Session } from '../api/types';
+import { isPlatformRole, type Account, type Unit, type Session } from '../api/types';
 
 export interface SessionContextValue {
   /** False until the stored token has been validated (or found absent). */
   booted: boolean;
   session: Session | null;
-  companies: Company[];
-  establishments: Establishment[];
+  accounts: Account[];
+  units: Unit[];
   /** True while the lists are refreshing after login or a context switch. */
   loadingContext: boolean;
   /** True while PATCH /v1/auth/context is in flight. */
   switching: boolean;
   isPlatform: boolean;
   setSession: (session: Session | null) => void;
-  /** Refetch companies and establishments for the active session. */
+  /** Refetch accounts and units for the active session. */
   reloadContext: () => Promise<void>;
-  switchCompany: (id: string | null) => Promise<void>;
-  switchEstablishment: (id: string | null) => Promise<void>;
+  switchAccount: (id: string | null) => Promise<void>;
+  switchUnit: (id: string | null) => Promise<void>;
   signOut: () => void;
 }
 
@@ -39,8 +39,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const toast = useToast();
   const [booted, setBooted] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [loadingContext, setLoadingContext] = useState(false);
   const [switching, setSwitching] = useState(false);
 
@@ -62,41 +62,41 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const userId = session?.user.id ?? null;
-  const activeCompanyId = session?.activeCompany?.id ?? null;
+  const activeAccountId = session?.activeAccount?.id ?? null;
 
   const reloadContext = useCallback(async () => {
     if (!userId) {
-      setCompanies([]);
-      setEstablishments([]);
+      setAccounts([]);
+      setUnits([]);
       return;
     }
     setLoadingContext(true);
     try {
-      const [companyList, unitList] = await Promise.all([
-        auth.companies(),
-        activeCompanyId ? unitsApi.list(activeCompanyId) : Promise.resolve([] as Establishment[]),
+      const [accountList, unitList] = await Promise.all([
+        auth.accounts(),
+        activeAccountId ? unitsApi.list(activeAccountId) : Promise.resolve([] as Unit[]),
       ]);
-      setCompanies(companyList);
-      setEstablishments(unitList);
+      setAccounts(accountList);
+      setUnits(unitList);
     } catch (error) {
       toast.error(localizeApiError(error, t));
     } finally {
       setLoadingContext(false);
     }
-  }, [userId, activeCompanyId, toast, t]);
+  }, [userId, activeAccountId, toast, t]);
 
   useEffect(() => {
     void reloadContext();
   }, [reloadContext]);
 
-  const switchCompany = useCallback(
+  const switchAccount = useCallback(
     async (id: string | null) => {
       setSwitching(true);
       try {
-        const next = await auth.switchContext({ companyId: id });
+        const next = await auth.switchContext({ accountId: id });
         setSession(next);
         const target = returnTo();
-        if (target !== APP && next.activeCompany) {
+        if (target !== APP && next.activeAccount) {
           window.location.assign(withToken(target));
           return;
         }
@@ -110,15 +110,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [toast, t],
   );
 
-  const switchEstablishment = useCallback(
+  const switchUnit = useCallback(
     async (id: string | null) => {
       setSwitching(true);
       try {
-        const next = await auth.switchContext({ establishmentId: id });
+        const next = await auth.switchContext({ unitId: id });
         setSession(next);
         toast.success(
           id
-            ? t('Unidade ativa: {name}', { name: next.activeEstablishment?.name ?? '' })
+            ? t('Unidade ativa: {name}', { name: next.activeUnit?.name ?? '' })
             : t('Unidade removida.'),
         );
       } catch (error) {
@@ -140,27 +140,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       booted,
       session,
-      companies,
-      establishments,
+      accounts,
+      units,
       loadingContext,
       switching,
       isPlatform: session ? isPlatformRole(session.user.role) : false,
       setSession,
       reloadContext,
-      switchCompany,
-      switchEstablishment,
+      switchAccount,
+      switchUnit,
       signOut,
     }),
     [
       booted,
       session,
-      companies,
-      establishments,
+      accounts,
+      units,
       loadingContext,
       switching,
       reloadContext,
-      switchCompany,
-      switchEstablishment,
+      switchAccount,
+      switchUnit,
       signOut,
     ],
   );
@@ -174,10 +174,10 @@ export function useSession(): SessionContextValue {
   return ctx;
 }
 
-/** Active company id, or throws — for routes already guarded by `RequireCompany`. */
-export function useCompanyId(): string {
+/** Active account id, or throws — for routes already guarded by `RequireAccount`. */
+export function useAccountId(): string {
   const { session } = useSession();
-  const id = session?.activeCompany?.id;
-  if (!id) throw new Error('No active company in session');
+  const id = session?.activeAccount?.id;
+  if (!id) throw new Error('No active account in session');
   return id;
 }

@@ -24,7 +24,7 @@ ARGUS dev stack:
 
 Platform + demo users (password: Password123! when DEMO_PASSWORD unset)
   root@argus.local             (ROOT — platform)
-  manager@demo.argus.local     (MANAGER — demo-retail)
-  guest@demo.argus.local       (OPERATOR — demo-retail)
+  manager@demo.local           (MANAGER — demo-company)
+  guest@demo.local             (OPERATOR — demo-company)
   Set SEED_DEMO=1 (default in compose) for demo fixtures.
 EOF

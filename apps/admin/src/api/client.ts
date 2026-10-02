@@ -1,9 +1,10 @@
 import { apiFetch, isAllowedReturn, MAIN_ORIGIN, getToken } from '@shared/auth';
 import type {
+  AccountKind,
   AdminUser,
   Camera,
-  Company,
-  Establishment,
+  Account,
+  Unit,
   Prompt,
   PromptSet,
   Session,
@@ -33,8 +34,8 @@ export function withToken(target: string): string {
 }
 
 export interface SwitchContextBody {
-  companyId?: string | null;
-  establishmentId?: string | null;
+  accountId?: string | null;
+  unitId?: string | null;
 }
 
 export const auth = {
@@ -42,12 +43,12 @@ export const auth = {
   login: (email: string, password: string) =>
     apiFetch<Session>('/v1/auth/login', json('POST', { email, password })),
   logout: () => apiFetch<unknown>('/v1/auth/logout', { method: 'POST' }),
-  companies: () => apiFetch<Company[]>('/v1/auth/companies'),
+  accounts: () => apiFetch<Account[]>('/v1/auth/accounts'),
   switchContext: (body: SwitchContextBody) =>
     apiFetch<Session>('/v1/auth/context', json('PATCH', body)),
 };
 
-export interface EstablishmentInput {
+export interface UnitInput {
   name: string;
   address: string | null;
   timezone: string;
@@ -55,16 +56,16 @@ export interface EstablishmentInput {
 }
 
 export const units = {
-  list: (companyId: string) =>
-    apiFetch<Establishment[]>(`/v1/companies/${companyId}/establishments`),
-  get: (companyId: string, id: string) =>
-    apiFetch<Establishment>(`/v1/companies/${companyId}/establishments/${id}`),
-  create: (companyId: string, body: EstablishmentInput) =>
-    apiFetch<Establishment>(`/v1/companies/${companyId}/establishments`, json('POST', body)),
-  update: (companyId: string, id: string, body: Partial<EstablishmentInput>) =>
-    apiFetch<Establishment>(`/v1/companies/${companyId}/establishments/${id}`, json('PATCH', body)),
-  remove: (companyId: string, id: string) =>
-    apiFetch<null>(`/v1/companies/${companyId}/establishments/${id}`, DELETE),
+  list: (accountId: string) =>
+    apiFetch<Unit[]>(`/v1/accounts/${accountId}/units`),
+  get: (accountId: string, id: string) =>
+    apiFetch<Unit>(`/v1/accounts/${accountId}/units/${id}`),
+  create: (accountId: string, body: UnitInput) =>
+    apiFetch<Unit>(`/v1/accounts/${accountId}/units`, json('POST', body)),
+  update: (accountId: string, id: string, body: Partial<UnitInput>) =>
+    apiFetch<Unit>(`/v1/accounts/${accountId}/units/${id}`, json('PATCH', body)),
+  remove: (accountId: string, id: string) =>
+    apiFetch<null>(`/v1/accounts/${accountId}/units/${id}`, DELETE),
 };
 
 export interface CameraInput {
@@ -77,28 +78,28 @@ export interface CameraInput {
 
 export const cameras = {
   /** Every active camera of the Conta, across units. */
-  listAll: (companyId: string) => apiFetch<Camera[]>(`/v1/companies/${companyId}/cameras`),
-  list: (companyId: string, unitId: string, includeInactive = false) =>
+  listAll: (accountId: string) => apiFetch<Camera[]>(`/v1/accounts/${accountId}/cameras`),
+  list: (accountId: string, unitId: string, includeInactive = false) =>
     apiFetch<Camera[]>(
-      `/v1/companies/${companyId}/establishments/${unitId}/cameras${includeInactive ? '?include_inactive=true' : ''}`,
+      `/v1/accounts/${accountId}/units/${unitId}/cameras${includeInactive ? '?include_inactive=true' : ''}`,
     ),
-  create: (companyId: string, unitId: string, body: CameraInput) =>
-    apiFetch<Camera>(`/v1/companies/${companyId}/establishments/${unitId}/cameras`, json('POST', body)),
-  update: (companyId: string, id: string, body: Partial<CameraInput>) =>
-    apiFetch<Camera>(`/v1/companies/${companyId}/cameras/${id}`, json('PATCH', body)),
-  remove: (companyId: string, id: string) =>
-    apiFetch<null>(`/v1/companies/${companyId}/cameras/${id}`, DELETE),
+  create: (accountId: string, unitId: string, body: CameraInput) =>
+    apiFetch<Camera>(`/v1/accounts/${accountId}/units/${unitId}/cameras`, json('POST', body)),
+  update: (accountId: string, id: string, body: Partial<CameraInput>) =>
+    apiFetch<Camera>(`/v1/accounts/${accountId}/cameras/${id}`, json('PATCH', body)),
+  remove: (accountId: string, id: string) =>
+    apiFetch<null>(`/v1/accounts/${accountId}/cameras/${id}`, DELETE),
 };
 
 export const promptSets = {
-  list: (companyId: string, cameraId: string) =>
-    apiFetch<PromptSet[]>(`/v1/companies/${companyId}/cameras/${cameraId}/prompt-sets`),
-  create: (companyId: string, cameraId: string, name: string) =>
-    apiFetch<PromptSet>(`/v1/companies/${companyId}/cameras/${cameraId}/prompt-sets`, json('POST', { name, prompts: [] })),
-  rename: (companyId: string, id: string, name: string) =>
-    apiFetch<PromptSet>(`/v1/companies/${companyId}/prompt-sets/${id}`, json('PATCH', { name })),
-  remove: (companyId: string, id: string) =>
-    apiFetch<null>(`/v1/companies/${companyId}/prompt-sets/${id}`, DELETE),
+  list: (accountId: string, cameraId: string) =>
+    apiFetch<PromptSet[]>(`/v1/accounts/${accountId}/cameras/${cameraId}/prompt-sets`),
+  create: (accountId: string, cameraId: string, name: string) =>
+    apiFetch<PromptSet>(`/v1/accounts/${accountId}/cameras/${cameraId}/prompt-sets`, json('POST', { name, prompts: [] })),
+  rename: (accountId: string, id: string, name: string) =>
+    apiFetch<PromptSet>(`/v1/accounts/${accountId}/prompt-sets/${id}`, json('PATCH', { name })),
+  remove: (accountId: string, id: string) =>
+    apiFetch<null>(`/v1/accounts/${accountId}/prompt-sets/${id}`, DELETE),
 };
 
 export interface PromptInput {
@@ -108,38 +109,38 @@ export interface PromptInput {
 }
 
 export const prompts = {
-  create: (companyId: string, promptSetId: string, body: PromptInput) =>
-    apiFetch<Prompt>(`/v1/companies/${companyId}/prompt-sets/${promptSetId}/prompts`, json('POST', body)),
-  update: (companyId: string, id: string, body: Partial<PromptInput>) =>
-    apiFetch<Prompt>(`/v1/companies/${companyId}/prompts/${id}`, json('PATCH', body)),
-  remove: (companyId: string, id: string) =>
-    apiFetch<null>(`/v1/companies/${companyId}/prompts/${id}`, DELETE),
+  create: (accountId: string, promptSetId: string, body: PromptInput) =>
+    apiFetch<Prompt>(`/v1/accounts/${accountId}/prompt-sets/${promptSetId}/prompts`, json('POST', body)),
+  update: (accountId: string, id: string, body: Partial<PromptInput>) =>
+    apiFetch<Prompt>(`/v1/accounts/${accountId}/prompts/${id}`, json('PATCH', body)),
+  remove: (accountId: string, id: string) =>
+    apiFetch<null>(`/v1/accounts/${accountId}/prompts/${id}`, DELETE),
 };
 
 export interface WebhookInput {
   name: string;
-  establishment_id: string | null;
+  unit_id: string | null;
   active?: boolean;
 }
 
 export const webhooks = {
-  list: (companyId: string) =>
-    apiFetch<WebhookEndpoint[]>(`/v1/companies/${companyId}/webhook-endpoints`),
-  create: (companyId: string, body: WebhookInput) =>
-    apiFetch<WebhookEndpoint>(`/v1/companies/${companyId}/webhook-endpoints`, json('POST', body)),
-  update: (companyId: string, id: string, body: Partial<WebhookInput>) =>
-    apiFetch<WebhookEndpoint>(`/v1/companies/${companyId}/webhook-endpoints/${id}`, json('PATCH', body)),
-  rotate: (companyId: string, id: string) =>
-    apiFetch<WebhookEndpoint>(`/v1/companies/${companyId}/webhook-endpoints/${id}/rotate`, { method: 'POST' }),
-  remove: (companyId: string, id: string) =>
-    apiFetch<null>(`/v1/companies/${companyId}/webhook-endpoints/${id}`, DELETE),
+  list: (accountId: string) =>
+    apiFetch<WebhookEndpoint[]>(`/v1/accounts/${accountId}/webhook-endpoints`),
+  create: (accountId: string, body: WebhookInput) =>
+    apiFetch<WebhookEndpoint>(`/v1/accounts/${accountId}/webhook-endpoints`, json('POST', body)),
+  update: (accountId: string, id: string, body: Partial<WebhookInput>) =>
+    apiFetch<WebhookEndpoint>(`/v1/accounts/${accountId}/webhook-endpoints/${id}`, json('PATCH', body)),
+  rotate: (accountId: string, id: string) =>
+    apiFetch<WebhookEndpoint>(`/v1/accounts/${accountId}/webhook-endpoints/${id}/rotate`, { method: 'POST' }),
+  remove: (accountId: string, id: string) =>
+    apiFetch<null>(`/v1/accounts/${accountId}/webhook-endpoints/${id}`, DELETE),
 };
 
 export interface UserInput {
   email: string;
   role: string;
   password?: string;
-  company_ids: string[];
+  account_ids: string[];
 }
 
 export const users = {
@@ -150,15 +151,16 @@ export const users = {
   remove: (id: string) => apiFetch<null>(`/v1/admin/users/${id}`, DELETE),
 };
 
-export interface CompanyInput {
+export interface AccountInput {
   name: string;
   slug: string;
+  kind: AccountKind;
 }
 
 export const accounts = {
-  list: () => apiFetch<Company[]>('/v1/admin/companies'),
-  create: (body: CompanyInput) => apiFetch<Company>('/v1/admin/companies', json('POST', body)),
-  update: (id: string, body: Partial<CompanyInput>) =>
-    apiFetch<Company>(`/v1/admin/companies/${id}`, json('PATCH', body)),
-  remove: (id: string) => apiFetch<null>(`/v1/admin/companies/${id}`, DELETE),
+  list: () => apiFetch<Account[]>('/v1/admin/accounts'),
+  create: (body: AccountInput) => apiFetch<Account>('/v1/admin/accounts', json('POST', body)),
+  update: (id: string, body: Partial<AccountInput>) =>
+    apiFetch<Account>(`/v1/admin/accounts/${id}`, json('PATCH', body)),
+  remove: (id: string) => apiFetch<null>(`/v1/admin/accounts/${id}`, DELETE),
 };

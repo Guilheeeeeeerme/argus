@@ -76,8 +76,8 @@ def test_postgres_replay_and_concurrent_claim_share_one_detection():
             )
         engine = create_async_engine(admin.url.set(username="argus_app"))
         factory = async_sessionmaker(engine, expire_on_commit=False)
-        company, camera, establishment = uuid4(), uuid4(), uuid4()
-        args = {"company_id": company, "camera_id": camera, "sequence_id": "retry"}
+        account, camera, unit = uuid4(), uuid4(), uuid4()
+        args = {"account_id": account, "camera_id": camera, "sequence_id": "retry"}
         try:
             async with factory() as first, factory() as second:
                 assert await find_positive(first, **args) is None
@@ -89,7 +89,7 @@ def test_postgres_replay_and_concurrent_claim_share_one_detection():
                 detection, triage = await persist_positive(
                     first,
                     **args,
-                    establishment_id=establishment,
+                    unit_id=unit,
                     result=PromptEvalResult(
                         any_match=True,
                         prompt_hits=[
@@ -109,7 +109,7 @@ def test_postgres_replay_and_concurrent_claim_share_one_detection():
                 await second.commit()
             async with factory() as other:
                 assert (
-                    await find_positive(other, **{**args, "company_id": uuid4()})
+                    await find_positive(other, **{**args, "account_id": uuid4()})
                     is None
                 )
         finally:

@@ -5,7 +5,7 @@ from argus.core.auth import (
     get_auth_context,
     get_authenticated_db,
     require_role,
-    set_company_context,
+    set_account_context,
 )
 
 __all__ = [
@@ -13,5 +13,5 @@ __all__ = [
     "get_auth_context",
     "get_authenticated_db",
     "require_role",
-    "set_company_context",
+    "set_account_context",
 ]

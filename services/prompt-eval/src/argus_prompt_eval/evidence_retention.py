@@ -45,7 +45,7 @@ def ffmpeg_available() -> bool:
 
 def retain_evidence(
     *,
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
     sequence_id: str,
     frame_uris: list[str],
@@ -66,7 +66,7 @@ def retain_evidence(
     if ffmpeg_available():
         try:
             clip_uri = _stitch_ffmpeg(
-                company_id=company_id,
+                account_id=account_id,
                 camera_id=camera_id,
                 sequence_id=sequence_id,
                 frame_uris=frame_uris,
@@ -101,7 +101,7 @@ def retain_evidence(
 
 def _stitch_ffmpeg(
     *,
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID,
     sequence_id: str,
     frame_uris: list[str],
@@ -140,7 +140,7 @@ def _stitch_ffmpeg(
         ]
         subprocess.run(cmd, check=True, capture_output=True, timeout=120)
         key = (
-            f"clips/{company_id}/{camera_id}/{sequence_id}/"
+            f"clips/{account_id}/{camera_id}/{sequence_id}/"
             f"{uuid4().hex}.mp4"
         )
         return upload_bytes(key, out_path.read_bytes(), content_type="video/mp4")

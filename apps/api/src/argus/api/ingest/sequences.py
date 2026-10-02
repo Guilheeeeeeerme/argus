@@ -24,8 +24,8 @@ async def inject_frames_ready(body: InjectFrameReadyRequest) -> InjectAcceptedRe
     sequence_id = body.sequence_id or str(uuid4())
     await enqueue_frames_ready(
         {
-            "company_id": str(body.company_id),
-            "establishment_id": str(body.establishment_id),
+            "account_id": str(body.account_id),
+            "unit_id": str(body.unit_id),
             "camera_id": str(body.camera_id),
             "sequence_id": sequence_id,
             "captured_at": (body.captured_at or now).isoformat(),

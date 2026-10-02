@@ -93,7 +93,7 @@ def create_http_app(
     ) -> dict[str, str | None]:
         return {
             "sub": auth.sub,
-            "company_id": str(auth.company_id) if auth.company_id else None,
+            "account_id": str(auth.account_id) if auth.account_id else None,
             "role": auth.role.value,
         }
 
@@ -126,6 +126,7 @@ def create_admin_app() -> FastAPI:
     from argus.api.auth import router as auth_router
     from argus.api.hooks import router as hooks_router
     from argus.api.internal import router as internal_router
+    from argus.api.legacy import router as legacy_router
 
     app.include_router(dev_router)
     app.include_router(auth_router)
@@ -133,6 +134,7 @@ def create_admin_app() -> FastAPI:
     app.include_router(internal_router)
     app.include_router(admin_router)
     app.include_router(triage_router)
+    app.include_router(legacy_router)
     app.include_router(ws_router)
     return app
 

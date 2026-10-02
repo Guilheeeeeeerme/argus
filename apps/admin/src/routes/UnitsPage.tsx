@@ -12,29 +12,29 @@ import {
 import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import { units as unitsApi } from '../api/client';
-import type { Establishment } from '../api/types';
-import { RequireCompany } from '../app/guards';
-import { useCompanyId, useSession } from '../app/SessionProvider';
+import type { Unit } from '../api/types';
+import { RequireAccount } from '../app/guards';
+import { useAccountId, useSession } from '../app/SessionProvider';
 import { LinkButton } from '../components/LinkButton';
 import { ConfirmDelete } from '../components/forms/ConfirmDelete';
 import type { UnitsOutletContext } from '../components/forms/UnitForm';
 
 export function UnitsPage() {
   return (
-    <RequireCompany>
+    <RequireAccount>
       <UnitsList />
-    </RequireCompany>
+    </RequireAccount>
   );
 }
 
 function UnitsList() {
   const t = useT();
   const toast = useToast();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { reloadContext } = useSession();
-  const units = useAsync(() => unitsApi.list(companyId), [companyId]);
-  const remove = useMutation((id: string) => unitsApi.remove(companyId, id));
-  const [pendingDelete, setPendingDelete] = useState<Establishment | null>(null);
+  const units = useAsync(() => unitsApi.list(accountId), [accountId]);
+  const remove = useMutation((id: string) => unitsApi.remove(accountId, id));
+  const [pendingDelete, setPendingDelete] = useState<Unit | null>(null);
 
   async function confirmDelete() {
     if (!pendingDelete) return;

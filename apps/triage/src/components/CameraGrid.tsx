@@ -4,7 +4,7 @@ import type { CameraOverview } from '../api';
 import { CameraTile } from './CameraTile';
 
 interface CameraGridProps {
-  companyId: string;
+  accountId: string;
   cameras: CameraOverview[] | null;
   loading: boolean;
   error: unknown;
@@ -16,7 +16,7 @@ interface CameraGridProps {
 }
 
 export function CameraGrid({
-  companyId,
+  accountId,
   cameras,
   loading,
   error,
@@ -54,7 +54,7 @@ export function CameraGrid({
       {cameras.map(camera => (
         <div key={camera.id} role="listitem">
           <CameraTile
-            companyId={companyId}
+            accountId={accountId}
             camera={camera}
             openCount={Math.max(camera.open_case_count, openCounts.get(camera.id) ?? 0)}
             alert={camera.id === alertCameraId}

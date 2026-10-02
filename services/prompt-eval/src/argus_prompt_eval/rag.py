@@ -18,7 +18,7 @@ from argus_prompt_eval.db import Detection, Feedback, FeedbackDisposition, Triag
 async def retrieve_fp_feedback(
     session: AsyncSession,
     *,
-    company_id: UUID,
+    account_id: UUID,
     camera_id: UUID | None = None,
     query_embedding: list[float] | None = None,
     limit: int | None = None,
@@ -30,7 +30,7 @@ async def retrieve_fp_feedback(
         .join(TriageCase, Feedback.triage_case_id == TriageCase.id)
         .join(Detection, TriageCase.detection_id == Detection.id)
         .where(
-            Feedback.company_id == company_id,
+            Feedback.account_id == account_id,
             Feedback.disposition == FeedbackDisposition.FALSE_POSITIVE,
         )
     )

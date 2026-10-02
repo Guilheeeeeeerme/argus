@@ -12,15 +12,15 @@ export const API = API_BASE;
 export const WS = WS_BASE;
 export { apiFetch, consumeTokenFromUrl, getToken, redirectToLogin };
 
-/** Unidade in the UI; `establishment` identifiers stay until the Phase 3 rename. */
+/** Unidade in the UI; `unit` identifiers stay until the Phase 3 rename. */
 export type Unit = { id: string; name: string; address: string | null; timezone?: string };
 
 export type Session = {
-  company_id: string;
-  company_name: string;
+  account_id: string;
+  account_name: string;
   role: string;
   email: string;
-  establishment: Unit | null;
+  unit: Unit | null;
 };
 
 export type PromptHit = {
@@ -33,9 +33,9 @@ export type PromptHit = {
 export type DetectionSummary = {
   id: string;
   camera_id: string;
-  establishment_id: string;
+  unit_id: string;
   camera_name?: string | null;
-  establishment_name?: string | null;
+  unit_name?: string | null;
   sequence_id?: string | null;
   summary: string | null;
   confidence: number | null;
@@ -67,25 +67,25 @@ export type CameraOverview = {
 
 export type SessionLookup =
   | { ok: true; session: Session }
-  | { ok: true; companyless: true }
+  | { ok: true; accountless: true }
   | { ok: false };
 
 interface MeResponse {
   user: { email: string; role: string };
-  activeCompany: { id: string; name: string } | null;
-  activeEstablishment: Unit | null;
+  activeAccount: { id: string; name: string } | null;
+  activeUnit: Unit | null;
 }
 
 function toSession(me: MeResponse): SessionLookup {
-  if (!me.activeCompany) return { ok: true, companyless: true };
+  if (!me.activeAccount) return { ok: true, accountless: true };
   return {
     ok: true,
     session: {
-      company_id: me.activeCompany.id,
-      company_name: me.activeCompany.name,
+      account_id: me.activeAccount.id,
+      account_name: me.activeAccount.name,
       role: me.user.role,
       email: me.user.email,
-      establishment: me.activeEstablishment,
+      unit: me.activeUnit,
     },
   };
 }
@@ -98,46 +98,46 @@ export async function loadSession(): Promise<SessionLookup> {
   }
 }
 
-export function listUnits(companyId: string): Promise<Unit[]> {
-  return apiFetch<Unit[]>(`/v1/companies/${companyId}/establishments`);
+export function listUnits(accountId: string): Promise<Unit[]> {
+  return apiFetch<Unit[]>(`/v1/accounts/${accountId}/units`);
 }
 
 /** Switch the session's active Unidade; returns the refreshed session. */
 export async function switchUnit(unitId: string | null): Promise<SessionLookup> {
   const me = await apiFetch<MeResponse>('/v1/auth/context', {
     method: 'PATCH',
-    body: JSON.stringify({ establishmentId: unitId }),
+    body: JSON.stringify({ unitId: unitId }),
   });
   return toSession(me);
 }
 
-export function cameraOverview(companyId: string, unitId: string): Promise<CameraOverview[]> {
+export function cameraOverview(accountId: string, unitId: string): Promise<CameraOverview[]> {
   return apiFetch<CameraOverview[]>(
-    `/v1/companies/${companyId}/establishments/${unitId}/cameras/overview`,
+    `/v1/accounts/${accountId}/units/${unitId}/cameras/overview`,
   );
 }
 
 export interface ListCasesOptions {
-  establishmentId?: string;
+  unitId?: string;
   cameraId?: string;
   /** `null` lists every state (open + recent resolutions); default is the API's `open`. */
   state?: TriageState | null;
   limit?: number;
 }
 
-export function listCases(companyId: string, options: ListCasesOptions = {}): Promise<TriageCase[]> {
+export function listCases(accountId: string, options: ListCasesOptions = {}): Promise<TriageCase[]> {
   const params = new URLSearchParams();
-  if (options.establishmentId) params.set('establishment_id', options.establishmentId);
+  if (options.unitId) params.set('unit_id', options.unitId);
   if (options.cameraId) params.set('camera_id', options.cameraId);
   if (options.state === null) params.set('state', '');
   else if (options.state) params.set('state', options.state);
   if (options.limit) params.set('limit', String(options.limit));
   const query = params.toString();
-  return apiFetch<TriageCase[]>(`/v1/companies/${companyId}/triage-cases${query ? `?${query}` : ''}`);
+  return apiFetch<TriageCase[]>(`/v1/accounts/${accountId}/triage-cases${query ? `?${query}` : ''}`);
 }
 
-export function getCase(companyId: string, caseId: string): Promise<TriageCaseDetail> {
-  return apiFetch<TriageCaseDetail>(`/v1/companies/${companyId}/triage-cases/${caseId}`);
+export function getCase(accountId: string, caseId: string): Promise<TriageCaseDetail> {
+  return apiFetch<TriageCaseDetail>(`/v1/accounts/${accountId}/triage-cases/${caseId}`);
 }
 
 export type Disposition = 'confirmed' | 'dismissed' | 'false_positive';
@@ -150,11 +150,11 @@ export interface ResolveResponse {
 }
 
 export function resolveCase(
-  companyId: string,
+  accountId: string,
   caseId: string,
   body: { disposition: Disposition; reasoning: string | null },
 ): Promise<ResolveResponse> {
-  return apiFetch<ResolveResponse>(`/v1/companies/${companyId}/triage-cases/${caseId}/resolve`, {
+  return apiFetch<ResolveResponse>(`/v1/accounts/${accountId}/triage-cases/${caseId}/resolve`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -180,14 +180,14 @@ export type LatestFrameResult =
 
 /** Poll the newest JPEG of a camera. Sends `If-None-Match` so unchanged frames cost a 304. */
 export async function fetchLatestFrame(
-  companyId: string,
+  accountId: string,
   cameraId: string,
   etag: string | null,
   signal?: AbortSignal,
 ): Promise<LatestFrameResult> {
   let response: Response;
   try {
-    response = await authedFetch(`/v1/companies/${companyId}/cameras/${cameraId}/latest-frame`, {
+    response = await authedFetch(`/v1/accounts/${accountId}/cameras/${cameraId}/latest-frame`, {
       headers: etag ? { 'If-None-Match': etag } : {},
       signal,
     });
@@ -215,7 +215,7 @@ export function confidencePercent(value: number | null | undefined): number | nu
   return value <= 1 ? Math.round(value * 100) : Math.round(value);
 }
 
-export function selectCompany(): void {
+export function selectAccount(): void {
   const target = new URL(MAIN_ORIGIN);
   target.searchParams.set('returnTo', window.location.origin + window.location.pathname);
   const token = getToken();

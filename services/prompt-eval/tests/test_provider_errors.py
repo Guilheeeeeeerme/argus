@@ -21,7 +21,7 @@ def test_provider_failure_excludes_sensitive_payloads(monkeypatch, caplog):
         asyncio.run(
             router.analyze_with_failover(
                 redis=Mock(),
-                company_id=uuid4(),
+                account_id=uuid4(),
                 system_prompt="private prompt",
                 frame_uris=["private frame"],
                 output_schema={},

@@ -30,8 +30,8 @@ class FrameSample(Generic[T]):
     payload: T
     captured_at: datetime
     camera_id: str
-    company_id: str
-    establishment_id: str
+    account_id: str
+    unit_id: str
 
 
 @dataclass
@@ -39,8 +39,8 @@ class FrameWindow(Generic[T]):
     """A completed temporal window of frames."""
 
     sequence_id: str
-    company_id: str
-    establishment_id: str
+    account_id: str
+    unit_id: str
     camera_id: str
     captured_at: datetime
     frames: list[FrameSample[T]] = field(default_factory=list)
@@ -64,8 +64,8 @@ class TemporalWindowBuffer(Generic[T]):
         del buf[: self.window_size]
         return FrameWindow(
             sequence_id=str(uuid.uuid4()),
-            company_id=frames[0].company_id,
-            establishment_id=frames[0].establishment_id,
+            account_id=frames[0].account_id,
+            unit_id=frames[0].unit_id,
             camera_id=frames[0].camera_id,
             captured_at=frames[-1].captured_at,
             frames=frames,
@@ -94,8 +94,8 @@ class TemporalWindowBuffer(Generic[T]):
             completed.append(
                 FrameWindow(
                     sequence_id=str(uuid.uuid4()),
-                    company_id=frames[0].company_id,
-                    establishment_id=frames[0].establishment_id,
+                    account_id=frames[0].account_id,
+                    unit_id=frames[0].unit_id,
                     camera_id=camera_id,
                     captured_at=frames[-1].captured_at,
                     frames=frames,

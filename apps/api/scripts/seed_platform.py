@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from argus.config import settings  # noqa: E402
 from argus.core.passwords import hash_password  # noqa: E402
 from argus.domain.enums import UserRole  # noqa: E402
-from argus.domain.models import CompanyUser  # noqa: E402
+from argus.domain.models import AccountUser  # noqa: E402
 from argus.services.database import set_session_context  # noqa: E402
 
 
@@ -27,12 +27,12 @@ async def main() -> int:
     engine = create_async_engine(settings.admin_database_url, pool_pre_ping=True)
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
-        await set_session_context(session, company_id=None, role=UserRole.ROOT.value)
-        if not await session.scalar(select(CompanyUser).where(CompanyUser.email == email)):
+        await set_session_context(session, account_id=None, role=UserRole.ROOT.value)
+        if not await session.scalar(select(AccountUser).where(AccountUser.email == email)):
             session.add(
-                CompanyUser(
+                AccountUser(
                     email=email,
-                    company_id=None,
+                    account_id=None,
                     role=UserRole.ROOT,
                     password_hash=hash_password(password),
                 )

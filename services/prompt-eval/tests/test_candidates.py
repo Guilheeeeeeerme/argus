@@ -16,8 +16,8 @@ K = "00000000-0000-0000-0000-000000000003"
 
 def fields(**updates):
     result = {
-        "company_id": C,
-        "establishment_id": E,
+        "account_id": C,
+        "unit_id": E,
         "camera_id": K,
         "sequence_id": "s",
         "captured_at": "2026-01-01T00:00:00Z",
@@ -55,8 +55,8 @@ def fields(**updates):
             "sensors": json.dumps(
                 [
                     {
-                        "company_id": E,
-                        "establishment_id": E,
+                        "account_id": E,
+                        "unit_id": E,
                         "camera_id": K,
                         "role": "trigger",
                         "payload": {},
@@ -83,7 +83,7 @@ def setup_handler(monkeypatch, positive=True):
     async def session(_):
         yield object()
 
-    monkeypatch.setattr(main, "company_session", session)
+    monkeypatch.setattr(main, "account_session", session)
     monkeypatch.setattr(main, "get_redis", lambda: object())
     monkeypatch.setattr(
         main, "find_positive", AsyncMock(return_value=None), raising=False
@@ -122,8 +122,8 @@ def setup_handler(monkeypatch, positive=True):
             return_value=(
                 SimpleNamespace(
                     id="d",
-                    company_id=C,
-                    establishment_id=E,
+                    account_id=C,
+                    unit_id=E,
                     camera_id=K,
                     sequence_id="s",
                     clip_uri="clip",
@@ -160,8 +160,8 @@ def test_discard_never_creates_triage(monkeypatch, kind):
         payload["edge_score"] = "nan"
     if kind in ("veto", "injection"):
         sensor = {
-            "company_id": C,
-            "establishment_id": E,
+            "account_id": C,
+            "unit_id": E,
             "camera_id": K,
             "occurred_at": "2026-01-01T00:00:00Z",
             "role": "filter" if kind == "veto" else "context",
@@ -234,8 +234,8 @@ def test_consensus_negative_never_creates_triage(monkeypatch):
 def test_invisible_injection_screened(monkeypatch):
     evaluation = setup_handler(monkeypatch)
     sensor = {
-        "company_id": C,
-        "establishment_id": E,
+        "account_id": C,
+        "unit_id": E,
         "camera_id": K,
         "occurred_at": "2026-01-01T00:00:00Z",
         "role": "context",
@@ -252,8 +252,8 @@ def test_invisible_injection_screened(monkeypatch):
 )
 def test_sensor_time_requires_aligned_aware_timestamp(occurred_at):
     sensor = {
-        "company_id": C,
-        "establishment_id": E,
+        "account_id": C,
+        "unit_id": E,
         "camera_id": K,
         "role": "trigger",
         "confidence": 0.9,
@@ -266,8 +266,8 @@ def test_sensor_time_requires_aligned_aware_timestamp(occurred_at):
 
 def test_sensor_aligns_with_selected_frame_metadata():
     sensor = {
-        "company_id": C,
-        "establishment_id": E,
+        "account_id": C,
+        "unit_id": E,
         "camera_id": K,
         "role": "trigger",
         "confidence": 0.9,

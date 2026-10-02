@@ -14,7 +14,7 @@ import { useT, localizeApiError } from '@argus/i18n';
 import { useAsync, useMutation } from '@shared/hooks';
 import { cameras as camerasApi } from '../../api/client';
 import type { Camera } from '../../api/types';
-import { useCompanyId } from '../../app/SessionProvider';
+import { useAccountId } from '../../app/SessionProvider';
 import { LinkButton } from '../../components/LinkButton';
 import { ConfirmDelete } from '../../components/forms/ConfirmDelete';
 import type { CamerasOutletContext } from '../../components/forms/CameraForm';
@@ -23,14 +23,14 @@ import type { UnitOutletContext } from '../UnitDetailPage';
 export function CamerasTab() {
   const t = useT();
   const toast = useToast();
-  const companyId = useCompanyId();
+  const accountId = useAccountId();
   const { unitId } = useOutletContext<UnitOutletContext>();
   const [showInactive, setShowInactive] = useState(false);
   const cameras = useAsync(
-    () => camerasApi.list(companyId, unitId, showInactive),
-    [companyId, unitId, showInactive],
+    () => camerasApi.list(accountId, unitId, showInactive),
+    [accountId, unitId, showInactive],
   );
-  const remove = useMutation((id: string) => camerasApi.remove(companyId, id));
+  const remove = useMutation((id: string) => camerasApi.remove(accountId, id));
   const [pendingDelete, setPendingDelete] = useState<Camera | null>(null);
   const [togglingIds, setTogglingIds] = useState<ReadonlySet<string>>(new Set());
 
@@ -38,7 +38,7 @@ export function CamerasTab() {
     if (togglingIds.has(camera.id)) return;
     setTogglingIds(ids => new Set(ids).add(camera.id));
     try {
-      await camerasApi.update(companyId, camera.id, { is_active: next });
+      await camerasApi.update(accountId, camera.id, { is_active: next });
       toast.success(next ? t('Câmera ativada.') : t('Câmera desativada.'));
       cameras.setData(list => list?.map(c => (c.id === camera.id ? { ...c, is_active: next } : c)) ?? list);
       if (!showInactive && !next) void cameras.reload();

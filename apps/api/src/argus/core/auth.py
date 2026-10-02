@@ -16,7 +16,7 @@ from argus.config import settings
 from argus.domain.enums import PLATFORM_ROLES, UserRole
 from argus.integrations.auth0 import validate_jwt
 from argus.services.database import get_db as _get_db, set_session_context
-from argus.services.memberships import has_company_membership
+from argus.services.memberships import has_account_membership
 from argus.services.sessions import SessionData, get_session, update_session
 
 _bearer = HTTPBearer(auto_error=False)
@@ -25,9 +25,13 @@ _bearer = HTTPBearer(auto_error=False)
 @dataclass(frozen=True, slots=True)
 class EdgeAuthContext:
     sub: str
-    company_id: UUID
+    account_id: UUID
     camera_id: UUID
     token: str
+
+    @property
+    def company_id(self) -> UUID:  # deprecated alias (one release)
+        return self.account_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,15 +39,18 @@ class AuthContext:
     sub: str
     email: str
     role: UserRole
-    company_id: UUID | None
+    account_id: UUID | None
     token: str
-    establishment_id: UUID | None = None
+    unit_id: UUID | None = None
     camera_id: UUID | None = None
 
     @property
-    def location_id(self) -> UUID | None:
-        """Backward-compatible alias for establishment_id."""
-        return self.establishment_id
+    def company_id(self) -> UUID | None:  # deprecated alias (one release)
+        return self.account_id
+
+    @property
+    def establishment_id(self) -> UUID | None:  # deprecated alias (one release)
+        return self.unit_id
 
 
 def _auth_context_from_session(token: str, session: SessionData) -> AuthContext:
@@ -63,16 +70,16 @@ def _auth_context_from_session(token: str, session: SessionData) -> AuthContext:
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid session company/establishment reference",
+                detail="Invalid session account/unit reference",
             ) from exc
 
-    establishment_raw = session.establishment_id or session.location_id
+    unit_raw = session.unit_id
     return AuthContext(
         sub=session.user_id,
         email=session.email,
         role=role,
-        company_id=_uuid_or_none(session.company_id),
-        establishment_id=_uuid_or_none(establishment_raw),
+        account_id=_uuid_or_none(session.account_id),
+        unit_id=_uuid_or_none(unit_raw),
         token=token,
     )
 
@@ -107,26 +114,27 @@ async def get_edge_auth_context(
             detail="M2M client credentials token required",
         )
 
-    tenant_raw = claims.get("company_id")
+    # Edge tokens minted before the rename still carry company_id.
+    tenant_raw = claims.get("account_id") or claims.get("company_id")
     camera_raw = claims.get("camera_id")
     if not tenant_raw or not camera_raw:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing company_id or camera_id claim",
+            detail="Missing account_id or camera_id claim",
         )
 
     try:
-        company_id = UUID(tenant_raw)
+        account_id = UUID(tenant_raw)
         camera_id = UUID(camera_raw)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid company_id or camera_id claim",
+            detail="Invalid account_id or camera_id claim",
         ) from exc
 
     auth = EdgeAuthContext(
         sub=claims.get("sub", ""),
-        company_id=company_id,
+        account_id=account_id,
         camera_id=camera_id,
         token=credentials.credentials,
     )
@@ -152,12 +160,11 @@ async def get_auth_context(
             headers={"WWW-Authenticate": "Bearer"},
         )
     auth = _auth_context_from_session(credentials.credentials, session)
-    if auth.role not in PLATFORM_ROLES and auth.company_id is not None:
-        if not await has_company_membership(auth.sub, str(auth.company_id)):
+    if auth.role not in PLATFORM_ROLES and auth.account_id is not None:
+        if not await has_account_membership(auth.sub, str(auth.account_id)):
             # Revocation takes effect immediately, while allowing selection of remaining memberships.
-            session.company_id = None
-            session.establishment_id = None
-            session.location_id = None
+            session.account_id = None
+            session.unit_id = None
             await update_session(credentials.credentials, session)
             auth = _auth_context_from_session(credentials.credentials, session)
     request.state.auth = auth
@@ -178,12 +185,15 @@ def require_role(*roles: UserRole) -> Callable:
     return _dependency
 
 
-async def set_company_context(session: AsyncSession, auth: AuthContext) -> None:
+async def set_account_context(session: AsyncSession, auth: AuthContext) -> None:
     await set_session_context(
         session,
-        company_id=auth.company_id,
+        account_id=auth.account_id,
         role=auth.role.value,
     )
+
+
+set_company_context = set_account_context  # deprecated alias (one release)
 
 
 async def get_authenticated_db(
@@ -191,5 +201,5 @@ async def get_authenticated_db(
 ) -> AsyncGenerator[AsyncSession, None]:
     """Session with the Redis-session-derived RLS context applied."""
     async for session in _get_db():
-        await set_company_context(session, auth)
+        await set_account_context(session, auth)
         yield session
