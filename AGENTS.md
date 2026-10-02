@@ -20,7 +20,7 @@ Coding-agent rules for this repository. Project map: [CLAUDE.md](./CLAUDE.md), [
 ## Hard rules
 
 - **UI**: import from `@argus/design-system` only; follow [STYLE_GUIDE.md](./STYLE_GUIDE.md). No inline hex colors or ad-hoc CSS variables in apps.
-- **Auth / tenancy**: opaque Redis sessions; MFE hash-token handoff; derive company/tenant from session server-side — never trust client claims alone.
+- **Auth / tenancy**: opaque Redis sessions; MFE hash-token handoff; derive account/tenant from session server-side — never trust client claims alone.
 - **LLM**: follow Promptdesk-aligned guardrails (`docs/ai-engineering.md`, `apps/api/docs/guardrails.md`). No API keys in prompts; fail closed on bad model output; log ids/statuses, not raw frame/prompt payloads.
 - **Env**: copy `.env.example` → `.env`. Do not commit `.env`. Keep Redis DB index conventions (`/0` local, `/1` prod).
 - **Auth0**: MVP uses mock (`AUTH0_USE_MOCK`); do not switch to production Auth0 without an explicit task.

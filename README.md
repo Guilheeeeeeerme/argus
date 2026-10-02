@@ -4,7 +4,7 @@
 
 # Argus
 
-Multi-company vision platform (MVP): admin SSO host, near-realtime triage micro-frontend, and an AI pipeline that turns camera streams into operator-ready **TriageCases**.
+Multi-account vision platform (MVP): admin SSO host, near-realtime triage micro-frontend, and an AI pipeline that turns camera streams into operator-ready **TriageCases**.
 
 ## Live
 

@@ -27,7 +27,7 @@ Use this skill when discussing UI changes or generating frontend code for the AR
 4. **Async states are explicit** — see table below; no list may show `EmptyState` while loading
 5. **Mutations never double-submit** — `Button loading`, `Form busy`, `AlertDialog busy`
 6. **Copy is pt-BR through `useT()`** — keys are the Portuguese text; add the `en` entry in `packages/i18n/src/dictionary.ts`
-7. **Domain labels** — say *Conta* / *Unidade* in UI copy even where code identifiers still read `company` / `establishment`
+7. **Domain labels** — say *Conta* / *Unidade* in UI copy even where code identifiers still read `account` / `unit`
 8. **Reference `STYLE_GUIDE.md`** at the repo root for the full rule list
 
 ## Component Reference
@@ -102,7 +102,7 @@ typed API in `apps/admin/src/api/`. Create/edit are URL-addressable (`/units/new
 ### CRUD list page
 
 ```tsx
-const units = useAsync(() => listUnits(companyId), [companyId]);
+const units = useAsync(() => listUnits(accountId), [accountId]);
 const remove = useMutation(deleteUnit);
 
 <PageHeader title={t('Unidades')} actions={<Button onClick={() => navigate('new')}>{t('Nova unidade')}</Button>} />

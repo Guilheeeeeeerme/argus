@@ -31,7 +31,7 @@ Admin MFE  ──HTTP──►  API  ◄──HTTP──  Triage MFE
 
 ### CRUD (admin + triage)
 
-- **Company**, **Establishment**, **Camera** (incl. stream config for gateway sync).
+- **Account**, **Unit**, **Camera** (incl. stream config for gateway sync).
 - **PromptSet / Prompt** and bindings.
 - **Detection** (read; created by prompt-eval).
 - **TriageCase** state transitions: `open` → `confirmed` | `dismissed` |
@@ -46,13 +46,13 @@ successor) with service token.
 
 - `POST` to a public webhook path authenticated with the endpoint’s **Bearer
   token** (not a user session).
-- Validate tenant + establishment (optional camera), persist **ContextEvent**,
+- Validate tenant + unit (optional camera), persist **ContextEvent**,
   publish Redis `context:events`:
 
 | Field | Notes |
 |-------|-------|
-| `company_id` | From endpoint binding |
-| `establishment_id` | Required scope |
+| `account_id` | From endpoint binding |
+| `unit_id` | Required scope |
 | `camera_id?` | Optional |
 | `kind` | Event kind |
 | `payload` | JSON body |
@@ -61,7 +61,7 @@ successor) with service token.
 
 ### WebSocket
 
-Authenticated with session token (`/v1/ws?token=...`), company-scoped rooms.
+Authenticated with session token (`/v1/ws?token=...`), account-scoped rooms.
 
 | Event | When |
 |-------|------|
@@ -74,7 +74,7 @@ Also: `ready`, `heartbeat`, reconnect semantics for the triage rail.
 
 - Opaque Redis sessions; `Authorization: Bearer <session>`.
 - SSO host = admin app; MFEs use hash-token handoff + origin allow-list.
-- Platform roles may switch active company/establishment; company roles may not.
+- Platform roles may switch active account/unit; account roles may not.
 - No production Auth0 (non-goal); mock/scaffold only.
 - Webhooks: per-endpoint Bearer secret, distinct from user sessions.
 

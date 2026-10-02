@@ -52,7 +52,7 @@ Evaluates the full active **PromptSet** for a sequence. Aggregates
 ### Context grounding — `context_grounding`
 
 Merges recent `context:events` (and retrieved RAG feedback) into the eval
-context for the establishment/camera.
+context for the unit/camera.
 
 ### Negative discard — `negative_discard`
 

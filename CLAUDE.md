@@ -1,6 +1,6 @@
 # CLAUDE.md — Argus
 
-Multi-company vision platform (MVP): admin SSO host, near-realtime triage micro-frontend, and an AI pipeline that turns camera streams into operator-ready **TriageCases**.
+Multi-account vision platform (MVP): admin SSO host, near-realtime triage micro-frontend, and an AI pipeline that turns camera streams into operator-ready **TriageCases**.
 
 Agent behavioral rules (including RTK): see [AGENTS.md](./AGENTS.md). UI: [STYLE_GUIDE.md](./STYLE_GUIDE.md). Guardrails: [docs/ai-engineering.md](./docs/ai-engineering.md), [apps/api/docs/guardrails.md](./apps/api/docs/guardrails.md).
 

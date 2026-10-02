@@ -1,6 +1,6 @@
 # ARGUS MVP — Product Specification
 
-Domain-agnostic multi-tenant vision platform. Cameras at establishments stream
+Domain-agnostic multi-tenant vision platform. Cameras at units stream
 through a media gateway; **stream-prep** turns live media into temporary frame
 images; **prompt-eval** runs multimodal prompts and keeps only **positive**
 detections (with a short evidence clip); operators triage cases in a dedicated
@@ -30,7 +30,7 @@ prompt-eval                 — VLM + consensus; discard negatives
 API + Triage MFE            — TriageCase HITL; Feedback → RAG
 ```
 
-1. A **Camera** at an **Establishment** is restreamed by **stream-gateway**.
+1. A **Camera** at an **Unit** is restreamed by **stream-gateway**.
 2. **stream-prep** samples frames, runs media preprocessing, stores ephemeral
    images in object storage (TTL), and publishes `frames:ready`.
 3. With `EDGE_CV_ENABLED=true`, **edge-cv** consumes `frames:ready` and
@@ -46,24 +46,24 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 
 ## Roles
 
-| Role | Scope | Interface | Can switch company/establishment? |
+| Role | Scope | Interface | Can switch account/unit? |
 |------|-------|-----------|-----------------------------------|
-| `root` | Platform | Admin | Yes; creates companies + users |
-| `admin` | Platform | Admin | Yes; creates companies + users |
-| `manager` | One company | Admin | No |
-| `operator` | One company | Triage MFE | No |
+| `root` | Platform | Admin | Yes; creates accounts + users |
+| `admin` | Platform | Admin | Yes; creates accounts + users |
+| `manager` | One account | Admin | No |
+| `operator` | One account | Triage MFE | No |
 
 ## Core entities
 
-- **Company** — tenant boundary (RLS-enforced). Owns establishments, cameras,
+- **Account** — tenant boundary (RLS-enforced). Owns units, cameras,
   prompt sets, webhook endpoints, detections, triage cases, feedback.
-- **Establishment** — physical site under a company. Cameras belong here.
-- **Camera** — belongs to an establishment. Stores industry-standard stream
+- **Unit** — physical site under a account. Cameras belong here.
+- **Camera** — belongs to an unit. Stores industry-standard stream
   config (RTSP URL + credentials). Media access is abstracted by
   **stream-gateway** (go2rtc), which syncs configs from the API over an
   internal token-protected route.
 - **PromptSet / Prompt** — versioned set of evaluation prompts bound to
-  cameras or establishments. Each prompt defines what a positive hit means;
+  cameras or units. Each prompt defines what a positive hit means;
   multi-prompt evaluation runs the full set per sequence.
 - **Detection** — **positive only**. Carries `prompt_hits`, confidence,
   summary, and an evidence **clip** (duration ≤ 10 minutes) stored in object
@@ -82,8 +82,8 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 
 | Field | Notes |
 |-------|-------|
-| `company_id` | Tenant |
-| `establishment_id` | Site |
+| `account_id` | Tenant |
+| `unit_id` | Site |
 | `camera_id` | Source camera |
 | `sequence_id` | Frame sequence / window id |
 | `captured_at` | Capture timestamp |
@@ -94,7 +94,7 @@ API + Triage MFE            — TriageCase HITL; Feedback → RAG
 
 | Field | Notes |
 |-------|-------|
-| `company_id`, `establishment_id`, `camera_id` | Original scoped frame identity |
+| `account_id`, `unit_id`, `camera_id` | Original scoped frame identity |
 | `sequence_id`, `captured_at` | Original sequence and capture time |
 | `frame_uris[]` | At most K=3 ranked keyframe URIs; VLM uses one |
 | `preproc_meta` | Selected-frame metadata |
@@ -111,8 +111,8 @@ See [edge-fusion-architecture.md](edge-fusion-architecture.md) for defaults and 
 
 | Field | Notes |
 |-------|-------|
-| `company_id` | Tenant |
-| `establishment_id` | Site |
+| `account_id` | Tenant |
+| `unit_id` | Site |
 | `camera_id?` | Optional camera scope |
 | `kind` | Event kind |
 | `payload` | Opaque JSON payload |
@@ -138,11 +138,11 @@ See [edge-fusion-architecture.md](edge-fusion-architecture.md) for defaults and 
 
 - Users: opaque Redis sessions, Bearer tokens, `POST /v1/auth/login` →
   `/v1/auth/me` → `PATCH /v1/auth/context` (platform roles only; sets
-  active company/establishment).
+  active account/unit).
 - SSO: admin app hosts login + `/sso/handoff`; MFEs receive `#token=` via
   origin-allowlisted return URLs (`SSO_RETURN_ORIGINS`).
 - Isolation: PostgreSQL RLS — platform roles bypass; tenant roles scoped to
-  the Redis session’s active company.
+  the Redis session’s active account.
 - Inbound webhooks: per-endpoint Bearer tokens (not user sessions).
 
 ## Non-goals (MVP)
@@ -157,3 +157,11 @@ See [edge-fusion-architecture.md](edge-fusion-architecture.md) for defaults and 
 
 Also out of scope for this MVP slice: TLS/edge gateway in local Compose;
 per-service production deployables beyond what `infra` already owns.
+
+
+### Redis contract compatibility (rename release)
+
+Producers emit `account_id` / `unit_id`. Consumers (prompt-eval, edge-cv, the
+API detections bridge and latest-frame reader) also accept the legacy field
+names `company_id` / `establishment_id` for one release so in-flight messages
+survive the rollout. The legacy readers are removed in the next release.

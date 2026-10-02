@@ -5,7 +5,7 @@ Both consumer groups are edge-cv. EDGE_CV_ENABLED defaults false: the process
 waits for shutdown without importing Redis, NumPy, OpenCV, Torch or Ultralytics.
 
 Enabled processing uses OpenCV grayscale frame difference, CPU YOLOv8n with
-ByteTrack isolated by company/establishment/camera, then ResNet18 embedding cosine novelty and confidence ranking. ResNet loads only
+ByteTrack isolated by account/unit/camera, then ResNet18 embedding cosine novelty and confidence ranking. ResNet loads only
 after object detection, runs on CPU and never acts as a continuous memory bank.
 TensorRT is not loaded. Torch 2.5.1 and torchvision 0.20.1 are paired in the image.
 The YOLO checkpoint defaults to yolov8n.pt (Ultralytics downloads it on first use);
