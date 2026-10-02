@@ -6,8 +6,8 @@ SOURCE_TERMS = "https://dot.ca.gov/conditions-of-use"
 CAMERAS = (
     {
         "key": "broad-street",
-        "name": "US-101 — Broad Street",
-        "site": "San Luis Obispo — Broad Street",
+        "name": "Marginal Pinheiros — Cidade Jardim",
+        "site": "São Paulo — Cidade Jardim",
         "playlist": "https://wzmedia.dot.ca.gov/D5/101atBroadSt.stream/playlist.m3u8",
         "watchlist": "Densidade de tráfego e filas",
         "prompts": (
@@ -17,8 +17,8 @@ CAMERAS = (
     },
     {
         "key": "monterey-street",
-        "name": "US-101 — Monterey Street",
-        "site": "San Luis Obispo — Monterey Street",
+        "name": "Av. 23 de Maio — Bela Vista",
+        "site": "São Paulo — Bela Vista",
         "playlist": "https://wzmedia.dot.ca.gov/D5/101atMontereySt.stream/playlist.m3u8",
         "watchlist": "Atividade na via e obstruções",
         "prompts": (
@@ -28,8 +28,8 @@ CAMERAS = (
     },
     {
         "key": "madonna-road",
-        "name": "US-101 — Madonna Road",
-        "site": "San Luis Obispo — Madonna Road",
+        "name": "Marginal Tietê — Santana",
+        "site": "São Paulo — Santana",
         "playlist": "https://wzmedia.dot.ca.gov/D5/101atMadonnaRd.stream/playlist.m3u8",
         "watchlist": "Tipos de veículos e condições do tráfego",
         "prompts": (
