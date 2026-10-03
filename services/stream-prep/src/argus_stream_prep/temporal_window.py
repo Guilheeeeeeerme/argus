@@ -13,14 +13,20 @@ from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
-DEFAULT_WINDOW_SIZE = 6
+DEFAULT_WINDOW_SIZE = 45
 MIN_WINDOW_SIZE = 4
-MAX_WINDOW_SIZE = 8
+MAX_WINDOW_SIZE = 600
 
 
-def clamp_window_size(size: int) -> int:
-    """Clamp requested window size into the MVP 4–8 frame band."""
-    return max(MIN_WINDOW_SIZE, min(MAX_WINDOW_SIZE, size))
+def clamp_window_size(
+    size: int, min_size: int = MIN_WINDOW_SIZE, max_size: int = MAX_WINDOW_SIZE
+) -> int:
+    """Clamp requested window size into the operator-configurable band."""
+    try:
+        size = int(size)
+    except (TypeError, ValueError):
+        size = DEFAULT_WINDOW_SIZE
+    return max(min_size, min(max_size, size))
 
 
 @dataclass

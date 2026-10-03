@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     poll_interval: float = Field(alias="POLL_INTERVAL", default=30.0)
     """Seconds between stream-config refreshes from the API."""
 
-    window_size: int = Field(alias="WINDOW_SIZE", default=6)
-    """Frames per temporal window (clamped to 4–8 in temporal_window)."""
+    window_size: int = Field(alias="WINDOW_SIZE", default=45)
+    """Frames per temporal window (15 s at SAMPLE_FPS=3; clamped 4–600)."""
 
     contrast_normalize: bool = Field(alias="CONTRAST_NORMALIZE", default=False)
     """Optional contrast normalization during media preprocessing."""
