@@ -25,3 +25,6 @@ celerybeat-schedule*
 .tokensave/
 .windsurf/
 skills-lock.json
+
+# ---- Local git worktrees ----
+.worktrees/
