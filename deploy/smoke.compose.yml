@@ -35,7 +35,7 @@ services:
 
   api:
     environment: !override
-      GIT_SHA: smoke
+# GIT_SHA comes from the deploy job env (matches the image bake)
       SERVICE_ROLE: api-admin
       DATABASE_URL: postgresql+asyncpg://argus_app:argus_app@postgres:5432/argus
       ADMIN_DATABASE_URL: postgresql+asyncpg://argus:argus@postgres:5432/argus
