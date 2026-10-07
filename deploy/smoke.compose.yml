@@ -17,31 +17,6 @@ services:
       start_period: 10s
     networks: [argus-internal]
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://minio:9000/minio/health/live"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    networks: [argus-internal]
-
-  minio-init:
-    image: quay.io/minio/mc:latest
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      mc mb local/argus-frames --ignore-existing"
-    depends_on:
-      minio:
-        condition: service_healthy
-    networks: [argus-internal]
-
   migrate:
     environment: !override
       SKIP_MIGRATIONS: "0"
@@ -54,8 +29,6 @@ services:
     depends_on: !override
       postgres:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
 
   api:
     environment: !override
@@ -68,7 +41,7 @@ services:
       AUTH0_DOMAIN: dev.argus.local
       DEV_JWT_SECRET: smoke-dev-jwt
       STREAM_GATEWAY_TOKEN: smoke-stream-gateway-token
-      S3_ENDPOINT_URL: http://minio:9000
+      S3_ENDPOINT_URL: http://object-store:3900
       S3_BUCKET_NAME: argus-frames
       CORS_ORIGINS: http://localhost:8180
       LOG_LEVEL: INFO
