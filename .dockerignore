@@ -1,0 +1,35 @@
+# Keep build contexts minimal; Dockerfiles under deploy/docker/ build from the
+# repo root and COPY only what they need.
+.git
+.github
+branding
+tests
+docs
+node_modules
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.tsbuildinfo
+coverage
+.coverage
+.env
+.env.*
+*.local
+
+# deploy/ excluded wholesale, EXCEPT what images COPY (probe + ops scripts).
+deploy/**
+!deploy/docker
+!deploy/docker/**
+!deploy/probe
+!deploy/probe/**
+!deploy/ops
+!deploy/ops/**
+!deploy/migrate.sh
+
+# Old infra-era leftovers (defensive).
+.infra
+scripts/backup

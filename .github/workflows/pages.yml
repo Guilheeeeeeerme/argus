@@ -1,0 +1,65 @@
+# Build the Argus SPAs and deploy them to Cloudflare Pages:
+#   apps/admin  → Pages project `argus-app`   (https://app.argus.ferredemo.dev)
+#   apps/triage → Pages project `argus-triage` (https://triage.argus.ferredemo.dev)
+# Public API base is baked as https://api.argus.ferredemo.dev (no proxy path —
+# Pages cannot reverse-proxy a separate origin the way the old nginx did).
+# Requires GitHub secrets: CLOUDFLARE_API_TOKEN (Pages deploy + projects read)
+# and CLOUDFLARE_ACCOUNT_ID; the two Pages projects must exist first (panel).
+name: Pages (SPA)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        type: string
+        required: false
+        description: Full commit SHA to deploy (empty = current main)
+permissions:
+  contents: read
+concurrency:
+  group: pages-argus
+  cancel-in-progress: false
+
+jobs:
+  pages:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.sha) || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install workspaces
+        run: npm ci --no-audit --no-fund
+      # Same VITE envelope as infra/containers/frontend.Dockerfile build-args.
+      - name: Build admin + triage
+        env:
+          API_ORIGIN: https://api.argus.ferredemo.dev
+          WS_ORIGIN: wss://api.argus.ferredemo.dev
+          MAIN_ORIGIN: https://app.argus.ferredemo.dev
+          MFE_ORIGIN: https://triage.argus.ferredemo.dev
+        run: |
+          set -euo pipefail
+          export VITE_API_URL="$API_ORIGIN" VITE_API_ORIGIN="$API_ORIGIN" VITE_API_BASE="$API_ORIGIN" \
+                 VITE_WS_BASE="$WS_ORIGIN" \
+                 VITE_MAIN_ORIGIN="$MAIN_ORIGIN" \
+                 VITE_SUPPORT_ORIGIN="$MFE_ORIGIN" \
+                 VITE_SSO_RETURN_ORIGINS="https://app.argus.ferredemo.dev,https://triage.argus.ferredemo.dev"
+          npm run build -w ./apps/admin
+          npm run build -w ./apps/triage
+      - name: Deploy admin to Pages (argus-app)
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/admin/dist --project-name=argus-app
+      - name: Deploy triage to Pages (argus-triage)
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/triage/dist --project-name=argus-triage

@@ -1,5 +1,6 @@
 """FastAPI application factory for HTTP deployables."""
 
+import os
 import re
 from contextlib import asynccontextmanager
 
@@ -15,7 +16,7 @@ from argus.core.exceptions import register_exception_handlers
 from argus.services.database import check_database_connection
 
 RATE_LIMIT_EXEMPT_PATHS = frozenset(
-    {"/health", "/health/db", "/docs", "/redoc", "/openapi.json"}
+    {"/health", "/health/db", "/version", "/docs", "/redoc", "/openapi.json"}
 )
 # Triage grid polling (~2 s per camera) would exhaust the per-IP default limit.
 RATE_LIMIT_EXEMPT_PATTERNS = (
@@ -86,6 +87,14 @@ def create_http_app(
     async def health_db() -> dict[str, bool | str]:
         ok = await check_database_connection()
         return {"database": ok}
+
+    @app.get("/version")
+    async def version() -> dict[str, str]:
+        """Public release probe: verifies which image SHA is served."""
+        return {
+            "gitsha": os.getenv("GIT_SHA", "unknown"),
+            "service": "argus-api",
+        }
 
     @app.get("/debug/auth")
     async def debug_auth(
