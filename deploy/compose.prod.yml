@@ -1,0 +1,367 @@
+# Argus — production stack for Dokploy (generic Git source, branch `production`).
+#
+# Sources of truth mirrored from infra/scripts/config.py (compose("argus", …)):
+# - images: ghcr.io/guilheeeeeeerme/argus/<service>:<tag>, pull_policy always;
+#   `worker` is a plain re-tag of the api image (Celery, different command).
+# - apps NEVER migrate on start: the one-shot `migrate` service does
+#   (SKIP_MIGRATIONS=1 bypasses it for rollbacks).
+# - the five vision services live behind the `pipeline` profile (8 GB tier OFF);
+#   core = migrate/redis/worker/api.
+# - all Redis access uses DB /1 (pipeline_health.py enforces it).
+#
+# Secrets come from the Dokploy panel environment only — none are baked here.
+name: argus
+
+x-common-env: &common-env
+  GIT_SHA: ${IMAGE_TAG:-unknown}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-llm-env: &llm-env
+  # Verified production pin (2.5 Flash Lite rejects new accounts).
+  LLM_USE_HEADROOM: ${LLM_USE_HEADROOM:-true}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+  GEMINI_BASE_URL: ${GEMINI_BASE_URL:-http://headroom:8787}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY required}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://headroom:8787/v1}
+  LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-gemini,openai}
+  MODEL_RANK_REFRESH_MS: ${MODEL_RANK_REFRESH_MS:-43200000}
+  MODEL_RANK_TOP_N: ${MODEL_RANK_TOP_N:-3}
+  LLM_RATE_LIMIT_PER_MINUTE: ${LLM_RATE_LIMIT_PER_MINUTE:-20}
+  LLM_DAILY_BUDGET: ${LLM_DAILY_BUDGET:-500}
+  LLM_GLOBAL_DAILY_BUDGET: ${LLM_GLOBAL_DAILY_BUDGET:-5000}
+  LLM_DAILY_TOKEN_BUDGET: ${LLM_DAILY_TOKEN_BUDGET:-0}
+  LLM_DAILY_COST_USD: ${LLM_DAILY_COST_USD:-0}
+  LLM_ESTIMATED_TOKENS_PER_CALL: ${LLM_ESTIMATED_TOKENS_PER_CALL:-4000}
+  LLM_ESTIMATED_COST_PER_CALL_USD: ${LLM_ESTIMATED_COST_PER_CALL_USD:-0.01}
+  VLM_MIN_CONFIDENCE_FOR_HINT: ${VLM_MIN_CONFIDENCE_FOR_HINT:-0.55}
+
+x-object-env: &object-env
+  # Garage v2.4.1 S3-compatible object store (platform stack on dokploy-network).
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:?S3_ENDPOINT_URL required (e.g. http://object-store:9000)}
+  S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID required}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY required}
+  S3_BUCKET_NAME: ${S3_BUCKET_NAME:-argus-frames}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  FRAME_HTTP_ALLOWLIST: ${FRAME_HTTP_ALLOWLIST:-}
+
+x-db-env: &db-env
+  # Existing Supabase project (pooler, DB postgres, schema argus) — never moved.
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL required (postgresql+asyncpg://argus_app:<pw>@aws-0-eu-west-1.pooler.supabase.com:6543/postgres)}
+  ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL:?ADMIN_DATABASE_URL required (postgresql+asyncpg://argus:<pw>@aws-0-eu-west-1.pooler.supabase.com:6543/postgres)}
+
+x-redis-env: &redis-env
+  # Per-app Redis with a password; DB /1 in prod (pipeline_health.py checks).
+  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required}@redis:6379/1}
+
+x-auth-env: &auth-env
+  AUTH0_USE_MOCK: ${AUTH0_USE_MOCK:-true}
+  AUTH0_DOMAIN: ${AUTH0_DOMAIN:?AUTH0_DOMAIN required}
+  AUTH0_API_AUDIENCE: ${AUTH0_API_AUDIENCE:-https://api.argus.ferredemo.dev}
+  AUTH0_ALGORITHMS: ${AUTH0_ALGORITHMS:-RS256}
+  AUTH0_CLAIMS_NAMESPACE: ${AUTH0_CLAIMS_NAMESPACE:-http://argus.local}
+  DEV_JWT_SECRET: ${DEV_JWT_SECRET:?DEV_JWT_SECRET required}
+  DEV_ROOT_EMAIL: ${DEV_ROOT_EMAIL:-root@argus.local}
+  DEV_ROOT_PASSWORD: ${DEV_ROOT_PASSWORD:-Password123!}
+
+services:
+  # ——— one-shot migration (NEVER on app containers) ————————————————————
+  migrate:
+    image: ghcr.io/guilheeeeeeerme/argus/api:${IMAGE_TAG:-production}
+    pull_policy: always
+    restart: "no"
+    command: ["bash", "/app/deploy/migrate.sh"]
+    environment:
+      <<: [*common-env, *db-env]
+      SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-0}
+      SEED_DEMO: ${SEED_DEMO:-0}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-Password123!}
+      ARGUS_APP_ROLE_PASSWORD: ${ARGUS_APP_ROLE_PASSWORD:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    mem_limit: ${MIGRATE_MEM_LIMIT:-512m}
+    networks: [argus-internal]
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - /bin/sh
+      - -c
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory-policy noeviction --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
+    volumes:
+      - argus_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    mem_limit: ${REDIS_MEM_LIMIT:-200m}
+    cpus: 0.30
+    networks: [argus-internal]
+
+  api:
+    image: ghcr.io/guilheeeeeeerme/argus/api:${IMAGE_TAG:-production}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      <<: [*common-env, *db-env, *redis-env, *llm-env, *object-env, *auth-env]
+      SERVICE_ROLE: api-admin
+      STREAM_GATEWAY_TOKEN: ${STREAM_GATEWAY_TOKEN:?STREAM_GATEWAY_TOKEN required}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://app.argus.ferredemo.dev,https://triage.argus.ferredemo.dev}
+      TRIAGE_PUBLIC_ORIGIN: ${TRIAGE_PUBLIC_ORIGIN:-https://triage.argus.ferredemo.dev}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-30}
+      NOTIFICATION_MODE: ${NOTIFICATION_MODE:-log}
+      EVENT_TRANSPORT: ${EVENT_TRANSPORT:-log}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      SNS_TOPIC_ARN: ${SNS_TOPIC_ARN:-}
+      EVENTBRIDGE_BUS_NAME: ${EVENTBRIDGE_BUS_NAME:-default}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_SMS_FROM: ${TWILIO_SMS_FROM:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    # /version is a public route; it proves the released SHA end to end
+    # without touching the database (unlike /health/db, which Supabase gates).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; r=u.urlopen('http://127.0.0.1:8000/version', timeout=3); assert r.status == 200"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: ${API_MEM_LIMIT:-700m}
+    cpus: 0.75
+    networks: [argus-internal, dokploy-network]
+    labels:
+      # Public router (auth-protected routes) + swallow stray /internal from outside.
+      traefik.enable: "true"
+      traefik.docker.network: dokploy-network
+      traefik.http.routers.argus-api.rule: Host(`api.argus.ferredemo.dev`)
+      traefik.http.routers.argus-api.entrypoints: websecure
+      traefik.http.routers.argus-api.tls.certresolver: letsencrypt
+      traefik.http.routers.argus-api.middlewares: security-headers@file,compress@file
+      # `/internal` paths are swallowed by Traefik (noop service → 404 from
+      # outside the cluster); the real token-gated endpoints live under
+      # /v1/internal and always require X-Stream-Gateway-Token.
+      traefik.http.routers.argus-api-internal.rule: "Host(`api.argus.ferredemo.dev`) && PathPrefix(`/internal`)"
+      traefik.http.routers.argus-api-internal.priority: "200"
+      traefik.http.routers.argus-api-internal.entrypoints: websecure
+      traefik.http.routers.argus-api-internal.service: noop@internal
+      traefik.http.services.argus-api.loadbalancer.server.scheme: http
+      traefik.http.services.argus-api.loadbalancer.server.port: "8000"
+
+  worker:
+    # Celery (model-rank only): same api image, different command/ROLE.
+    image: ghcr.io/guilheeeeeeerme/argus/worker:${IMAGE_TAG:-production}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    command:
+      [
+        "celery", "-A", "argus.workers.celery_app", "worker",
+        "--beat", "--loglevel=INFO", "--concurrency=2",
+      ]
+    environment:
+      <<: [*common-env, *db-env, *redis-env, *llm-env, *object-env, *auth-env]
+      SERVICE_ROLE: worker-vlm
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", 'celery -A argus.workers.celery_app inspect ping -d "celery@$${HOSTNAME}" --timeout 4']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: ${WORKER_MEM_LIMIT:-800m}
+    cpus: 1.0
+    networks: [argus-internal, dokploy-network]
+
+  # ——— vision pipeline behind profile `pipeline` (OFF on the 8 GB tier) ———
+  stream-gateway:
+    profiles: [pipeline]
+    image: alexxit/go2rtc:1.9.14
+    restart: unless-stopped
+    # Config volume: sync rewrites the durable streams; gateway reads only.
+    # Plan in deploy/README.md (stream-gateway-config volume).
+    volumes:
+      - stream-gateway-config:/config:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:1984/api/streams"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: ${GATEWAY_MEM_LIMIT:-128m}
+    cpus: 0.50
+    networks: [argus-internal]
+
+  stream-gateway-sync:
+    profiles: [pipeline]
+    image: ghcr.io/guilheeeeeeerme/argus/stream-gateway-sync:${IMAGE_TAG:-production}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    # Deviation from the image's USER 10001: Docker initializes the named
+    # stream-gateway-config volume as root, so the writer must be root to
+    # own /config/go2rtc.yaml (gateway itself mounts it read-only).
+    user: "0:0"
+    environment:
+      <<: [*common-env, *redis-env]
+      API_INTERNAL_URL: http://api:8000
+      STREAM_GATEWAY_URL: http://stream-gateway:1984
+      STREAM_GATEWAY_TOKEN: ${STREAM_GATEWAY_TOKEN:?STREAM_GATEWAY_TOKEN required}
+      GO2RTC_CONFIG_PATH: /config/go2rtc.yaml
+      POLL_INTERVAL: ${POLL_INTERVAL:-30}
+    volumes:
+      - stream-gateway-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      stream-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/pipeline_health.py", "stream-gateway-sync"]
+      interval: 10s
+      timeout: 25s
+      retries: 12
+      start_period: 45s
+    mem_limit: ${SYNC_MEM_LIMIT:-128m}
+    cpus: 0.25
+    networks: [argus-internal]
+
+  stream-prep:
+    profiles: [pipeline]
+    image: ghcr.io/guilheeeeeeerme/argus/stream-prep:${IMAGE_TAG:-production}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      <<: [*common-env, *redis-env, *object-env]
+      API_INTERNAL_URL: http://api:8000
+      STREAM_GATEWAY_URL: http://stream-gateway:1984
+      STREAM_GATEWAY_TOKEN: ${STREAM_GATEWAY_TOKEN:?STREAM_GATEWAY_TOKEN required}
+      ALLOW_SYNTHETIC_FRAMES: ${ALLOW_SYNTHETIC_FRAMES:-false}
+      POLL_INTERVAL: ${POLL_INTERVAL:-30}
+      # Eval window tuning: seconds per window = WINDOW_SIZE / SAMPLE_FPS.
+      # Defaults keep the 15 s window (45/3). Panel env ARGUS_* wins.
+      SAMPLE_FPS: ${ARGUS_SAMPLE_FPS:-3}
+      WINDOW_SIZE: ${ARGUS_STREAM_WINDOW_SIZE:-45}
+      LATEST_FRAME_ENABLED: ${LATEST_FRAME_ENABLED:-true}
+      LATEST_FRAME_TTL: ${LATEST_FRAME_TTL:-30}
+    depends_on:
+      api:
+        condition: service_healthy
+      stream-gateway-sync:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/pipeline_health.py", "stream-prep"]
+      interval: 10s
+      timeout: 25s
+      retries: 12
+      start_period: 45s
+    mem_limit: ${PREP_MEM_LIMIT:-256m}
+    cpus: 0.50
+    networks: [argus-internal, dokploy-network]
+
+  edge-cv:
+    profiles: [pipeline]
+    image: ghcr.io/guilheeeeeeerme/argus/edge-cv:${IMAGE_TAG:-production}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    # Sensor replay and tracking assume a single consumer replica.
+    scale: 1
+    deploy:
+      replicas: 1
+    environment:
+      <<: [*common-env, *redis-env, *object-env]
+      EDGE_CV_ENABLED: "true"
+      EDGE_TENSORRT_ENABLED: "false"
+      EDGE_YOLO_MODEL: /opt/models/yolov8n.pt
+      TORCH_HOME: /opt/models/torch
+      YOLO_CONFIG_DIR: /tmp/ultralytics
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      FRAMES_READY_STREAM: frames:ready
+      FRAMES_READY_GROUP: edge-cv
+      CONTEXT_EVENTS_STREAM: context:events
+      CONTEXT_EVENTS_GROUP: edge-cv
+      CANDIDATES_READY_STREAM: candidates:ready
+      EDGE_IDLE_FPS: ${EDGE_IDLE_FPS:-0.5}
+      EDGE_BURST_FPS: ${EDGE_BURST_FPS:-3}
+      EDGE_BURST_SECONDS: ${EDGE_BURST_SECONDS:-10}
+      EDGE_MOTION_THRESHOLD: ${EDGE_MOTION_THRESHOLD:-0.02}
+      EDGE_MAX_KEYFRAMES: ${EDGE_MAX_KEYFRAMES:-3}
+      EDGE_SENSOR_WINDOW_SECONDS: ${EDGE_SENSOR_WINDOW_SECONDS:-5}
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/pipeline_health.py", "edge-cv"]
+      interval: 10s
+      timeout: 25s
+      retries: 12
+      start_period: 45s
+    mem_limit: ${EDGE_MEM_LIMIT:-1536m}
+    cpus: 1.50
+    networks: [argus-internal, dokploy-network]
+
+  prompt-eval:
+    profiles: [pipeline]
+    image: ghcr.io/guilheeeeeeerme/argus/prompt-eval:${IMAGE_TAG:-production}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      <<: [*common-env, *db-env, *redis-env, *object-env, *llm-env]
+      EDGE_CV_ENABLED: "true"
+      FRAMES_READY_STREAM: frames:ready
+      FRAMES_READY_GROUP: prompt-eval
+      CONTEXT_EVENTS_STREAM: context:events
+      CONTEXT_EVENTS_GROUP: prompt-eval
+      DETECTIONS_POSITIVE_STREAM: detections:positive
+      CONTEXT_LOOKBACK_SECONDS: ${CONTEXT_LOOKBACK_SECONDS:-900}
+      PROMPT_EVAL_CONFIDENCE_FLOOR: ${PROMPT_EVAL_CONFIDENCE_FLOOR:-0.5}
+      MAX_CLIP_SECONDS: ${MAX_CLIP_SECONDS:-600}
+      CANDIDATES_READY_STREAM: candidates:ready
+    depends_on:
+      api:
+        condition: service_healthy
+      edge-cv:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/pipeline_health.py", "prompt-eval"]
+      interval: 10s
+      timeout: 25s
+      retries: 12
+      start_period: 45s
+    mem_limit: ${EVAL_MEM_LIMIT:-512m}
+    cpus: 0.75
+    networks: [argus-internal, dokploy-network]
+
+networks:
+  # Internal-only app traffic (api/redis/pipeline; never host-exposed).
+  argus-internal:
+    internal: true
+  # Platform network: Traefik entry + Garage (object-store) + Headroom (llm).
+  dokploy-network:
+    external: true
+
+volumes:
+  argus_redis_data:
+  stream-gateway-config:
