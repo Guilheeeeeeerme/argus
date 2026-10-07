@@ -159,9 +159,8 @@ jobs:
       - name: Strict smoke against prod compose (pipeline profile OFF)
         run: |
           set -euo pipefail
-          # Local stand-in for Dokploy's ingress network; compose validates
-          # against its own labels, so pre-create then relax like quizzeira.
-          docker network create dokploy-network || true
+          # dokploy-network exists as external in prod; the smoke override
+          # relaxes to runner-local so compose creates+labels it itself.
           docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml -f deploy/smoke.compose.yml up -d --wait migrate
           docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml -f deploy/smoke.compose.yml up -d --wait api worker
       - name: /version equals released SHA
