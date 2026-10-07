@@ -20,6 +20,9 @@ services:
   migrate:
     environment: !override
       SKIP_MIGRATIONS: "0"
+      # No object-store in the runner smoke; boto3 bootstrap would otherwise
+      # retry-exhaust against a dead endpoint.
+      SKIP_S3_BOOTSTRAP: "1"
       ADMIN_DATABASE_URL: postgresql+asyncpg://argus:argus@postgres:5432/argus
       ARGUS_APP_ROLE_PASSWORD: argus_app
       DEV_ROOT_EMAIL: root@argus.local

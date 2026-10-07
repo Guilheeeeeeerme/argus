@@ -23,8 +23,12 @@ alembic upgrade head
 echo "[migrate] ensure argus_app role grants"
 python "${APP_ROOT}/deploy/ops/ensure_grants.py"
 
-echo "[migrate] platform bootstrap (root account + frame bucket)"
-python "${APP_ROOT}/deploy/ops/bootstrap.py"
+if [ "${SKIP_S3_BOOTSTRAP:-0}" = "1" ]; then
+  echo "[migrate] SKIP_S3_BOOTSTRAP=1 — skipping object-store bootstrap"
+else
+  echo "[migrate] platform bootstrap (root account + frame bucket)"
+  python "${APP_ROOT}/deploy/ops/bootstrap.py"
+fi
 
 case "${SEED_DEMO:-0}" in
   1|true|TRUE|yes|YES)
