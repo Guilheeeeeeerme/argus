@@ -134,7 +134,7 @@ jobs:
           docker buildx imagetools create "$API:production" -t "$WORKER:production"
 
   smoke:
-    needs: [resolve, images]
+    needs: [resolve, images, tag-worker]
     runs-on: ubuntu-24.04
     env:
       IMAGE_TAG: ${{ needs.resolve.outputs.sha }}
