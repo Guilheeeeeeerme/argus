@@ -57,3 +57,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://argus_app:argus_app@postgres:5432/argus
       REDIS_URL: redis://:smoke-password@redis:6379/0
       LOG_LEVEL: INFO
+
+networks:
+  # Override the prod compose's `external: true` dokploy-network so the runner
+  # can create it locally (same pattern as quizzeira's smoke compose).
+  dokploy-network:
+    name: dokploy-network
+    external: false
