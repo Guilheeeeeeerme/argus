@@ -140,7 +140,9 @@ def admin_dsn() -> str:
     url = os.environ.get("ADMIN_DATABASE_URL", "")
     if not url:
         raise SystemExit("ADMIN_DATABASE_URL is required")
-    return url
+    # SQLAlchemy-style scheme (`postgresql+asyncpg://`) is not what asyncpg
+    # parses — strip the driver suffix.
+    return url.replace("+asyncpg", "")
 
 
 async def apply(sql_statements: list[str], dry_run: bool) -> None:
@@ -148,7 +150,7 @@ async def apply(sql_statements: list[str], dry_run: bool) -> None:
         if dry_run:
             print(statement.strip(), end="\n\n")
             continue
-        conn = await asyncpg.connect()
+        conn = await asyncpg.connect(admin_dsn())
         try:
             await conn.execute(statement)
         finally:
