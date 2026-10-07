@@ -26,6 +26,7 @@ ARG GIT_SHA=unknown
 ENV GIT_SHA=${GIT_SHA}
 
 # Plain uvicorn factory — NEVER migrates on start (alembic runs in `migrate`).
+RUN useradd --uid 10001 --user-group --create-home argus
 USER 10001:10001
 EXPOSE 8000
 CMD ["uvicorn", "argus.apps.http:create_admin_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

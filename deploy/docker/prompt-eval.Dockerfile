@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY apps/api/src/argus /app/argus
 COPY services/prompt-eval/src/argus_prompt_eval /app/argus_prompt_eval
 
+RUN useradd --uid 10001 --user-group --create-home argus
 USER 10001:10001
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1

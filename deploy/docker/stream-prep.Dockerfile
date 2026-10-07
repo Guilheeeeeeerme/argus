@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY services/stream-prep/src/argus_stream_prep /app/argus_stream_prep
 
+RUN useradd --uid 10001 --user-group --create-home argus
 USER 10001:10001
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1

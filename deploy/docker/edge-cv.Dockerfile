@@ -36,6 +36,7 @@ RUN mkdir -p /opt/models \
     && chmod -R a+rX /opt/models \
     && rm -rf /tmp/ultralytics
 
+RUN useradd --uid 10001 --user-group --create-home argus
 USER 10001:10001
 RUN python -c "import numpy as np; from argus_edge_cv.detector import YOLODetector, ResNetEmbedder; frame=np.zeros((128,128,3),dtype=np.uint8); YOLODetector('/opt/models/yolov8n.pt').detect(frame,('build','smoke','camera')); assert ResNetEmbedder()(frame).shape == (512,)"
 

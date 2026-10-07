@@ -14,5 +14,6 @@ ENV PYTHONUNBUFFERED=1
 ARG GIT_SHA=unknown
 ENV GIT_SHA=${GIT_SHA}
 
+RUN useradd --uid 10001 --user-group --create-home argus
 USER 10001:10001
 CMD ["python", "-u", "/app/sync.py"]
