@@ -161,8 +161,15 @@ jobs:
           set -euo pipefail
           # dokploy-network exists as external in prod; the smoke override
           # relaxes to runner-local so compose creates+labels it itself.
-          docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml -f deploy/smoke.compose.yml up -d --wait migrate
-          docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml -f deploy/smoke.compose.yml up -d --wait api worker
+          # One create pass so the one-shot migrate never runs twice; a second
+          # `up` would recreate it and the re-run of alembic "current" fails fast.
+          if ! docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml -f deploy/smoke.compose.yml up -d --wait redis migrate api worker; then
+            echo "---- migrate log ----"
+            docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml -f deploy/smoke.compose.yml logs migrate | head -120
+            echo "---- api log ----"
+            docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml -f deploy/smoke.compose.yml logs api | head -120
+            exit 1
+          fi
       - name: /version equals released SHA
         run: |
           set -euo pipefail
