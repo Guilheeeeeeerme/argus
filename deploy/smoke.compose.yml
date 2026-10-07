@@ -55,6 +55,14 @@ services:
         condition: service_healthy
 
   worker:
+    healthcheck: !override
+      # `celery inspect ping` needs the beat competition and broker LAN tables;
+      # for the runner smoke an import probe is what boot honesty requires.
+      test: ["CMD", "python", "-c", "import argus.workers.celery_app; print('celery import ok')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     environment: !override
       SERVICE_ROLE: worker-vlm
       DATABASE_URL: postgresql+asyncpg://argus_app:argus_app@postgres:5432/argus
