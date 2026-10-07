@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 # One-shot production migration entrypoint. Runs in the `migrate` service
 # (same image as api; baked at /app/deploy/migrate.sh) — NEVER inside api/worker
 # containers (they never migrate on start).
@@ -7,7 +7,7 @@
 #        → re-apply argus_app role grants (deploy/ops/ensure_grants.py)
 #        → platform bootstrap (root account + frame bucket)
 #        → optional demo seed (SEED_DEMO).
-set -euo pipefail
+set -eu
 
 APP_ROOT="${APP_ROOT:-/app}"
 
