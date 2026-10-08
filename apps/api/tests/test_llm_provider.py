@@ -70,4 +70,4 @@ def test_primary_provider_name_matches_chain_head() -> None:
 
 
 def test_gemini_model_defaults_to_pinned_flash_lite() -> None:
-    assert _settings().gemini_model == "gemini-3.5-flash-lite"
+    assert _settings().gemini_model == "gemini-3.1-flash-lite"

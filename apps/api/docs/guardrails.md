@@ -35,7 +35,7 @@ fails closed (the analysis is skipped/failed, never silently degraded).
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | `""` | Gemini provider key |
-| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Sole VLM model id (env pin; no runtime discovery) |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Sole VLM model id (env pin; no runtime discovery) |
 | `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com` | Gemini API root; set to Headroom (`http://localhost:8787`) to compress |
 | `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Feedback RAG embeddings (1536-d) |
 | `LLM_PROVIDER_ORDER` | `gemini` | Provider priority (Gemini sole provider) |
