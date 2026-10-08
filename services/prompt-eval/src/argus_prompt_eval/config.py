@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         alias="GEMINI_BASE_URL",
         default="https://generativelanguage.googleapis.com",
     )
-    gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-3.5-flash-lite")
+    gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-3.1-flash-lite")
 
     llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
     llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini")

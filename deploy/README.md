@@ -27,7 +27,7 @@ Runtime database stays the **existing Supabase project** — never repoint the D
    - Owner role `argus` (migrations) and runtime role `argus_app` (NOBYPASSRLS) are separate roles; `ensure_grants.py` keeps `argus_app` non-superuser/NOBYPASSRLS and re-grants schema `argus` DML. Never merge them into one connection.
    - `REDIS_PASSWORD` is required; compose renders `redis://:<pw>@redis:6379/1` (pipeline_health enforces DB `/1`).
    - S3 is Garage: `S3_ENDPOINT_URL=http://object-store:9000`, bucket `argus-frames`.
-   - LLM: `LLM_USE_HEADROOM=true`, `GEMINI_MODEL=gemini-3.5-flash-lite` (verified production pin), `GEMINI_BASE_URL=http://headroom:8787`.
+   - LLM: `LLM_USE_HEADROOM=true`, `GEMINI_MODEL=gemini-3.1-flash-lite` (verified production pin), `GEMINI_BASE_URL=http://headroom:8787`.
    - Tier: paste `tiers/16gb.env` (incl. `COMPOSE_PROFILES=pipeline`) or `tiers/8gb.env` on the small VPS.
 3. **GHCR pull credential** — configure the private-registry credentials in Dokploy so the stack can pull the `ghcr.io/guilheeeeeeerme/argus/*` images.
 4. **Deploy**: Dokploy runs `docker compose up -d --wait` — `migrate` (restart: "no") runs first, then `api` depends on `migrate service_completed_successfully` + healthy Redis. `worker` waits for the healthy `api`.

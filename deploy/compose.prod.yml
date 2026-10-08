@@ -19,7 +19,7 @@ x-common-env: &common-env
 x-llm-env: &llm-env
   # Pinned model (env only — no models.list / rank refresh).
   LLM_USE_HEADROOM: ${LLM_USE_HEADROOM:-true}
-  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
   GEMINI_BASE_URL: ${GEMINI_BASE_URL:-http://headroom:8787}
   GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY required}
   # JEV reserved (not consumed by Argus MVP yet; panel may still provision).
