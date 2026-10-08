@@ -107,15 +107,13 @@ class Settings(BaseSettings):
         alias="GEMINI_BASE_URL",
         default="https://generativelanguage.googleapis.com",
     )
-    gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-2.5-flash-lite")
+    gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-3.5-flash-lite")
     gemini_embedding_model: str = Field(
         alias="GEMINI_EMBEDDING_MODEL",
         default="gemini-embedding-001",
     )
     llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
     llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini")
-    model_rank_refresh_ms: int = Field(alias="MODEL_RANK_REFRESH_MS", default=43200000)
-    model_rank_top_n: int = Field(alias="MODEL_RANK_TOP_N", default=3)
     llm_rate_limit_per_minute: int = Field(alias="LLM_RATE_LIMIT_PER_MINUTE", default=20)
     llm_daily_budget: int = Field(alias="LLM_DAILY_BUDGET", default=500)
     llm_global_daily_budget: int = Field(alias="LLM_GLOBAL_DAILY_BUDGET", default=5000)

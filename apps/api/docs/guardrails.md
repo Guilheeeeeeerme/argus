@@ -10,7 +10,7 @@ fails closed (the analysis is skipped/failed, never silently degraded).
 - `python:apps/api/src/argus/guardrails/screening.py` — deterministic regex screening of untrusted text (operator feedback) BEFORE any LLM call **and at feedback write**. Hits return policy ids only, never matched text.
 - `python:apps/api/src/argus/guardrails/fencing.py` — wraps untrusted payload in `BEGIN_UNTRUSTED_VLM_CONTEXT`/`END_UNTRUSTED_VLM_CONTEXT` markers from the `context.fence` registry prompt.
 - `python:apps/api/src/argus/integrations/llm_provider.py` — provider chain (`LLM_PROVIDER_ORDER`, default `gemini`); keyless providers are skipped, and with no usable provider the worker fails closed unless `AUTH0_USE_MOCK` enables the mock client.
-- `python:apps/api/src/argus/integrations/model_rank.py` — cheapest-first model ranking from **seed-priced allowlisted** models only (no `inf`-price unknown IDs).
+- Model id is **pinned** via `GEMINI_MODEL` (no runtime `models.list` / rank refresh).
 - `python:apps/api/src/argus/services/llm_budget.py` — per-tenant Redis rate/budget plus global ceiling; optional token/cost halts.
 - `python:apps/api/src/argus/integrations/gemini_vlm.py` — frames via `data:` / `s3://` / allowlisted HTTP only (SSRF-hardened).
 - Notify HITL — WARNING queues deliveries as `awaiting_approval`; Twilio send requires triage approve.
@@ -22,7 +22,7 @@ fails closed (the analysis is skipped/failed, never silently degraded).
 | LLM01 Prompt Injection | pre-LLM `screen()` + write-time screen + `fence()` around feedback/RAG + injection-resistance rules in `vlm.system` |
 | LLM02 Sensitive Information Disclosure | keys never in prompts; **accepted residual**: frames/prompts leave to Gemini by design — require DPA + retention; prompt “don’t reveal secrets” is defense-in-depth only |
 | LLM03 Excessive Agency | no tool use; JSON-only; **HITL** before external notify; severity Claim–Check–Act with confidence floor |
-| LLM04 Supply Chain | seed-priced allowlisted model IDs only; pinned critical deps |
+| LLM04 Supply Chain | pinned `GEMINI_MODEL` env id only; pinned critical deps |
 | LLM05 Data & Model Poisoning | screen feedback before embedding |
 | LLM06 Unbounded Consumption | per-company + global call budgets; optional `LLM_DAILY_TOKEN_BUDGET` / `LLM_DAILY_COST_USD` halt |
 | LLM07 Misinformation | sanitize VLM JSON; min confidence before hint-driven severity |
@@ -35,12 +35,10 @@ fails closed (the analysis is skipped/failed, never silently degraded).
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | `""` | Gemini provider key |
-| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Default Gemini model before rank override |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Sole VLM model id (env pin; no runtime discovery) |
 | `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com` | Gemini API root; set to Headroom (`http://localhost:8787`) to compress |
 | `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Feedback RAG embeddings (1536-d) |
 | `LLM_PROVIDER_ORDER` | `gemini` | Provider priority (Gemini sole provider) |
-| `MODEL_RANK_REFRESH_MS` | `43200000` | Beat interval for `models.refresh_rank` |
-| `MODEL_RANK_TOP_N` | `3` | Models kept in the cached cheapest-first rank |
 | `LLM_RATE_LIMIT_PER_MINUTE` | `20` | Per-tenant LLM calls per minute |
 | `LLM_DAILY_BUDGET` | `500` | Per-tenant daily LLM call budget |
 | `LLM_GLOBAL_DAILY_BUDGET` | `5000` | Global daily call ceiling |

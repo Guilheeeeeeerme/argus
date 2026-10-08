@@ -77,8 +77,8 @@ message; screen at write and before LLM; no tool-calling agency in MVP.
 
 ### Provider failover + budgets — `provider_router`
 
-Gemini-only provider chain, per-tenant/global Redis budgets, and cheapest-first
-model rank (failover reserved for future providers; OpenAI retired).
+Gemini-only provider chain with env-pinned `GEMINI_MODEL` (no runtime model
+rank), plus per-tenant/global Redis budgets (OpenAI retired).
 
 ### HITL triage loop — api + triage MFE
 

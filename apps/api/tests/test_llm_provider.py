@@ -1,4 +1,4 @@
-"""LLM provider chain and model rank tests."""
+"""LLM provider chain tests (Gemini-only; model pinned via GEMINI_MODEL)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from argus.config import Settings
 from argus.integrations.gemini_vlm import GeminiVLMClient
 from argus.integrations.llm_provider import primary_provider_name, resolve_llm_chain
 from argus.integrations.mock_vlm import MockVLMClient
-from argus.integrations.model_rank import compute_rank, rank_for
 from argus.services.database import dispose_engine
 from argus.services.redis import close_redis
 
@@ -70,16 +69,5 @@ def test_primary_provider_name_matches_chain_head() -> None:
     assert primary_provider_name(_settings(GEMINI_API_KEY="")) == "mock"
 
 
-def test_compute_rank_is_cheapest_first_with_top_n(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("argus.integrations.model_rank.settings", _settings())
-    monkeypatch.setattr("argus.integrations.model_rank.settings.model_rank_top_n", 2)
-    assert compute_rank("openai") == []
-    assert compute_rank("gemini")[0] == "gemini-2.5-flash-lite"
-
-
-@pytest.mark.asyncio
-async def test_rank_for_falls_back_to_seed_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("argus.integrations.model_rank.settings", _settings())
-    rank = await rank_for("gemini")
-    assert rank[0] == "gemini-2.5-flash-lite"
-    assert len(rank) >= 2
+def test_gemini_model_defaults_to_pinned_flash_lite() -> None:
+    assert _settings().gemini_model == "gemini-3.5-flash-lite"

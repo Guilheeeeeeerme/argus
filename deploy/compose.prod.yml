@@ -17,14 +17,12 @@ x-common-env: &common-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
 x-llm-env: &llm-env
-  # Verified production pin (2.5 Flash Lite rejects new accounts).
+  # Pinned model (env only — no models.list / rank refresh).
   LLM_USE_HEADROOM: ${LLM_USE_HEADROOM:-true}
   GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
   GEMINI_BASE_URL: ${GEMINI_BASE_URL:-http://headroom:8787}
   GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY required}
   LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-gemini}
-  MODEL_RANK_REFRESH_MS: ${MODEL_RANK_REFRESH_MS:-43200000}
-  MODEL_RANK_TOP_N: ${MODEL_RANK_TOP_N:-3}
   LLM_RATE_LIMIT_PER_MINUTE: ${LLM_RATE_LIMIT_PER_MINUTE:-20}
   LLM_DAILY_BUDGET: ${LLM_DAILY_BUDGET:-500}
   LLM_GLOBAL_DAILY_BUDGET: ${LLM_GLOBAL_DAILY_BUDGET:-5000}
@@ -158,7 +156,7 @@ services:
       traefik.http.services.argus-api.loadbalancer.server.port: "8000"
 
   worker:
-    # Celery (model-rank only): same api image, different command/ROLE.
+    # Celery retained for optional offline jobs (no beat; model pinned via GEMINI_MODEL).
     image: ghcr.io/guilheeeeeeerme/argus/worker:${IMAGE_TAG:-production}
     pull_policy: always
     restart: unless-stopped
@@ -166,7 +164,7 @@ services:
     command:
       [
         "celery", "-A", "argus.workers.celery_app", "worker",
-        "--beat", "--loglevel=INFO", "--concurrency=2",
+        "--loglevel=INFO", "--concurrency=2",
       ]
     environment:
       <<: [*common-env, *db-env, *redis-env, *llm-env, *object-env, *auth-env]
