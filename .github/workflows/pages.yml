@@ -55,9 +55,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@^4 pages deploy apps/admin/dist --project-name=argus-app
+        # Explicit branch: workflow_dispatch checkouts are detached HEAD, which
+        # Wrangler otherwise treats as preview branch "head" (custom domains 404).
+        run: npx --yes wrangler@^4 pages deploy apps/admin/dist --project-name=argus-app --branch=main
       - name: Deploy triage to Pages (argus-triage)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@^4 pages deploy apps/triage/dist --project-name=argus-triage
+        run: npx --yes wrangler@^4 pages deploy apps/triage/dist --project-name=argus-triage --branch=main
