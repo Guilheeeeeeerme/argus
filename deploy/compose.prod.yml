@@ -17,22 +17,11 @@ x-common-env: &common-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
 x-llm-env: &llm-env
-  # Pinned model (env only — no models.list / rank refresh).
+  # Pinned model (env only — no models.list / rank refresh). Gemini via Headroom only.
   LLM_USE_HEADROOM: ${LLM_USE_HEADROOM:-true}
-  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
   GEMINI_BASE_URL: ${GEMINI_BASE_URL:-http://headroom:8787}
   GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY required}
-  # JEV reserved (not consumed by Argus MVP yet; panel may still provision).
-  JEV_API_KEY: ${JEV_API_KEY:-${ARGUS_JEV_API_KEY:-}}
-  ARGUS_JEV_API_KEY: ${ARGUS_JEV_API_KEY:-${JEV_API_KEY:-}}
-  JEV_BASE_URL: ${JEV_BASE_URL:-https://api.typesafe.ai}
-  JEV_MODEL: ${JEV_MODEL:-jev-1.13.0}
-  JEV_TIMEOUT_SECONDS: ${JEV_TIMEOUT_SECONDS:-10}
-  JEV_CLASSIFY_MODE: ${JEV_CLASSIFY_MODE:-shadow}
-  JEV_MAPPING_MODE: ${JEV_MAPPING_MODE:-shadow}
-  JEV_JUDGE_MODE: ${JEV_JUDGE_MODE:-shadow}
-  JEV_SHADOW_RATE_PER_MINUTE: ${JEV_SHADOW_RATE_PER_MINUTE:-10}
-  JEV_SHADOW_DAILY_CALLS: ${JEV_SHADOW_DAILY_CALLS:-500}
   LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-gemini}
   LLM_RATE_LIMIT_PER_MINUTE: ${LLM_RATE_LIMIT_PER_MINUTE:-20}
   LLM_DAILY_BUDGET: ${LLM_DAILY_BUDGET:-500}
@@ -81,11 +70,14 @@ services:
     command: ["bash", "/app/deploy/migrate.sh"]
     environment:
       # object-env: bootstrap.py ensure_bucket_exists → Garage on dokploy-network
+      # DEV_ROOT_*: bootstrap.py creates the platform ROOT account (idempotent)
       <<: [*common-env, *db-env, *object-env]
       SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-0}
       SEED_DEMO: ${SEED_DEMO:-0}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-Password123!}
       ARGUS_APP_ROLE_PASSWORD: ${ARGUS_APP_ROLE_PASSWORD:-}
+      DEV_ROOT_EMAIL: ${DEV_ROOT_EMAIL:-root@argus.local}
+      DEV_ROOT_PASSWORD: ${DEV_ROOT_PASSWORD:-Password123!}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     mem_limit: ${MIGRATE_MEM_LIMIT:-512m}
     networks: [argus-internal, dokploy-network]
