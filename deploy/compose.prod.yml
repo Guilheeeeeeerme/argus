@@ -71,14 +71,15 @@ services:
     restart: "no"
     command: ["bash", "/app/deploy/migrate.sh"]
     environment:
-      <<: [*common-env, *db-env]
+      # object-env: bootstrap.py ensure_bucket_exists → Garage on dokploy-network
+      <<: [*common-env, *db-env, *object-env]
       SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-0}
       SEED_DEMO: ${SEED_DEMO:-0}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-Password123!}
       ARGUS_APP_ROLE_PASSWORD: ${ARGUS_APP_ROLE_PASSWORD:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     mem_limit: ${MIGRATE_MEM_LIMIT:-512m}
-    networks: [argus-internal]
+    networks: [argus-internal, dokploy-network]
 
   redis:
     image: redis:7-alpine
