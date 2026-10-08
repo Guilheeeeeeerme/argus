@@ -6,7 +6,6 @@ import json
 import logging
 import re
 from datetime import UTC, datetime
-from typing import Any
 
 from argus.config import settings
 from argus.services.redis import get_redis, set_key
@@ -28,11 +27,6 @@ _SEED_MODEL_PRICES: dict[str, list[tuple[str, float]]] = {
         ("gemini-2.5-flash", 0.30),
         ("gemini-3-flash", 0.30),
     ],
-    "openai": [
-        ("gpt-5-nano", 0.05),
-        ("gpt-4.1-nano", 0.10),
-        ("gpt-4o-mini", 0.15),
-    ],
 }
 
 _EXCLUDED_MODEL_PATTERN = re.compile(
@@ -41,7 +35,6 @@ _EXCLUDED_MODEL_PATTERN = re.compile(
 
 _ALLOWED_MODEL_PREFIXES: dict[str, tuple[str, ...]] = {
     "gemini": ("gemini-2", "gemini-3", "gemini-1.5", "gemini-flash", "gemini-pro"),
-    "openai": ("gpt-4", "gpt-5", "gpt-3.5", "o1", "o3", "o4"),
 }
 
 
@@ -81,22 +74,6 @@ def _enrich_candidates(provider: str, candidates: list[tuple[str, float]]) -> li
                     name = (model.get("name") or "").removeprefix("models/")
                     if name and _is_allowlisted_model(provider, name) and name not in known_prices:
                         # Only promote models we already priced via seeds.
-                        continue
-        elif provider == "openai":
-            from openai import OpenAI
-
-            if settings.openai_api_key:
-                client = OpenAI(
-                    api_key=settings.openai_api_key,
-                    base_url=settings.openai_base_url or None,
-                )
-                for model in client.models.list():
-                    model_id = getattr(model, "id", "")
-                    if (
-                        model_id
-                        and _is_allowlisted_model(provider, model_id)
-                        and model_id not in known_prices
-                    ):
                         continue
     except Exception:
         logger.info("Model rank enrichment unavailable for %s; using seeds", provider)

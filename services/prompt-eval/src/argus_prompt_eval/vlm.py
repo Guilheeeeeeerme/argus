@@ -1,4 +1,4 @@
-"""Multimodal VLM prompting — Gemini-first with OpenAI fallback.
+"""Multimodal VLM prompting — Gemini-only.
 
 AI Engineering pattern: Multimodal VLM prompting.
 Clients return structured JSON only; frame URIs are inlined safely.
@@ -86,64 +86,6 @@ class GeminiVLMClient:
         response.raise_for_status()
         body = response.json()
         return json.loads(_response_text_parts(body))
-
-
-class OpenAIVLMClient:
-    def analyze(
-        self,
-        *,
-        system_prompt: str,
-        frame_uris: list[str],
-        output_schema: dict[str, Any],
-        model: str | None = None,
-        user_context: str = "",
-    ) -> dict[str, Any]:
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY is not configured")
-
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_base_url or None,
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        user_content: list[dict[str, Any]] = []
-        if user_context:
-            user_content.append({"type": "text", "text": user_context})
-        user_content.append(
-            {
-                "type": "text",
-                "text": (
-                    "Analyze the frame sequence and respond with JSON only. "
-                    f"Schema: {json.dumps(output_schema)}"
-                ),
-            }
-        )
-        for uri in frame_uris:
-            # Always inline. Handing a raw URL to the provider would make its
-            # fetcher a confused deputy for any host we did not allowlist, and
-            # would leak which frames we request to that host (LLM01/LLM10).
-            if uri.startswith("data:"):
-                image_url = uri
-            else:
-                mime_type, data = _inline_frame(uri)
-                image_url = f"data:{mime_type};base64,{data}"
-            user_content.append(
-                {"type": "image_url", "image_url": {"url": image_url}}
-            )
-
-        response = client.chat.completions.create(
-            model=model or settings.openai_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content},
-            ],
-            response_format={"type": "json_object"},
-            max_completion_tokens=MAX_OUTPUT_TOKENS,
-        )
-        raw = response.choices[0].message.content or "{}"
-        return json.loads(raw)
 
 
 class MockVLMClient:

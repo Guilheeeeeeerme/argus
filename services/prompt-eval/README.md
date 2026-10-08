@@ -16,7 +16,7 @@ services/prompt-eval/
   README.md
   src/argus_prompt_eval/
     main.py                 # Redis consumer loops
-    vlm.py                  # Multimodal VLM (Gemini + OpenAI)
+    vlm.py                  # Multimodal VLM (Gemini)
     structured_output.py    # prompt_hits schema
     prompt_set_eval.py      # Multi-prompt evaluation
     context_grounding.py    # ContextEvents + RAG
@@ -61,8 +61,8 @@ Each module docstring names the AI Engineering pattern it implements.
 | `DATABASE_URL` | Postgres (asyncpg) |
 | `REDIS_URL` | Redis streams |
 | `S3_*` | MinIO / S3 for frames + clips |
-| `GEMINI_*` / `OPENAI_*` | VLM providers |
-| `LLM_PROVIDER_ORDER` | default `gemini,openai` |
+| `GEMINI_*` | VLM provider (sole) |
+| `LLM_PROVIDER_ORDER` | default `gemini` |
 | `LLM_*_BUDGET` / rate limits | provider budgets |
 | `AUTH0_USE_MOCK` | mock VLM when no API keys |
 | `MAX_CLIP_SECONDS` | default `600` (10 min) |

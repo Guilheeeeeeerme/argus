@@ -12,7 +12,7 @@ in the private **infra** repo; this page explains what happens when you push.
 | GHCR | `ghcr.io/guilheeeeeeerme/argus/{api,worker,app,triage}:<appSha>.<infraSha>` |
 | VPS — Compose project `argus` | `api` (FastAPI, loopback `18800`), `worker` (Celery + beat), `app` (admin SPA, `18180`), `triage` (MFE, `18181`) |
 | VPS — shared `infra_data` | `postgres-argus` (roles `argus` owner / `argus_app` NOBYPASSRLS, DB `argus`, schema `argus`, pgvector), Redis DB `/1`, MinIO bucket `argus` |
-| VPS — `infra_llm` | Headroom proxy (`LLM_USE_HEADROOM=true`, Gemini/OpenAI via `http://headroom:8787`) |
+| VPS — `infra_llm` | Headroom proxy (`LLM_USE_HEADROOM=true`, Gemini via `http://headroom:8787`) |
 | VPS — nginx + Let's Encrypt | `api|app|triage.argus.ferredemo.dev` → loopback ports |
 | Hostinger DNS | A records → VPS |
 
