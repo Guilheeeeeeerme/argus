@@ -37,7 +37,7 @@ Pipeline: `stream-gateway` → `stream-prep` → `prompt-eval` → `api` → adm
 
 - FE: React 19, Vite, Tailwind, oxlint
 - BE: FastAPI, Postgres 16 + RLS + pgvector, Redis, MinIO
-- LLM: Gemini / OpenAI (local Headroom via `GEMINI_BASE_URL` / `OPENAI_BASE_URL` in `.env.example`)
+- LLM: Gemini only (local Headroom via `GEMINI_BASE_URL` in `.env.example`)
 
 ## Local
 

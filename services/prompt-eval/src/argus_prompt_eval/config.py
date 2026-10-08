@@ -7,10 +7,7 @@ from functools import lru_cache
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from argus_prompt_eval.llm_headroom import (
-    resolve_gemini_base_url,
-    resolve_openai_base_url,
-)
+from argus_prompt_eval.llm_headroom import resolve_gemini_base_url
 
 
 class Settings(BaseSettings):
@@ -41,14 +38,10 @@ class Settings(BaseSettings):
         alias="GEMINI_BASE_URL",
         default="https://generativelanguage.googleapis.com",
     )
-    gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-2.5-flash-lite")
-
-    openai_api_key: str = Field(alias="OPENAI_API_KEY", default="")
-    openai_base_url: str = Field(alias="OPENAI_BASE_URL", default="")
-    openai_model: str = Field(alias="OPENAI_MODEL", default="gpt-4o")
+    gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-3.5-flash-lite")
 
     llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
-    llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini,openai")
+    llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini")
     llm_rate_limit_per_minute: int = Field(
         alias="LLM_RATE_LIMIT_PER_MINUTE", default=20
     )
@@ -107,11 +100,6 @@ class Settings(BaseSettings):
             self,
             "gemini_base_url",
             resolve_gemini_base_url(flag, self.gemini_base_url),
-        )
-        object.__setattr__(
-            self,
-            "openai_base_url",
-            resolve_openai_base_url(flag, self.openai_base_url),
         )
         return self
 

@@ -1,7 +1,7 @@
 """Provider failover + budgets — ordered LLM chain with Redis spend caps.
 
 AI Engineering pattern: Provider failover + budgets.
-Default order Gemini → OpenAI; keyless providers skipped; budgets fail closed.
+Gemini-only; keyless providers skipped; budgets fail closed.
 """
 
 from __future__ import annotations
@@ -15,12 +15,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from argus_prompt_eval.config import Settings, settings
-from argus_prompt_eval.vlm import (
-    GeminiVLMClient,
-    MockVLMClient,
-    OpenAIVLMClient,
-    VLMClient,
-)
+from argus_prompt_eval.vlm import GeminiVLMClient, MockVLMClient, VLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +32,6 @@ BUDGET_EXCEEDED = "budget_exceeded"
 TOKEN_BUDGET_EXCEEDED = "token_budget_exceeded"
 COST_BUDGET_EXCEEDED = "cost_budget_exceeded"
 
-_KNOWN = ("gemini", "openai")
-
-
 def resolve_llm_chain(s: Settings | None = None) -> list[tuple[str, VLMClient]]:
     """Ordered (provider_name, client) chain; unknown/keyless providers skipped."""
     target = s or settings
@@ -50,14 +42,12 @@ def resolve_llm_chain(s: Settings | None = None) -> list[tuple[str, VLMClient]]:
     for name in names:
         if name == "gemini" and target.gemini_api_key:
             chain.append(("gemini", GeminiVLMClient()))
-        elif name == "openai" and target.openai_api_key:
-            chain.append(("openai", OpenAIVLMClient()))
     if chain:
         return chain
     if target.auth0_use_mock:
         return [("mock", MockVLMClient())]
     raise RuntimeError(
-        "No LLM provider configured: set GEMINI_API_KEY or OPENAI_API_KEY "
+        "No LLM provider configured: set GEMINI_API_KEY "
         "(mock fallback requires AUTH0_USE_MOCK)"
     )
 

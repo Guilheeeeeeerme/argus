@@ -1,4 +1,7 @@
-"""Celery application — retained for optional offline jobs; VLM moved to prompt-eval."""
+"""Celery application — retained for optional offline jobs; VLM lives in prompt-eval.
+
+No beat schedule: the model is pinned via ``GEMINI_MODEL`` (no runtime ranking).
+"""
 
 from __future__ import annotations
 
@@ -10,9 +13,7 @@ celery_app = Celery(
     "argus",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=[
-        "argus.integrations.model_rank",
-    ],
+    include=[],
 )
 
 celery_app.conf.update(
@@ -21,13 +22,5 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    task_routes={
-        "models.*": {"queue": "vlm"},
-    },
-    beat_schedule={
-        "refresh-model-rank": {
-            "task": "models.refresh_rank",
-            "schedule": max(1.0, settings.model_rank_refresh_ms / 1000.0),
-        },
-    },
+    beat_schedule={},
 )

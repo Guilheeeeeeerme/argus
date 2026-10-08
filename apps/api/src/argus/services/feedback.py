@@ -6,6 +6,7 @@ import hashlib
 import logging
 from uuid import UUID
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus.config import settings
@@ -15,6 +16,7 @@ from argus.guardrails.screening import is_blocked
 
 logger = logging.getLogger(__name__)
 EMBEDDING_DIM = 1536
+EMBEDDING_TIMEOUT_SECONDS = 30
 
 
 async def create_feedback_with_embedding(
@@ -50,19 +52,36 @@ async def create_feedback_with_embedding(
 
 
 async def generate_embedding(text: str) -> list[float]:
-    if settings.openai_api_key:
+    if settings.gemini_api_key:
         try:
-            from openai import OpenAI
-
-            client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url or None)
-            response = client.embeddings.create(
-                model="text-embedding-3-small",
-                input=text,
-            )
-            return list(response.data[0].embedding)
+            return await _gemini_embedding(text)
         except Exception:
-            logger.exception("OpenAI embedding failed; using deterministic fallback")
+            logger.exception("Gemini embedding failed; using deterministic fallback")
 
+    return _deterministic_embedding(text)
+
+
+async def _gemini_embedding(text: str) -> list[float]:
+    model = settings.gemini_embedding_model
+    root = settings.gemini_base_url.rstrip("/") + "/v1beta/models"
+    async with httpx.AsyncClient(timeout=EMBEDDING_TIMEOUT_SECONDS) as client:
+        response = await client.post(
+            f"{root}/{model}:embedContent",
+            headers={"x-goog-api-key": settings.gemini_api_key},
+            json={
+                "content": {"parts": [{"text": text}]},
+                "outputDimensionality": EMBEDDING_DIM,
+            },
+        )
+    response.raise_for_status()
+    values = response.json().get("embedding", {}).get("values")
+    if not isinstance(values, list) or len(values) != EMBEDDING_DIM:
+        raise ValueError(
+            f"Unexpected Gemini embedding shape (expected {EMBEDDING_DIM} floats)"
+        )
+    return [float(v) for v in values]
+
+
+def _deterministic_embedding(text: str) -> list[float]:
     digest = hashlib.sha256(text.encode()).digest()
-    vec = [((digest[i % len(digest)] / 255.0) * 2 - 1) for i in range(EMBEDDING_DIM)]
-    return vec
+    return [((digest[i % len(digest)] / 255.0) * 2 - 1) for i in range(EMBEDDING_DIM)]
