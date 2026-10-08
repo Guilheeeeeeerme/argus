@@ -33,7 +33,14 @@ from argus.domain.models import (
     WebhookEndpoint,
 )
 from argus.services.database import set_session_context
-from demo_catalog import CAMERAS, SOURCE_PAGE, SOURCE_TERMS
+from demo_catalog import (
+    CAMERAS,
+    LEGACY_PROMPT_TEXTS,
+    LEGACY_WATCHLIST_NAMES,
+    SOURCE_PAGE,
+    SOURCE_TERMS,
+    SOURCES,
+)
 
 ACCOUNT_DEMO_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 UNIT_DEMO_ID = uuid.UUID("22222222-2222-4222-8222-222222222222")
@@ -78,9 +85,12 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
         account.name = "Argus Public Camera Demo"
     account.settings = {
         **(account.settings or {}),
-        "demo_source": "Caltrans public traffic cameras",
+        "demo_source": "Public live cameras (traffic, beach, zoo)",
         "demo_source_url": SOURCE_PAGE,
         "demo_source_terms": SOURCE_TERMS,
+        "demo_sources": [
+            {"name": s["name"], "page": s["page"], "terms": s["terms"]} for s in SOURCES
+        ],
     }
     sandbox = await session.get(Account, SANDBOX_ACCOUNT_ID)
     if sandbox is None:
@@ -106,22 +116,27 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             if index == 0
             else uuid.uuid5(ACCOUNT_DEMO_ID, item["key"] + ":prompts")
         )
+        address = item.get("address", "US-101, San Luis Obispo, California")
+        timezone = item.get("timezone", "America/Los_Angeles")
         unit = await session.get(Unit, site_id)
         if unit is None:
             unit = Unit(
                 id=site_id,
                 account_id=account.id,
                 name=item["site"],
-                address="US-101, San Luis Obispo, California",
-                timezone="America/Los_Angeles",
+                address=address,
+                timezone=timezone,
                 active=True,
             )
             session.add(unit)
             await session.flush()
         elif unit.name == "Demo Establishment":
             unit.name = item["site"]
-            unit.address = "US-101, San Luis Obispo, California"
-            unit.timezone = "America/Los_Angeles"
+            unit.address = address
+            unit.timezone = timezone
+        elif unit.address == "US-101, San Luis Obispo, California" and address != unit.address:
+            unit.address = address
+            unit.timezone = timezone
         camera = await session.get(Camera, camera_id)
         stream = "ffmpeg:" + item["playlist"] + "#video=copy"
         if camera is None:
@@ -148,7 +163,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             )
             session.add(prompt_set)
             await session.flush()
-        elif prompt_set.name == "Default watchlist":
+        elif prompt_set.name in LEGACY_WATCHLIST_NAMES:
             prompt_set.name = item["watchlist"]
         for order, prompt_text in enumerate(item["prompts"]):
             prompt_id = (
@@ -168,7 +183,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
                         sort_order=order,
                     )
                 )
-            elif prompt.text == "Is there an unauthorized person in a restricted area?":
+            elif prompt.text in LEGACY_PROMPT_TEXTS:
                 prompt.text = prompt_text
         await session.flush()
     # Preserve the stable fixture identifiers used by operators and API tests.
