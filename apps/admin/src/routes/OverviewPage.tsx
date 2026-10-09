@@ -34,7 +34,7 @@ export function OverviewPage() {
           title={t(accounts.length ? 'Selecione uma conta' : 'Nenhuma conta atribuída ainda.')}
           description={t(
             accounts.length
-              ? 'Escolha uma conta na barra lateral para continuar.'
+              ? 'Escolha uma conta no menu para continuar.'
               : 'Fale com um administrador para ter acesso.',
           )}
           action={isPlatform && accounts.length === 0 ? <LinkButton to="/accounts/new" size="sm">{t('Nova conta')}</LinkButton> : undefined}

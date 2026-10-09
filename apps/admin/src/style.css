@@ -24,14 +24,29 @@
   color: var(--text-primary);
 }
 
-@media (max-width: 47.9375rem) {
+@media (max-width: 63.9375rem) {
   .argus-shell__top {
     padding-top: calc(var(--space-2) + var(--safe-top));
     padding-bottom: var(--space-2);
   }
 
+  .argus-card-head__actions .argus-btn,
+  .argus-tab-toolbar .argus-btn {
+    min-height: 2.75rem;
+  }
+
+  .argus-admin-context .argus-select {
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 47.9375rem) {
   .argus-shell__body {
     padding: var(--space-4);
+  }
+
+  .argus-overview-grid {
+    grid-template-columns: 1fr;
   }
 }
 

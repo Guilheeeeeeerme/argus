@@ -55,7 +55,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="argus-auth__toolbar">
           <LocaleToggle
             locale={locale}
-            label={t('English')}
+            label={locale === 'en' ? 'EN' : 'PT-BR'}
             ariaLabel={t('Mudar idioma')}
             onLocaleChange={setLocale}
           />
