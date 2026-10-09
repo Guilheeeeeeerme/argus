@@ -196,20 +196,22 @@ async def switch_context(
         unit_id=str(auth.unit_id) if auth.unit_id else None,
     )
     if "accountId" in body.model_fields_set:
-        if body.accountId is not None:
-            if auth.role not in PLATFORM_ROLES:
-                membership = await session.scalar(select(AccountUserMembership.user_id).where(
-                    AccountUserMembership.user_id == auth.sub,
-                    AccountUserMembership.account_id == body.accountId,
-                ))
-                if membership is None:
-                    raise HTTPException(status_code=403, detail="Account access denied")
-            account = await session.scalar(select(Account).where(Account.id == body.accountId))
-            if account is None:
-                raise HTTPException(status_code=404, detail="Account not found")
-            data.account_id = str(account.id)
-        else:
-            data.account_id = None
+        if body.accountId is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account selection is required",
+            )
+        if auth.role not in PLATFORM_ROLES:
+            membership = await session.scalar(select(AccountUserMembership.user_id).where(
+                AccountUserMembership.user_id == auth.sub,
+                AccountUserMembership.account_id == body.accountId,
+            ))
+            if membership is None:
+                raise HTTPException(status_code=403, detail="Account access denied")
+        account = await session.scalar(select(Account).where(Account.id == body.accountId))
+        if account is None:
+            raise HTTPException(status_code=404, detail="Account not found")
+        data.account_id = str(account.id)
         data.unit_id = None
     if "unitId" in body.model_fields_set:
         unit_id = body.unitId

@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     )
     auth0_algorithms: str = Field(alias="AUTH0_ALGORITHMS", default="RS256")
     auth0_use_mock: bool = Field(alias="AUTH0_USE_MOCK", default=False)
+    # Passwordless GET /v1/dev/session/{persona}. Off by default even when mock
+    # auth is on (prod MVP keeps AUTH0_USE_MOCK=true). Opt in only for local smoke.
+    dev_session_enabled: bool = Field(alias="DEV_SESSION_ENABLED", default=False)
     dev_jwt_secret: str = Field(
         alias="DEV_JWT_SECRET",
         default="local-dev-secret-change-me",

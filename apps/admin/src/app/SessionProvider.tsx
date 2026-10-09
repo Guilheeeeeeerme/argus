@@ -27,7 +27,7 @@ export interface SessionContextValue {
   setSession: (session: Session | null) => void;
   /** Refetch accounts and units for the active session. */
   reloadContext: () => Promise<void>;
-  switchAccount: (id: string | null) => Promise<void>;
+  switchAccount: (id: string, options?: { quiet?: boolean }) => Promise<void>;
   switchUnit: (id: string | null) => Promise<void>;
   signOut: () => void;
 }
@@ -90,7 +90,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [reloadContext]);
 
   const switchAccount = useCallback(
-    async (id: string | null) => {
+    async (id: string, options?: { quiet?: boolean }) => {
+      if (!id) return;
       setSwitching(true);
       try {
         const next = await auth.switchContext({ accountId: id });
@@ -100,7 +101,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           window.location.assign(withToken(target));
           return;
         }
-        toast.success(t('Conta atualizada.'));
+        if (!options?.quiet) toast.success(t('Conta atualizada.'));
       } catch (error) {
         toast.error(localizeApiError(error, t));
       } finally {
@@ -109,6 +110,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [toast, t],
   );
+
+  // Fail closed: never leave a usable session without an active account.
+  useEffect(() => {
+    if (!userId || loadingContext || switching || activeAccountId) return;
+    if (accounts.length === 0) return;
+    void switchAccount(accounts[0].id, { quiet: true });
+  }, [userId, loadingContext, switching, activeAccountId, accounts, switchAccount]);
 
   const switchUnit = useCallback(
     async (id: string | null) => {

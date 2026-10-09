@@ -17,7 +17,8 @@ Opaque Redis sessions (`argus:session:{token}`, Bearer). Endpoints:
 - `PATCH /v1/auth/context` — platform only, sets `activeTenantId` / `activeMarketId`
 
 Edge/agent devices use M2M client-credentials JWTs (`AUTH0_USE_MOCK=true` issues local
-HS256 tokens; see `GET /v1/dev/session/edge`).
+HS256 tokens). Passwordless `GET /v1/dev/session/{persona}` mounts only when
+`AUTH0_USE_MOCK=true` **and** `DEV_SESSION_ENABLED=true` (local smoke only — keep off in prod).
 
 ## Local commands (inside apps/api, or via compose)
 

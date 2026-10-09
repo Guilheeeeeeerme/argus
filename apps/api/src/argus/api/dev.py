@@ -25,10 +25,15 @@ _PERSONA_ROLES = {
 }
 
 
+def _dev_sessions_allowed() -> bool:
+    """Fail closed: mock auth alone is not enough (prod MVP uses AUTH0_USE_MOCK)."""
+    return settings.auth0_use_mock and settings.dev_session_enabled
+
+
 @router.get("/session/{persona}")
 async def create_dev_session(persona: str) -> dict[str, str | None]:
-    """Create a Redis session for a seeded user; disabled outside mock auth."""
-    if not settings.auth0_use_mock:
+    """Create a Redis session for a seeded user; local opt-in only."""
+    if not _dev_sessions_allowed():
         raise HTTPException(status_code=404, detail="Development auth is disabled")
 
     role = _PERSONA_ROLES.get(persona)

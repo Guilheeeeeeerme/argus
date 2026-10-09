@@ -43,10 +43,12 @@ function AccountsList() {
       return;
     }
     toast.success(t('Conta excluída.'));
-    const wasActive = session?.activeAccount?.id === pendingDelete.id;
+    const deletedId = pendingDelete.id;
+    const wasActive = session?.activeAccount?.id === deletedId;
     setPendingDelete(null);
+    const remaining = (accounts.data ?? []).filter(account => account.id !== deletedId);
     void accounts.reload();
-    if (wasActive) void switchAccount(null);
+    if (wasActive && remaining[0]) void switchAccount(remaining[0].id);
     else void reloadContext();
   }
 

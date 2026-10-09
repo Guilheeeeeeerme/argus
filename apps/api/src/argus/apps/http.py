@@ -10,7 +10,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from argus.config import ServiceRole, Settings, settings
+from argus.config import ServiceRole, Settings, get_settings, settings
 from argus.core.auth import AuthContext, get_auth_context
 from argus.core.exceptions import register_exception_handlers
 from argus.services.database import check_database_connection
@@ -131,13 +131,18 @@ def create_admin_app() -> FastAPI:
 
     app = create_http_app("api-admin", "ARGUS Admin & Triage API", lifespan=lifespan)
     install_rate_limiting(app)
-    from argus.api.dev import router as dev_router
     from argus.api.auth import router as auth_router
     from argus.api.hooks import router as hooks_router
     from argus.api.internal import router as internal_router
     from argus.api.legacy import router as legacy_router
 
-    app.include_router(dev_router)
+    # Mount only when explicitly opted in — never on AUTH0_USE_MOCK alone.
+    # Read via get_settings() so tests can clear the cache after env changes.
+    cfg = get_settings()
+    if cfg.auth0_use_mock and cfg.dev_session_enabled:
+        from argus.api.dev import router as dev_router
+
+        app.include_router(dev_router)
     app.include_router(auth_router)
     app.include_router(hooks_router)
     app.include_router(internal_router)

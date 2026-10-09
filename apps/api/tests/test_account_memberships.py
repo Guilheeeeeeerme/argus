@@ -56,8 +56,11 @@ async def test_membership_lifecycle(admin_client):
         selected = await client.patch("/v1/auth/context", headers=member, json={"accountId": accounts[0]})
         assert selected.status_code == 200
         cleared = await client.patch("/v1/auth/context", headers=member, json={"accountId": None})
-        assert cleared.status_code == 200
-        assert cleared.json()["activeAccount"] is None
+        assert cleared.status_code == 400
+        assert selected.json()["activeAccount"]["id"] == accounts[0]
+        me_after_clear = await client.get("/v1/auth/me", headers=member)
+        assert me_after_clear.status_code == 200
+        assert me_after_clear.json()["activeAccount"]["id"] == accounts[0]
         malformed = await client.patch("/v1/auth/context", headers=member, json={"accountId": "invalid"})
         assert malformed.status_code == 422
         # Removing a primary account must preserve the account and its other memberships.

@@ -12,7 +12,7 @@ import {
 } from '@argus/design-system';
 import { useT, useLocale, SUPPORTED_LOCALES } from '@argus/i18n';
 import { TRIAGE_ORIGIN } from '@shared/auth';
-import { withToken } from '../api/client';
+import { stripTokenHash, withToken } from '../api/client';
 import { useSession } from './SessionProvider';
 
 const LOCALE_LABELS: Record<(typeof SUPPORTED_LOCALES)[number], string> = {
@@ -70,12 +70,16 @@ export function AdminShell() {
               label={t('Conta')}
               aria-label={t('Conta ativa')}
               value={session.activeAccount?.id ?? ''}
-              disabled={switching}
-              onChange={e => void switchAccount(e.target.value || null)}
-              options={[
-                { value: '', label: t('Nenhuma conta selecionada') },
-                ...accounts.map(account => ({ value: account.id, label: account.name })),
-              ]}
+              disabled={switching || accounts.length === 0}
+              onChange={e => {
+                const next = e.target.value;
+                if (next) void switchAccount(next);
+              }}
+              options={
+                accounts.length === 0
+                  ? [{ value: '', label: t('Nenhuma conta atribuída ainda.') }]
+                  : accounts.map(account => ({ value: account.id, label: account.name }))
+              }
             />
             {session.activeAccount ? (
               <Select
@@ -120,11 +124,14 @@ export function AdminShell() {
           <div className="argus-sidenav__footer">
             <Button
               variant="secondary"
-              onClick={() =>
+              disabled={!session.activeAccount}
+              onClick={() => {
+                if (!session.activeAccount) return;
+                const returnTo = stripTokenHash(window.location.href);
                 window.location.assign(
-                  `${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(withToken(window.location.href))}`,
-                )
-              }
+                  withToken(`${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(returnTo)}`),
+                );
+              }}
             >
               {t('Abrir Triagem')}
             </Button>

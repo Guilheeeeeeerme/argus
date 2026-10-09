@@ -11,7 +11,7 @@ import {
 import { useT, useLocale, localizeApiError } from '@argus/i18n';
 import { useMutation } from '@shared/hooks';
 import { setToken, type Session } from '@shared/auth';
-import { auth, returnTo, APP } from '../api/client';
+import { auth, returnTo, APP, withToken } from '../api/client';
 import { useSession } from '../app/SessionProvider';
 
 interface LoginPageProps {
@@ -45,7 +45,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setSession(session);
     const target = returnTo();
     if (target !== APP && session.activeAccount) {
-      window.location.assign(`${target}#token=${encodeURIComponent(session.token ?? '')}`);
+      window.location.assign(withToken(target));
     }
   }
 
