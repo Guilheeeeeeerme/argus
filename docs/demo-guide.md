@@ -17,8 +17,10 @@ Run the reviewed demo seed through infra's **Migrate app** workflow with
 - **guest@demo.local**: operator assigned only to the public-camera account.
 
 New accounts use the protected `DEMO_PASSWORD` setting. Existing passwords and
-operator-edited streams/prompts are preserved. The seed never prints credentials.
-Local development falls back to the existing local-only demo password.
+operator-edited streams/prompts are preserved unless `DEMO_PASSWORD_SYNC=1` is
+set for a one-shot seed (rotates `manager@demo.local` / `guest@demo.local` to
+match `DEMO_PASSWORD`). The seed never prints credentials. Local development
+falls back to the existing local-only demo password.
 
 ## Cameras and analysis
 

@@ -50,7 +50,7 @@ All the go2rtc/RTSP/WebRTC listener ports are **private-only**: the old `1984/85
 
 1. `docker compose --env-file deploy/smoke.env -f deploy/compose.prod.yml config -q` — valid render.
 2. Runner boots prod compose with the smoke override: `migrate` completes → `api` healthy → worker Celery ping.
-3. `GET /version` returns `{"gitsha": "<sha>", "service": "argus-api"}` — public (rate-limit exempt), no DB.
+3. `GET /version` returns `{"gitsha": "<sha>", "service": "argus-api"}` — public (rate-limit exempt), no DB. The SHA is **baked into the image** at build time; leave panel `GIT_SHA` unset and keep `IMAGE_TAG=production` as the pull tag only.
 4. Login at `app.argus.ferredemo.dev` (mock Auth0), triage WebSocket live ≥5 min.
 5. `POST/GET /internal` from outside → Traefik noop → 404 on the edge. Real internal endpoints live under `/v1/internal` and are token-gated in the app.
 6. `/health/db` returns `database: true` → pooler reachable with `argus_app`.

@@ -13,7 +13,9 @@
 name: argus
 
 x-common-env: &common-env
-  GIT_SHA: ${IMAGE_TAG:-unknown}
+  # Do NOT set GIT_SHA here. Images bake GIT_SHA at build time (deploy/docker/*).
+  # Panel IMAGE_TAG stays the moving `production` pull tag; overriding GIT_SHA with
+  # IMAGE_TAG made /version always report "production" and broke the deploy poll.
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
 x-llm-env: &llm-env

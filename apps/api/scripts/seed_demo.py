@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Idempotent public-camera demo; preserve operator edits and existing passwords.
+"""Idempotent public-camera demo; preserve operator edits by default.
 
 Platform ROOT/ADMIN are created by bootstrap / seed_platform, never here.
+
+Passwords for the fixture demo users stay untouched unless DEMO_PASSWORD_SYNC=1
+(with DEMO_PASSWORD set) — then manager@ / guest@ hashes are rotated to match.
 """
 
 from __future__ import annotations
@@ -64,6 +67,10 @@ def demo_password() -> str:
     if urlsplit(settings.database_url).hostname not in {"localhost", "127.0.0.1", "::1", "postgres"}:
         raise ValueError("DEMO_PASSWORD must be configured for a remote demo database")
     return DEFAULT_PASSWORD
+
+
+def demo_password_sync_enabled() -> bool:
+    return os.environ.get("DEMO_PASSWORD_SYNC", "").strip().lower() in {"1", "true", "yes"}
 
 
 async def seed_demo(session: AsyncSession) -> dict[str, str]:
@@ -232,9 +239,11 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             )
             session.add(user)
             await session.flush()
-        # Do not grant access to a reused fixture ID or alter an existing password.
         if user.email != email:
             raise ValueError("Demo user identity mismatch; no membership changed")
+        # Default: preserve operator-changed passwords. Opt-in sync for panel recovery.
+        if demo_password_sync_enabled():
+            user.password_hash = password_hash
         targets = [account.id]
         if role == UserRole.MANAGER:
             targets.append(SANDBOX_ACCOUNT_ID)
