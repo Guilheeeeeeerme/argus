@@ -48,6 +48,8 @@ export function AdminShell() {
       brand="ARGUS"
       brandMark={brandMark}
       meta={t('Administração')}
+      menuOpenLabel={t('Abrir menu')}
+      menuCloseLabel={t('Fechar menu')}
       actions={
         <>
           <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />

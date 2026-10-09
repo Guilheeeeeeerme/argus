@@ -1272,7 +1272,7 @@
   display: none;
 }
 
-@media (min-width: 48rem) {
+@media (min-width: 64rem) {
   .argus-shell--with-sidebar .argus-shell__brand-meta {
     display: none;
   }
@@ -1379,72 +1379,208 @@
   outline-offset: var(--outline-offset);
 }
 
-@media (min-width: 48rem) {
+.argus-shell__menu-btn {
+  display: none;
+}
+
+.argus-shell__nav-backdrop {
+  display: none;
+}
+
+/* Permanent rail from desktop (64rem). Phone + tablet use the drawer. */
+@media (min-width: 64rem) {
   .argus-shell--with-sidebar .argus-shell__sidebar {
     display: block;
   }
+
+  .argus-shell__menu-btn,
+  .argus-shell__nav-backdrop {
+    display: none !important;
+  }
+
+  .argus-shell__body {
+    padding: var(--space-6) var(--space-5);
+  }
 }
 
-@media (max-width: 47.9375rem) {
+@media (max-width: 63.9375rem) {
   .argus-shell--with-sidebar {
     flex-direction: column;
   }
 
-  .argus-shell__sidebar {
+  .argus-shell__menu-btn {
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .argus-shell__nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: var(--overlay-scrim);
+    cursor: pointer;
+  }
+
+  .argus-shell--nav-open .argus-shell__nav-backdrop {
     display: block;
-    width: 100%;
-    height: auto;
-    position: static;
-    border-inline-end: 0;
-    border-bottom: var(--border-width) solid var(--border);
+  }
+
+  .argus-shell__sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 50;
+    width: min(20rem, 88vw);
+    height: 100dvh;
+    border-inline-end: var(--border-width) solid var(--border);
+    background: var(--bg-page);
+    box-shadow: var(--shadow-md);
+    transform: translateX(-105%);
+    transition: transform 200ms ease-out;
+    overflow: hidden;
+  }
+
+  .argus-shell--nav-open .argus-shell__sidebar {
+    transform: translateX(0);
   }
 
   .argus-shell--with-sidebar .argus-shell__brand-name {
     display: inline;
   }
 
+  .argus-shell__brand-meta {
+    max-width: 10rem;
+  }
+
+  .argus-sidenav {
+    min-height: 0;
+  }
+
   .argus-sidenav__brand {
-    display: none;
+    display: block;
+    padding: calc(var(--space-4) + var(--safe-top)) var(--space-4) var(--space-4);
   }
 
   .argus-sidenav__body {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    padding-bottom: calc(var(--space-4) + var(--safe-bottom));
   }
 
   .argus-sidenav__section {
-    flex: 1 1 10rem;
+    flex: 0 0 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .argus-sidenav__section .argus-field,
+  .argus-sidenav__section .argus-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .argus-sidenav__section .argus-select {
+    min-height: 2.75rem;
+  }
+
+  .argus-shell-nav__item {
+    min-height: 2.75rem;
+    padding-block: var(--space-3);
   }
 
   .argus-sidenav__footer {
-    margin-top: 0;
+    margin-top: auto;
     flex: 0 0 auto;
-    flex-direction: row;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .argus-sidenav__footer .argus-btn {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .argus-user-menu__trigger {
+    max-width: 8rem;
+  }
+
+  .argus-list-row {
+    align-items: flex-start;
+  }
+
+  .argus-list-row__actions {
+    width: 100%;
+  }
+
+  .argus-list-row__actions .argus-btn,
+  .argus-page-header__actions .argus-btn,
+  .argus-dialog__actions .argus-btn,
+  .argus-form__actions .argus-btn,
+  .argus-tabs__tab {
+    min-height: 2.75rem;
+  }
+
+  .argus-page-header__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .argus-page-header__actions {
+    width: 100%;
+  }
+
+  .argus-dialog {
+    width: min(100%, 28rem);
+    margin: var(--space-4);
+  }
+
+  .argus-dialog__actions {
+    flex-wrap: wrap;
+  }
+
+  .argus-drawer__footer .argus-btn {
+    min-height: 2.75rem;
   }
 }
 
+@media (max-width: 47.9375rem) {
+  .argus-shell__brand-meta {
+    display: none;
+  }
+
+  .argus-user-menu__trigger {
+    max-width: 7rem;
+  }
+}
+
+@media (max-width: 63.9375rem) and (prefers-reduced-motion: reduce) {
+  .argus-shell__sidebar {
+    transition: none;
+  }
+}
 
 @media (min-width: 48rem) and (max-width: 63.9375rem) {
   .argus-shell__body {
     padding: var(--space-4) var(--space-5);
   }
 
-  .argus-shell__sidebar {
-    width: 12rem;
-  }
-
   .argus-user-menu__panel {
     width: 13rem;
   }
-}
 
-@media (min-width: 64rem) {
-  .argus-shell__body {
-    padding: var(--space-6) var(--space-5);
+  .argus-shell__sidebar {
+    width: min(22rem, 72vw);
   }
 }
 
@@ -1509,8 +1645,14 @@
 .argus-auth__toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+.argus-auth__toolbar .argus-btn {
+  min-height: 2.75rem;
 }
 
 /* ——— Inline form ——— */
