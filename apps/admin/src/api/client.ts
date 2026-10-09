@@ -23,14 +23,22 @@ const DELETE: RequestInit = { method: 'DELETE' };
 export function returnTo(): string {
   const target = new URLSearchParams(window.location.search).get('returnTo');
   if (!target) return APP;
-  return isAllowedReturn(target) ? target : APP;
+  if (!isAllowedReturn(target)) return APP;
+  return stripTokenHash(target);
+}
+
+/** Strip a prior `#token=` (and any other hash) so handoff never double-embeds. */
+export function stripTokenHash(target: string): string {
+  const hashIndex = target.indexOf('#');
+  return hashIndex === -1 ? target : target.slice(0, hashIndex);
 }
 
 /** Append the session token as a hash so the destination app can adopt it. */
 export function withToken(target: string): string {
   const token = getToken();
-  if (!token) return target;
-  return `${target}#token=${encodeURIComponent(token)}`;
+  const base = stripTokenHash(target);
+  if (!token) return base;
+  return `${base}#token=${encodeURIComponent(token)}`;
 }
 
 export interface SwitchContextBody {

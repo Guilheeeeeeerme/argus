@@ -129,7 +129,12 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
       wide
       actions={
         <>
-          <Button variant="secondary" size="sm" onClick={selectAccount}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="argus-triage-account-switch"
+            onClick={selectAccount}
+          >
             {t('Trocar de conta')}
           </Button>
           <ThemeToggle toDarkLabel={t('Mudar para modo escuro')} toLightLabel={t('Mudar para modo claro')} />
@@ -158,6 +163,11 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
               )}
             />
             {picker}
+            <div className="argus-triage-pick__actions">
+              <Button variant="secondary" size="sm" className="argus-triage-account-switch--compact" onClick={selectAccount}>
+                {t('Trocar de conta')}
+              </Button>
+            </div>
           </Card>
         </div>
       ) : (
@@ -165,7 +175,17 @@ export function TriageWorkspace({ session: initial }: TriageWorkspaceProps) {
           <section className="argus-triage-main" aria-label={t('Câmeras')}>
             <div className="argus-triage-toolbar">
               {picker}
-              <p className="argus-list-row__meta">{roleLabel(session.role, t)}</p>
+              <div className="argus-triage-toolbar__meta">
+                <p className="argus-list-row__meta">{roleLabel(session.role, t)}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="argus-triage-account-switch--compact"
+                  onClick={selectAccount}
+                >
+                  {t('Trocar de conta')}
+                </Button>
+              </div>
             </div>
             <CameraGrid
               accountId={accountId}

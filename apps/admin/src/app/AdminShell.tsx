@@ -12,7 +12,7 @@ import {
 } from '@argus/design-system';
 import { useT, useLocale, SUPPORTED_LOCALES } from '@argus/i18n';
 import { TRIAGE_ORIGIN } from '@shared/auth';
-import { withToken } from '../api/client';
+import { stripTokenHash, withToken } from '../api/client';
 import { useSession } from './SessionProvider';
 
 const LOCALE_LABELS: Record<(typeof SUPPORTED_LOCALES)[number], string> = {
@@ -120,11 +120,14 @@ export function AdminShell() {
           <div className="argus-sidenav__footer">
             <Button
               variant="secondary"
-              onClick={() =>
+              disabled={!session.activeAccount}
+              onClick={() => {
+                if (!session.activeAccount) return;
+                const returnTo = stripTokenHash(window.location.href);
                 window.location.assign(
-                  `${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(withToken(window.location.href))}`,
-                )
-              }
+                  withToken(`${TRIAGE_ORIGIN}?returnTo=${encodeURIComponent(returnTo)}`),
+                );
+              }}
             >
               {t('Abrir Triagem')}
             </Button>

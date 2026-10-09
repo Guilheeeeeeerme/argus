@@ -2,6 +2,7 @@ import {
   API as API_BASE,
   WS as WS_BASE,
   apiFetch,
+  appendTokenHash,
   consumeTokenFromUrl,
   getToken,
   redirectToLogin,
@@ -216,9 +217,9 @@ export function confidencePercent(value: number | null | undefined): number | nu
 }
 
 export function selectAccount(): void {
+  const returnTo = `${window.location.origin}${window.location.pathname}`;
   const target = new URL(MAIN_ORIGIN);
-  target.searchParams.set('returnTo', window.location.origin + window.location.pathname);
+  target.searchParams.set('returnTo', returnTo);
   const token = getToken();
-  if (token) target.hash = `token=${encodeURIComponent(token)}`;
-  window.location.assign(target.toString());
+  window.location.assign(token ? appendTokenHash(target.toString(), token) : target.toString());
 }
