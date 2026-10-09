@@ -2,12 +2,26 @@
 
 /* ——— Unit picker (no unit yet) ——— */
 .argus-triage-pick {
-  max-width: 32rem;
+  width: min(100%, 32rem);
   margin: var(--space-6) auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .argus-triage-pick .argus-empty {
   padding-top: 0;
+}
+
+.argus-triage-pick .argus-unit-picker {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.argus-triage-pick__actions {
+  display: none;
+  margin-top: var(--space-3);
 }
 
 .argus-unit-picker {
@@ -47,6 +61,18 @@
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-bottom: var(--space-4);
+}
+
+.argus-triage-toolbar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Compact switch lives in the toolbar on phone; header button covers larger viewports */
+.argus-triage-account-switch--compact {
+  display: none;
 }
 
 .argus-cam-grid {
@@ -291,6 +317,30 @@
   margin-top: var(--space-2);
 }
 
+/* ——— Accountless / blocked boot ——— */
+.argus-boot--blocked {
+  padding-inline: var(--space-4);
+}
+
+.argus-triage-blocked {
+  width: min(100%, 24rem);
+}
+
+.argus-triage-blocked .argus-empty {
+  padding-inline: 0;
+}
+
+.argus-triage-blocked__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.argus-triage-blocked__actions .argus-btn {
+  width: 100%;
+}
+
 /* ——— Responsive ——— */
 @media (max-width: 63.9375rem) {
   .argus-triage-layout {
@@ -299,7 +349,97 @@
 
   .argus-rail {
     position: static;
-    max-height: none;
+    max-height: min(22rem, 50dvh);
+  }
+
+  .argus-cam-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  }
+}
+
+/* Phone (≤390–430 CSS px) — collapse chrome, stack actions */
+@media (max-width: 30rem) {
+  .argus-triage-account-switch {
+    display: none;
+  }
+
+  .argus-triage-account-switch--compact {
+    display: inline-flex;
+  }
+
+  .argus-triage-pick__actions {
+    display: flex;
+  }
+
+  .argus-triage-pick__actions .argus-btn {
+    width: 100%;
+  }
+
+  .argus-shell__brand-meta {
+    display: none;
+  }
+
+  .argus-shell__actions {
+    gap: var(--gap);
+  }
+
+  .argus-unit-picker {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .argus-triage-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .argus-cam-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .argus-resolve-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .argus-resolve-actions .argus-btn {
+    width: 100%;
+  }
+
+  .argus-evidence-media {
+    max-height: 14rem;
+  }
+
+  .argus-rail {
+    max-height: min(18rem, 45dvh);
+  }
+}
+
+/* Narrow tablet (~768) — keep rail below grid, denser tiles */
+@media (min-width: 30.0625rem) and (max-width: 47.9375rem) {
+  .argus-cam-grid {
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  }
+
+  .argus-triage-account-switch {
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Wide tablet / small laptop (~1024) — side rail returns via layout grid above */
+@media (min-width: 48rem) and (max-width: 63.9375rem) {
+  .argus-triage-layout {
+    grid-template-columns: minmax(0, 1fr) 15rem;
+  }
+
+  .argus-rail {
+    position: sticky;
+    top: var(--space-3);
+    max-height: calc(100dvh - var(--space-6));
   }
 }
 

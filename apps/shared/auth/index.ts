@@ -1,5 +1,10 @@
 export const API_BASE = (import.meta.env?.VITE_API_BASE as string | undefined) ?? '/api';
-export const WS_BASE = (import.meta.env?.VITE_WS_BASE as string | undefined) ?? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+function defaultWsBase(): string {
+  if (typeof window === 'undefined') return 'ws://localhost';
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}`;
+}
+export const WS_BASE = (import.meta.env?.VITE_WS_BASE as string | undefined) ?? defaultWsBase();
 export const MAIN_ORIGIN = (import.meta.env?.VITE_MAIN_ORIGIN as string | undefined) ?? 'http://localhost:8180';
 export const TRIAGE_ORIGIN = (import.meta.env?.VITE_SUPPORT_ORIGIN as string | undefined) ?? 'http://localhost:8181';
 export const API = API_BASE;
@@ -65,17 +70,60 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * Extract a session token from a URL hash fragment.
+ * Tolerates duplicated `#token=` / nested fragments from buggy handoffs
+ * (e.g. `#token=abc#token=def` or `#token=#token=abc`).
+ */
+export function parseTokenFromHash(hash: string): string | null {
+  const raw = hash.startsWith('#') ? hash.slice(1) : hash;
+  if (!raw) return null;
+  const marker = 'token=';
+  let cursor = raw;
+  // Peel repeated `token=` prefixes introduced by double-append bugs.
+  while (cursor.startsWith(marker) || cursor.startsWith(`#${marker}`)) {
+    cursor = cursor.startsWith('#') ? cursor.slice(1 + marker.length) : cursor.slice(marker.length);
+  }
+  if (cursor === raw && !raw.startsWith(marker)) {
+    // Hash is something other than a token handoff.
+    if (!raw.includes(marker)) return null;
+    const idx = raw.indexOf(marker);
+    cursor = raw.slice(idx + marker.length);
+  }
+  // A second `#token=` (or any `#…`) inside the fragment is noise — keep the first value.
+  const cut = cursor.search(/#token=|#/);
+  const value = (cut === -1 ? cursor : cursor.slice(0, cut)).trim();
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/** Strip any hash fragment so handoff never double-embeds `#token=`. */
+export function stripTokenHash(url: string): string {
+  const hashIndex = url.indexOf('#');
+  return hashIndex === -1 ? url : url.slice(0, hashIndex);
+}
+
+/** Append (or replace) a `#token=` handoff fragment without doubling it. */
+export function appendTokenHash(url: string, token: string): string {
+  const base = stripTokenHash(url);
+  return `${base}#token=${encodeURIComponent(token)}`;
+}
+
 export function consumeTokenFromUrl(): string | null {
-  const hash = window.location.hash;
-  if (!hash.startsWith('#token=')) return getToken();
-  const token = decodeURIComponent(hash.slice('#token='.length));
+  const token = parseTokenFromHash(window.location.hash);
+  if (!token) return getToken();
   setToken(token);
   history.replaceState(null, '', window.location.pathname + window.location.search);
   return token;
 }
 
 export function redirectToLogin(returnUrl: string = window.location.href): void {
-  const target = isAllowedReturn(returnUrl) ? returnUrl : MAIN_ORIGIN;
+  const cleaned = stripTokenHash(returnUrl);
+  const target = isAllowedReturn(cleaned) ? cleaned : MAIN_ORIGIN;
   window.location.assign(`${MAIN_ORIGIN}/sso/handoff?returnUrl=${encodeURIComponent(target)}`);
 }
 

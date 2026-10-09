@@ -124,6 +124,11 @@ const en: Record<string, string> = {
   'Abrir menu': 'Open menu',
   'Fechar menu': 'Close menu',
   'Português (Brasil)': 'Portuguese (Brazil)',
+  'A triagem exige uma conta ativa. Selecione uma conta na administração ou peça acesso a um administrador.':
+    'Triage requires an active account. Select an account in admin or ask an administrator for access.',
+  'Sessão inválida ou API indisponível. Entre novamente ou selecione uma conta.':
+    'Invalid session or API unavailable. Sign in again or select an account.',
+  'Escolha uma conta na barra lateral para continuar.': 'Choose an account in the sidebar to continue.',
   'Nenhuma conta atribuída ainda.': 'No account assigned yet.',
   'Nenhuma conta ainda': 'No accounts yet',
   'Crie a primeira conta para começar.': 'Create the first account to get started.',
