@@ -78,10 +78,12 @@ services:
     restart: "no"
     command: ["bash", "/app/deploy/migrate.sh"]
     environment:
-      # object-env: bootstrap.py ensure_bucket_exists → Garage on dokploy-network
+      # object-env: bootstrap.py ensure_bucket_exists (R2 / S3). Set
+      # SKIP_S3_BOOTSTRAP=1 when the bucket already exists or Garage is gone.
       # DEV_ROOT_*: bootstrap.py creates the platform ROOT account (idempotent)
       <<: [*common-env, *db-env, *object-env]
       SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-0}
+      SKIP_S3_BOOTSTRAP: ${SKIP_S3_BOOTSTRAP:-0}
       SEED_DEMO: ${SEED_DEMO:-0}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-Password123!}
       ARGUS_APP_ROLE_PASSWORD: ${ARGUS_APP_ROLE_PASSWORD:-}
