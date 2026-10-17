@@ -21,6 +21,7 @@ from argus_prompt_eval.consensus import ConsensusEngine
 from argus_prompt_eval.context_grounding import ground_candidate, ground_context
 from argus_prompt_eval.db import _USING_SHARED_MODELS, account_session
 from argus_prompt_eval.evidence_retention import retain_evidence
+from argus_prompt_eval.jev_verify import verify_after_vlm
 from argus_prompt_eval.negative_discard import discard_sequence, should_discard
 from argus_prompt_eval.persist import find_positive, persist_positive
 from argus_prompt_eval.prompt_set_eval import evaluate_prompt_set
@@ -158,13 +159,18 @@ async def _handle_frames_ready(
             await xack(stream, settings.frames_group, message_id)
             return
 
+        consensus_positive: bool | None = None
+        sensor_score: float | None = None
+        edge_score: float | None = None
         if candidate is not None:
+            sensor_score = candidate["sensor_score"]
+            edge_score = candidate["edge_score"]
             decision = ConsensusEngine(
                 threshold=settings.consensus_threshold,
                 edge_minimum=settings.consensus_edge_minimum,
             ).evaluate(
-                sensor_score=candidate["sensor_score"],
-                edge_score=candidate["edge_score"],
+                sensor_score=sensor_score,
+                edge_score=edge_score,
                 gemini_score=max(
                     (hit.confidence for hit in result.prompt_hits if hit.matched),
                     default=0,
@@ -172,6 +178,7 @@ async def _handle_frames_ready(
                 prompt_hit=any(hit.matched for hit in result.prompt_hits),
                 veto=candidate["sensor_veto"],
             )
+            consensus_positive = decision.is_positive
             if not decision.is_positive:
                 discard_sequence(
                     sequence_id=sequence_id,
@@ -180,6 +187,27 @@ async def _handle_frames_ready(
                 )
                 await xack(stream, settings.frames_group, message_id)
                 return
+
+        # Post-VLM JEV verify on compact text state (never re-sends frames).
+        jev_decision = verify_after_vlm(
+            result,
+            sensor_score=sensor_score,
+            edge_score=edge_score,
+            consensus_positive=consensus_positive,
+        )
+        if jev_decision.disposition == "discard":
+            discard_sequence(
+                sequence_id=sequence_id,
+                reason="jev_discard",
+                frame_uris=frame_uris,
+                extra={
+                    "provider": provider,
+                    "jev_confidence": jev_decision.confidence,
+                    "jev_estimated_usd": jev_decision.estimated_usd,
+                },
+            )
+            await xack(stream, settings.frames_group, message_id)
+            return
 
         evidence_uris = frame_uris
         if candidate is not None and preproc.get("frames"):

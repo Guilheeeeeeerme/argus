@@ -82,6 +82,18 @@ class Settings(BaseSettings):
     )
 
     confidence_floor: float = Field(alias="PROMPT_EVAL_CONFIDENCE_FLOOR", default=0.5)
+
+    # JEV post-VLM verify (direct TypeSafe; never Headroom). Panel: ARGUS_JEV_API_KEY.
+    jev_api_key: str = Field(alias="JEV_API_KEY", default="")
+    jev_base_url: str = Field(alias="JEV_BASE_URL", default="https://api.typesafe.ai")
+    jev_model: str = Field(alias="JEV_MODEL", default="jev-1.13.0")
+    jev_timeout_seconds: float = Field(alias="JEV_TIMEOUT_SECONDS", default=10.0)
+    # off | shadow | active — empty → active with key, off without
+    jev_verify_mode: str = Field(alias="JEV_VERIFY_MODE", default="")
+    jev_verify_confidence_floor: float = Field(
+        alias="JEV_VERIFY_CONFIDENCE_FLOOR", default=0.55, ge=0, le=1
+    )
+
     max_clip_seconds: int = Field(alias="MAX_CLIP_SECONDS", default=600)
     context_lookback_seconds: int = Field(alias="CONTEXT_LOOKBACK_SECONDS", default=900)
     rag_limit: int = Field(alias="RAG_LIMIT", default=5)

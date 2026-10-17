@@ -33,6 +33,13 @@ x-llm-env: &llm-env
   LLM_ESTIMATED_TOKENS_PER_CALL: ${LLM_ESTIMATED_TOKENS_PER_CALL:-4000}
   LLM_ESTIMATED_COST_PER_CALL_USD: ${LLM_ESTIMATED_COST_PER_CALL_USD:-0.01}
   VLM_MIN_CONFIDENCE_FOR_HINT: ${VLM_MIN_CONFIDENCE_FOR_HINT:-0.55}
+  # JEV post-VLM verify (direct; never Headroom). Panel ARGUS_JEV_API_KEY → JEV_API_KEY.
+  JEV_API_KEY: ${JEV_API_KEY:-}
+  JEV_BASE_URL: ${JEV_BASE_URL:-https://api.typesafe.ai}
+  JEV_MODEL: ${JEV_MODEL:-jev-1.13.0}
+  JEV_TIMEOUT_SECONDS: ${JEV_TIMEOUT_SECONDS:-10}
+  JEV_VERIFY_MODE: ${JEV_VERIFY_MODE:-}
+  JEV_VERIFY_CONFIDENCE_FLOOR: ${JEV_VERIFY_CONFIDENCE_FLOOR:-0.55}
 
 x-object-env: &object-env
   # Garage v2.4.1 S3-compatible object store (platform stack on dokploy-network).

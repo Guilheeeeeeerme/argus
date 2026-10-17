@@ -9,23 +9,31 @@ In chains prefix each segment: `rtk git add . && rtk git commit -m "msg"`. For d
 
 # AGENTS.md — Argus
 
-Coding-agent rules for this repository. Project map: [CLAUDE.md](./CLAUDE.md), [README.md](./README.md).
+Coding-agent rules for this repository.
+
+| Reference | Doc |
+| --- | --- |
+| Project map | [CLAUDE.md](./CLAUDE.md) · [README.md](./README.md) |
+| AI engineering map | [docs/ai-engineering.md](./docs/ai-engineering.md) |
+| Gemini+JEV routing | [docs/intelligence-routing.md](./docs/intelligence-routing.md) |
+| Guardrails | [apps/api/docs/guardrails.md](./apps/api/docs/guardrails.md) |
+| Style guide | [STYLE_GUIDE.md](./STYLE_GUIDE.md) |
 
 ## Scope
 
-- Work inside this monorepo (`apps/`, `packages/`, `services/`, `docs/`, `scripts/`).
-- Production Compose and GitHub Actions workflows live in **infra** — GHA + GHCR is the sole supported production control plane (do not use Jenkins; VPS Jenkins removal is CONFIRM-gated in infra after GHA is proven). Do not invent a parallel prod deploy path in this repo.
-- Prefer targeted reads and the smallest sufficient change. Do not run broad refactors or full test matrices unless asked.
+Work inside `apps/`, `packages/`, `services/`, `docs/`, `scripts/`. Production Compose and GHA workflows live in **infra** (sole prod control plane; do not invent parallel paths). Prefer targeted changes; no broad refactors or full test matrices unless asked.
 
 ## Hard rules
 
-- **UI**: import from `@argus/design-system` only; follow [STYLE_GUIDE.md](./STYLE_GUIDE.md). No inline hex colors or ad-hoc CSS variables in apps.
-- **Auth / tenancy**: opaque Redis sessions; MFE hash-token handoff; derive account/tenant from session server-side — never trust client claims alone.
-- **LLM**: follow Promptdesk-aligned guardrails (`docs/ai-engineering.md`, `apps/api/docs/guardrails.md`). No API keys in prompts; fail closed on bad model output; log ids/statuses, not raw frame/prompt payloads.
-- **Env**: copy `.env.example` → `.env`. Do not commit `.env`. Keep Redis DB index conventions (`/0` local, `/1` prod).
-- **Auth0**: MVP uses mock (`AUTH0_USE_MOCK`); do not switch to production Auth0 without an explicit task.
-- Local `docker-compose.yml` / `scripts/up.sh` are for development only — prod is infra-owned.
-- Production database remains on existing Supabase Postgres, schema `argus`; do not rewrite its URLs to VPS Postgres. Run reviewed Alembic migrations via infra before rollout.
+| Rule | Detail |
+| --- | --- |
+| **UI** | Import from `@argus/design-system` only ([STYLE_GUIDE.md](./STYLE_GUIDE.md)). No inline hex or ad-hoc CSS vars. |
+| **Auth/tenancy** | Opaque Redis sessions; MFE hash-token handoff; derive account/tenant server-side. Never trust client claims alone. |
+| **LLM** | Gemini VLM via Headroom (`gemini-3.1-flash-lite`); JEV post-VLM verify (`JEV_VERIFY_MODE`, `services/prompt-eval/.../jev_verify.py`, `jev_client.py`). No API keys in prompts; fail closed; log ids/statuses only. |
+| **Env** | `.env.example` → `.env`. Never commit `.env`. Redis DB `/0` local, `/1` prod. |
+| **Auth0** | MVP uses mock (`AUTH0_USE_MOCK`). Do not wire production Auth0 without an explicit task. |
+| **Deploy** | `docker-compose.yml` / `scripts/up.sh` for dev only; prod is infra-owned. |
+| **DB** | Production on Supabase Postgres, schema `argus`. Never rewrite URLs to VPS Postgres. Run Alembic migrations via infra before rollout. |
 
 ## Verification
 
@@ -37,7 +45,5 @@ PYTHONPATH=src pytest tests/
 ```
 
 For a narrow API change, prefer the relevant pytest paths over the entire suite.
-
-## Communication
 
 User-facing text in English.

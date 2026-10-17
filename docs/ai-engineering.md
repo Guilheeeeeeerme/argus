@@ -19,7 +19,10 @@ path. Product entities and Redis contracts live in `docs/SPEC.md`.
 | RAG (pgvector) | prompt-eval (+ API write path) | `rag` |
 | Prompt fencing / screening | prompt-eval | `guardrails` |
 | Provider failover + budgets | prompt-eval | `provider_router` |
+| Post-VLM JEV verify (publish/discard/review) | prompt-eval | `jev_verify` / `jev_client` |
 | HITL triage loop | api + triage MFE | API triage routes + triage workspace |
+
+Routing contract: [intelligence-routing.md](./intelligence-routing.md).
 
 ## Notes by concept
 
@@ -79,6 +82,13 @@ message; screen at write and before LLM; no tool-calling agency in MVP.
 
 Gemini-only provider chain with env-pinned `GEMINI_MODEL` (no runtime model
 rank), plus per-tenant/global Redis budgets (OpenAI retired).
+
+### Post-VLM JEV verify — `jev_verify`
+
+After Gemini PromptSet eval (and optional edge consensus), JEV Choice on a
+compact text state decides `publish` / `discard` / `review`. Low confidence
+passthrough keeps the Gemini/code path. Frames are never re-sent to JEV.
+Mode: `JEV_VERIFY_MODE` (`off` \| `shadow` \| `active`).
 
 ### HITL triage loop — api + triage MFE
 
