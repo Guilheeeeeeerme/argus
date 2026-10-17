@@ -19,6 +19,23 @@ interface LoginPageProps {
   onLogin?: (session: Session) => void;
 }
 
+function applySession(
+  session: Session,
+  onLogin: ((session: Session) => void) | undefined,
+  setSession: (session: Session) => void,
+) {
+  if (session.token) setToken(session.token);
+  if (onLogin) {
+    onLogin(session);
+    return;
+  }
+  setSession(session);
+  const target = returnTo();
+  if (target !== APP && session.activeAccount) {
+    window.location.assign(withToken(target));
+  }
+}
+
 export function LoginPage({ onLogin }: LoginPageProps) {
   const t = useT();
   const { locale, setLocale } = useLocale();
@@ -26,7 +43,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState(import.meta.env.DEV ? 'root@argus.local' : '');
   const [password, setPassword] = useState('');
   const login = useMutation(auth.login);
+  const demo = useMutation(auth.demo);
   const [fieldError, setFieldError] = useState<{ email?: string; password?: string }>({});
+  const busy = login.pending || demo.pending;
+  const formError = login.error
+    ? localizeApiError(login.error, t)
+    : demo.error
+      ? localizeApiError(demo.error, t)
+      : null;
 
   async function submit() {
     const errors: { email?: string; password?: string } = {};
@@ -36,17 +60,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     if (errors.email || errors.password) return;
     const result = await login.run(email.trim(), password);
     if (!result.ok) return;
-    const session = result.data;
-    if (session.token) setToken(session.token);
-    if (onLogin) {
-      onLogin(session);
-      return;
-    }
-    setSession(session);
-    const target = returnTo();
-    if (target !== APP && session.activeAccount) {
-      window.location.assign(withToken(target));
-    }
+    applySession(result.data, onLogin, setSession);
+  }
+
+  async function submitDemo() {
+    setFieldError({});
+    const result = await demo.run();
+    if (!result.ok) return;
+    applySession(result.data, onLogin, setSession);
   }
 
   return (
@@ -67,8 +88,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             ARGUS
           </h1>
           <p className="argus-auth__subtitle">{t('Entre para continuar.')}</p>
-          <Form onSubmit={() => void submit()} busy={login.pending}>
-            <FormError message={login.error ? localizeApiError(login.error, t) : null} />
+          <Form onSubmit={() => void submit()} busy={busy}>
+            <FormError message={formError} />
             <Input
               label={t('E-mail')}
               type="email"
@@ -87,10 +108,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               onChange={e => setPassword(e.target.value)}
               required
             />
-            <Button type="submit" loading={login.pending}>
+            <Button type="submit" loading={login.pending} disabled={busy}>
               {t('Entrar')}
             </Button>
           </Form>
+          <div className="argus-auth__demo-divider" role="separator" aria-label={t('Ou experimentar a demo')}>
+            <span>{t('ou')}</span>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            loading={demo.pending}
+            disabled={busy}
+            onClick={() => void submitDemo()}
+          >
+            {t('Entrar como usuário demo')}
+          </Button>
+          <p className="argus-auth__hint">
+            {t('Acesso instantâneo ao workspace de demonstração — sem senha.')}
+          </p>
         </Card>
       </div>
     </main>

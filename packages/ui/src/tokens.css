@@ -1659,9 +1659,30 @@
 }
 
 .argus-auth__hint {
-  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+  margin: var(--space-2) 0 0;
   color: var(--text-muted);
   font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.argus-auth__demo-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.argus-auth__demo-divider::before,
+.argus-auth__demo-divider::after {
+  content: '';
+  flex: 1;
+  border-top: var(--border-width) solid var(--border);
+}
+
+.argus-auth__demo-divider span {
+  flex-shrink: 0;
 }
 
 .argus-auth__toolbar {

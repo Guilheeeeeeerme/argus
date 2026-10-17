@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from uuid import UUID
 
 import bcrypt
@@ -22,6 +23,9 @@ from argus.services.sessions import (
 )
 
 router = APIRouter(prefix="/v1/auth", tags=["authentication"])
+
+# Passwordless demo button on the admin login page (same pattern as PromptDesk / Quizzeira).
+DEMO_EMAIL = (os.environ.get("DEMO_EMAIL") or "demo@argus.ferredemo.dev").strip().lower()
 
 
 class LoginRequest(BaseModel):
@@ -113,6 +117,20 @@ async def _session_payload(token: str, data: SessionData) -> SessionResponse:
     )
 
 
+def _session_from_user(user: AccountUser) -> SessionData:
+    membership_ids = user.account_ids
+    selected = (
+        user.account_id if user.account_id in membership_ids
+        else membership_ids[0] if len(membership_ids) == 1 else None
+    )
+    return SessionData(
+        user_id=str(user.id),
+        email=user.email,
+        role=user.role.value,
+        account_id=str(selected) if selected else None,
+    )
+
+
 @router.post("/login", response_model=SessionResponse)
 async def login(body: LoginRequest) -> SessionResponse:
     email = body.email.lower()
@@ -130,17 +148,23 @@ async def login(body: LoginRequest) -> SessionResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
-    membership_ids = user.account_ids
-    selected = (
-        user.account_id if user.account_id in membership_ids
-        else membership_ids[0] if len(membership_ids) == 1 else None
-    )
-    data = SessionData(
-        user_id=str(user.id),
-        email=user.email,
-        role=user.role.value,
-        account_id=str(selected) if selected else None,
-    )
+    data = _session_from_user(user)
+    token = await create_session(data)
+    return await _session_payload(token, data)
+
+
+@router.post("/demo", response_model=SessionResponse)
+async def demo() -> SessionResponse:
+    """Passwordless demo entry — logs into the shared-tenant demo operator."""
+    async for session in get_db():
+        await set_session_context(session, account_id=None, role=UserRole.ROOT.value)
+        user = await session.scalar(select(AccountUser).where(AccountUser.email == DEMO_EMAIL))
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Demo user unavailable",
+        )
+    data = _session_from_user(user)
     token = await create_session(data)
     return await _session_payload(token, data)
 

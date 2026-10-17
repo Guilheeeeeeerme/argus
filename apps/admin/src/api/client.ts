@@ -50,6 +50,7 @@ export const auth = {
   me: () => apiFetch<Session>('/v1/auth/me'),
   login: (email: string, password: string) =>
     apiFetch<Session>('/v1/auth/login', json('POST', { email, password })),
+  demo: () => apiFetch<Session>('/v1/auth/demo', json('POST', {})),
   logout: () => apiFetch<unknown>('/v1/auth/logout', { method: 'POST' }),
   accounts: () => apiFetch<Account[]>('/v1/auth/accounts'),
   switchContext: (body: SwitchContextBody) =>

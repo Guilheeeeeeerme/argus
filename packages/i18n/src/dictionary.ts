@@ -24,6 +24,11 @@ export function resolveLocale(candidate: string | null | undefined): Locale {
 const en: Record<string, string> = {
   'Entrar': 'Sign in',
   'Entre para continuar.': 'Sign in to continue.',
+  'ou': 'or',
+  'Ou experimentar a demo': 'Or try the demo',
+  'Entrar como usuário demo': 'Explore as a demo user',
+  'Acesso instantâneo ao workspace de demonstração — sem senha.':
+    'Instant access to the sample workspace — no password needed.',
   'Sair': 'Log out',
   'Sair?': 'Log out?',
   'Encerrar a sessão neste dispositivo?': 'End your session on this device?',
