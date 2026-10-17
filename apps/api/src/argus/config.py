@@ -3,10 +3,8 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from argus.llm_headroom import resolve_gemini_base_url
 
 ServiceRole = Literal[
     "api-admin",
@@ -115,8 +113,6 @@ class Settings(BaseSettings):
         alias="GEMINI_EMBEDDING_MODEL",
         default="gemini-embedding-001",
     )
-    llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
-    llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini")
     llm_rate_limit_per_minute: int = Field(alias="LLM_RATE_LIMIT_PER_MINUTE", default=20)
     llm_daily_budget: int = Field(alias="LLM_DAILY_BUDGET", default=500)
     llm_global_daily_budget: int = Field(alias="LLM_GLOBAL_DAILY_BUDGET", default=5000)
@@ -143,16 +139,6 @@ class Settings(BaseSettings):
     api_port: int = Field(alias="API_PORT", default=8000)
 
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
-
-    @model_validator(mode="after")
-    def _resolve_llm_base_urls(self) -> "Settings":
-        flag = "true" if self.llm_use_headroom else "false"
-        object.__setattr__(
-            self,
-            "gemini_base_url",
-            resolve_gemini_base_url(flag, self.gemini_base_url),
-        )
-        return self
 
     @computed_field  # type: ignore[prop-decorator]
     @property

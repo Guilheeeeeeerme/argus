@@ -61,8 +61,8 @@ Each module docstring names the AI Engineering pattern it implements.
 | `DATABASE_URL` | Postgres (asyncpg) |
 | `REDIS_URL` | Redis streams |
 | `S3_*` | MinIO / S3 for frames + clips |
-| `GEMINI_*` | VLM provider (sole) |
-| `LLM_PROVIDER_ORDER` | default `gemini` |
+| `GEMINI_*` | VLM provider (sole generation model) |
+| `JEV_*` | Post-VLM verify (`JEV_API_KEY`, `JEV_MODEL`, `JEV_VERIFY_MODE`) |
 | `LLM_*_BUDGET` / rate limits | provider budgets |
 | `AUTH0_USE_MOCK` | mock VLM when no API keys |
 | `MAX_CLIP_SECONDS` | default `600` (10 min) |

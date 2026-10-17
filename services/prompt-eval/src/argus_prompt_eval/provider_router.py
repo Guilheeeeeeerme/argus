@@ -35,13 +35,9 @@ COST_BUDGET_EXCEEDED = "cost_budget_exceeded"
 def resolve_llm_chain(s: Settings | None = None) -> list[tuple[str, VLMClient]]:
     """Ordered (provider_name, client) chain; unknown/keyless providers skipped."""
     target = s or settings
-    names = [
-        n.strip().lower() for n in target.llm_provider_order.split(",") if n.strip()
-    ]
     chain: list[tuple[str, VLMClient]] = []
-    for name in names:
-        if name == "gemini" and target.gemini_api_key:
-            chain.append(("gemini", GeminiVLMClient()))
+    if target.gemini_api_key:
+        chain.append(("gemini", GeminiVLMClient()))
     if chain:
         return chain
     if target.auth0_use_mock:

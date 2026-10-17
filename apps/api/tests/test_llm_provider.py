@@ -23,7 +23,6 @@ async def _cleanup():
 def _settings(**overrides) -> Settings:
     values = {
         "GEMINI_API_KEY": "gem-key",
-        "LLM_PROVIDER_ORDER": "gemini",
         "AUTH0_USE_MOCK": False,
     }
     values.update(overrides)
@@ -37,18 +36,14 @@ def test_chain_returns_gemini_only() -> None:
     assert isinstance(chain[0][1], GeminiVLMClient)
 
 
-def test_chain_skips_unknown_and_keyless_providers() -> None:
-    chain = resolve_llm_chain(
-        _settings(LLM_PROVIDER_ORDER="openai,gossip,gemini", GEMINI_API_KEY="gem-key")
-    )
+def test_chain_is_gemini_when_key_is_set() -> None:
+    chain = resolve_llm_chain(_settings(GEMINI_API_KEY="gem-key"))
     assert [name for name, _client in chain] == ["gemini"]
 
 
-def test_chain_ignores_retired_openai_name() -> None:
+def test_chain_requires_gemini_key() -> None:
     with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
-        resolve_llm_chain(
-            _settings(LLM_PROVIDER_ORDER="openai", GEMINI_API_KEY="", AUTH0_USE_MOCK=False)
-        )
+        resolve_llm_chain(_settings(GEMINI_API_KEY="", AUTH0_USE_MOCK=False))
 
 
 def test_chain_falls_back_to_mock_when_enabled() -> None:

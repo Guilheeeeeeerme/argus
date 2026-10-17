@@ -2,7 +2,7 @@
 
 Branch `production` + a green `deploy.yml` build is the deploy contract: CI pushes immutable images to GHCR tagged `<sha>` and a moving `:production` tag, boots a compose smoke on the runner, then calls the Dokploy deploy hook and polls `/version` for the released SHA. The VPS never builds.
 
-Runtime database stays the **existing Supabase project** — never repoint the DB URLs anywhere else. Everything here assumes the Dokploy/Traefik platform stacks (documented in the infra repo): Traefik (`websecure`, `letsencrypt`, `security-headers@file` + `compress@file` middlewares), `dokploy-network`, Garage object store (`http://object-store:9000`), Headroom LLM proxy (`http://headroom:8787`), per-app Redis is **inside this stack** (password + `noeviction`).
+Runtime database stays the **existing Supabase project** — never repoint the DB URLs anywhere else. Everything here assumes the Dokploy/Traefik platform stacks (documented in the infra repo): Traefik (`websecure`, `letsencrypt`, `security-headers@file` + `compress@file` middlewares), `dokploy-network`, per-app Redis is **inside this stack** (password + `noeviction`). Gemini is the public API.
 
 ## Files
 
@@ -27,7 +27,7 @@ Runtime database stays the **existing Supabase project** — never repoint the D
    - Owner role `argus` (migrations) and runtime role `argus_app` (NOBYPASSRLS) are separate roles; `ensure_grants.py` keeps `argus_app` non-superuser/NOBYPASSRLS and re-grants schema `argus` DML. Never merge them into one connection.
    - `REDIS_PASSWORD` is required; compose renders `redis://:<pw>@redis:6379/1` (pipeline_health enforces DB `/1`).
    - S3 is Garage: `S3_ENDPOINT_URL=http://object-store:9000`, bucket `argus-frames`.
-   - LLM: `LLM_USE_HEADROOM=true`, `GEMINI_MODEL=gemini-3.1-flash-lite` (verified production pin), `GEMINI_BASE_URL=http://headroom:8787`.
+   - LLM: `GEMINI_MODEL=gemini-3.1-flash-lite` (verified production pin), `GEMINI_BASE_URL=https://generativelanguage.googleapis.com`. Compose hardcodes the public URL.
    - Tier: paste `tiers/16gb.env` (incl. `COMPOSE_PROFILES=pipeline`) or `tiers/8gb.env` on the small VPS.
 3. **GHCR pull credential** — configure the private-registry credentials in Dokploy so the stack can pull the `ghcr.io/guilheeeeeeerme/argus/*` images.
 4. **Deploy**: Dokploy runs `docker compose up -d --wait` — `migrate` (restart: "no") runs first, then `api` depends on `migrate service_completed_successfully` + healthy Redis. `worker` waits for the healthy `api`.

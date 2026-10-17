@@ -9,7 +9,7 @@ fails closed (the analysis is skipped/failed, never silently degraded).
 - `python:apps/api/src/argus/guardrails/registry.yml` — versioned prompt and policy registry (validated on load; duplicate ids, missing keys, or malformed regex abort startup).
 - `python:apps/api/src/argus/guardrails/screening.py` — deterministic regex screening of untrusted text (operator feedback) BEFORE any LLM call **and at feedback write**. Hits return policy ids only, never matched text.
 - `python:apps/api/src/argus/guardrails/fencing.py` — wraps untrusted payload in `BEGIN_UNTRUSTED_VLM_CONTEXT`/`END_UNTRUSTED_VLM_CONTEXT` markers from the `context.fence` registry prompt.
-- `python:apps/api/src/argus/integrations/llm_provider.py` — provider chain (`LLM_PROVIDER_ORDER`, default `gemini`); keyless providers are skipped, and with no usable provider the worker fails closed unless `AUTH0_USE_MOCK` enables the mock client.
+- `python:apps/api/src/argus/integrations/llm_provider.py` — Gemini when `GEMINI_API_KEY` is set; with no key the worker fails closed unless `AUTH0_USE_MOCK` enables the mock client.
 - Model id is **pinned** via `GEMINI_MODEL` (no runtime `models.list` / rank refresh).
 - `python:apps/api/src/argus/services/llm_budget.py` — per-tenant Redis rate/budget plus global ceiling; optional token/cost halts.
 - `python:apps/api/src/argus/integrations/gemini_vlm.py` — frames via `data:` / `s3://` / allowlisted HTTP only (SSRF-hardened).
@@ -36,9 +36,12 @@ fails closed (the analysis is skipped/failed, never silently degraded).
 | --- | --- | --- |
 | `GEMINI_API_KEY` | `""` | Gemini provider key |
 | `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Sole VLM model id (env pin; no runtime discovery) |
-| `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com` | Gemini API root; set to Headroom (`http://localhost:8787`) to compress |
+| `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com` | Gemini API root |
 | `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Feedback RAG embeddings (1536-d) |
-| `LLM_PROVIDER_ORDER` | `gemini` | Provider priority (Gemini sole provider) |
+| `JEV_API_KEY` | `""` | JEV verify key (same name on every stack, different value) |
+| `JEV_BASE_URL` | `https://api.typesafe.ai` | JEV API root |
+| `JEV_MODEL` | `jev-1.13.0` | JEV model id |
+| `JEV_VERIFY_MODE` | empty | `off` / `shadow` / `active`; empty follows whether the key is set |
 | `LLM_RATE_LIMIT_PER_MINUTE` | `20` | Per-tenant LLM calls per minute |
 | `LLM_DAILY_BUDGET` | `500` | Per-tenant daily LLM call budget |
 | `LLM_GLOBAL_DAILY_BUDGET` | `5000` | Global daily call ceiling |

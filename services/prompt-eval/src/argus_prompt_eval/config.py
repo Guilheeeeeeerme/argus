@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, model_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from argus_prompt_eval.llm_headroom import resolve_gemini_base_url
 
 
 class Settings(BaseSettings):
@@ -40,8 +38,6 @@ class Settings(BaseSettings):
     )
     gemini_model: str = Field(alias="GEMINI_MODEL", default="gemini-3.1-flash-lite")
 
-    llm_use_headroom: bool = Field(alias="LLM_USE_HEADROOM", default=True)
-    llm_provider_order: str = Field(alias="LLM_PROVIDER_ORDER", default="gemini")
     llm_rate_limit_per_minute: int = Field(
         alias="LLM_RATE_LIMIT_PER_MINUTE", default=20
     )
@@ -83,7 +79,7 @@ class Settings(BaseSettings):
 
     confidence_floor: float = Field(alias="PROMPT_EVAL_CONFIDENCE_FLOOR", default=0.5)
 
-    # JEV post-VLM verify (direct TypeSafe; never Headroom). Panel: ARGUS_JEV_API_KEY.
+    # JEV post-VLM verify (direct TypeSafe). Panel name is JEV_API_KEY.
     jev_api_key: str = Field(alias="JEV_API_KEY", default="")
     jev_base_url: str = Field(alias="JEV_BASE_URL", default="https://api.typesafe.ai")
     jev_model: str = Field(alias="JEV_MODEL", default="jev-1.13.0")
@@ -104,16 +100,6 @@ class Settings(BaseSettings):
     consumer_block_ms: int = Field(alias="CONSUMER_BLOCK_MS", default=2000)
 
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
-
-    @model_validator(mode="after")
-    def _resolve_llm_base_urls(self) -> Settings:
-        flag = "true" if self.llm_use_headroom else "false"
-        object.__setattr__(
-            self,
-            "gemini_base_url",
-            resolve_gemini_base_url(flag, self.gemini_base_url),
-        )
-        return self
 
 
 @lru_cache

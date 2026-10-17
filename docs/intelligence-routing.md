@@ -5,7 +5,7 @@ Concept map: [ai-engineering.md](./ai-engineering.md).
 
 | Need | Owner |
 | --- | --- |
-| Multimodal PromptSet eval (frames → structured hits) | **Gemini VLM** (`gemini-3.1-flash-lite` via Headroom) |
+| Multimodal PromptSet eval (frames → structured hits) | **Gemini VLM** (`gemini-3.1-flash-lite`, public API) |
 | Post-VLM publish / discard / review | **JEV Choice** on compact text state (`JEV_VERIFY_MODE=active`) |
 | Feedback embeddings | Gemini `gemini-embedding-001` |
 | Edge motion / YOLO / consensus weights | Code (classical CV) |
@@ -27,5 +27,5 @@ Never dual-bill vision. JEV images / Box stay lab-only until TypeSafe marks them
 `JEV_VERIFY_MODE` ∈ `off | shadow | active`. Unset → `active` with `JEV_API_KEY`, else `off`.
 `shadow` logs compare only (double spend) — holdout only; never leave prod on `shadow`.
 
-Panel secret: `ARGUS_JEV_API_KEY` → `JEV_API_KEY` (never reuse Quizzeira/PromptDesk keys).
+Panel secret: `JEV_API_KEY` (never reuse the Quizzeira or PromptDesk key).
 Code: `services/prompt-eval/.../jev_client.py`, `jev_verify.py`.

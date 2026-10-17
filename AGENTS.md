@@ -29,7 +29,7 @@ Work inside `apps/`, `packages/`, `services/`, `docs/`, `scripts/`. Production C
 | --- | --- |
 | **UI** | Import from `@argus/design-system` only ([STYLE_GUIDE.md](./STYLE_GUIDE.md)). No inline hex or ad-hoc CSS vars. |
 | **Auth/tenancy** | Opaque Redis sessions; MFE hash-token handoff; derive account/tenant server-side. Never trust client claims alone. |
-| **LLM** | Gemini VLM via Headroom (`gemini-3.1-flash-lite`); JEV post-VLM verify (`JEV_VERIFY_MODE`, `services/prompt-eval/.../jev_verify.py`, `jev_client.py`). No API keys in prompts; fail closed; log ids/statuses only. |
+| **LLM** | Gemini VLM direct (`gemini-3.1-flash-lite`, public API); JEV post-VLM verify (`JEV_VERIFY_MODE`, `services/prompt-eval/.../jev_verify.py`, `jev_client.py`). No API keys in prompts; fail closed; log ids/statuses only. |
 | **Env** | `.env.example` → `.env`. Never commit `.env`. Redis DB `/0` local, `/1` prod. |
 | **Auth0** | MVP uses mock (`AUTH0_USE_MOCK`). Do not wire production Auth0 without an explicit task. |
 | **Deploy** | `docker-compose.yml` / `scripts/up.sh` for dev only; prod is infra-owned. |
