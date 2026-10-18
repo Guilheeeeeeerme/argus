@@ -3,6 +3,8 @@
 
 Platform ROOT/ADMIN are created by bootstrap / seed_platform, never here.
 
+Shape: one account, two estabelecimentos, three cameras each, Portuguese copy.
+
 Passwords for the fixture demo users stay untouched unless DEMO_PASSWORD_SYNC=1
 (with DEMO_PASSWORD set) — then manager@ / guest@ hashes are rotated to match.
 """
@@ -16,7 +18,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,12 +39,12 @@ from argus.domain.models import (
 )
 from argus.services.database import set_session_context
 from demo_catalog import (
-    CAMERAS,
     LEGACY_PROMPT_TEXTS,
     LEGACY_WATCHLIST_NAMES,
     SOURCE_PAGE,
     SOURCE_TERMS,
     SOURCES,
+    UNITS,
 )
 
 ACCOUNT_DEMO_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
@@ -54,10 +56,13 @@ USER_MANAGER_ID = uuid.UUID("99999999-9999-4999-8999-999999999999")
 USER_GUEST_ID = uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 WEBHOOK_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
+# Legacy sandbox from the previous 2-account demo — removed on seed.
 SANDBOX_ACCOUNT_ID = uuid.uuid5(ACCOUNT_DEMO_ID, "sandbox-company")
 
 DEFAULT_PASSWORD = "Password123!"
 DEMO_WEBHOOK_TOKEN = "demo-webhook-token-change-me"
+
+KEEP_UNIT_KEYS = {unit["key"] for unit in UNITS}
 
 
 def demo_password() -> str:
@@ -73,6 +78,72 @@ def demo_password_sync_enabled() -> bool:
     return os.environ.get("DEMO_PASSWORD_SYNC", "").strip().lower() in {"1", "true", "yes"}
 
 
+def _unit_id(unit_key: str) -> uuid.UUID:
+    if unit_key == UNITS[0]["key"]:
+        return UNIT_DEMO_ID
+    # Preserve the existing Florida Keys site UUID from the prior one-cam-per-site seed.
+    if unit_key == UNITS[1]["key"]:
+        return uuid.uuid5(ACCOUNT_DEMO_ID, "key-west-beach:site")
+    return uuid.uuid5(ACCOUNT_DEMO_ID, unit_key + ":unit")
+
+
+def _camera_id(unit_key: str, camera_key: str, camera_index: int) -> uuid.UUID:
+    if unit_key == UNITS[0]["key"] and camera_index == 0:
+        return CAMERA_DEMO_ID
+    return uuid.uuid5(ACCOUNT_DEMO_ID, camera_key + ":camera")
+
+
+def _prompt_set_id(unit_key: str, camera_key: str, camera_index: int) -> uuid.UUID:
+    if unit_key == UNITS[0]["key"] and camera_index == 0:
+        return PROMPT_SET_ID
+    return uuid.uuid5(ACCOUNT_DEMO_ID, camera_key + ":prompts")
+
+
+def _prompt_id(set_id: uuid.UUID, unit_key: str, camera_index: int, order: int) -> uuid.UUID:
+    if unit_key == UNITS[0]["key"] and camera_index == 0 and order == 0:
+        return PROMPT_ID
+    return uuid.uuid5(set_id, str(order))
+
+
+async def _purge_extras(session: AsyncSession, account_id: uuid.UUID) -> None:
+    """Drop sandbox + any cameras/units outside the consolidated catalog."""
+    keep_unit_ids = {_unit_id(key) for key in KEEP_UNIT_KEYS}
+    keep_camera_ids = {
+        _camera_id(unit["key"], camera["key"], index)
+        for unit in UNITS
+        for index, camera in enumerate(unit["cameras"])
+    }
+
+    sandbox = await session.get(Account, SANDBOX_ACCOUNT_ID)
+    if sandbox is not None:
+        await session.delete(sandbox)
+        await session.flush()
+
+    extra_cameras = (
+        await session.scalars(
+            select(Camera).where(
+                Camera.account_id == account_id,
+                Camera.id.notin_(keep_camera_ids),
+            )
+        )
+    ).all()
+    for camera in extra_cameras:
+        await session.delete(camera)
+    await session.flush()
+
+    extra_units = (
+        await session.scalars(
+            select(Unit).where(
+                Unit.account_id == account_id,
+                Unit.id.notin_(keep_unit_ids),
+            )
+        )
+    ).all()
+    for unit in extra_units:
+        await session.delete(unit)
+    await session.flush()
+
+
 async def seed_demo(session: AsyncSession) -> dict[str, str]:
     await set_session_context(session, account_id=None, role=UserRole.ROOT.value)
     ids: dict[str, str] = {}
@@ -81,121 +152,129 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
     if account is None:
         account = Account(
             id=ACCOUNT_DEMO_ID,
-            name="Demo Company",
+            name="Argus Demo Brasil",
             slug="demo-company",
         )
         session.add(account)
         await session.flush()
-    ids["account_id"] = str(account.id)
-
-    if account.name == "Demo Company":
-        account.name = "Argus Public Camera Demo"
+    if account.name in {"Demo Company", "Argus Public Camera Demo"}:
+        account.name = "Argus Demo Brasil"
     account.settings = {
         **(account.settings or {}),
-        "demo_source": "Public live cameras (traffic, beach, zoo)",
+        "demo_source": "Câmeras públicas ao vivo (tráfego, praia, zoológico)",
         "demo_source_url": SOURCE_PAGE,
         "demo_source_terms": SOURCE_TERMS,
         "demo_sources": [
             {"name": s["name"], "page": s["page"], "terms": s["terms"]} for s in SOURCES
         ],
+        "demo_shape": "1 conta · 2 estabelecimentos · 3 câmeras cada",
     }
-    sandbox = await session.get(Account, SANDBOX_ACCOUNT_ID)
-    if sandbox is None:
-        session.add(
-            Account(id=SANDBOX_ACCOUNT_ID, name="Demo Sandbox", slug="demo-sandbox")
-        )
-        await session.flush()
-    ids["sandbox_account_id"] = str(SANDBOX_ACCOUNT_ID)
+    ids["account_id"] = str(account.id)
 
-    for index, item in enumerate(CAMERAS):
-        site_id = (
-            UNIT_DEMO_ID
-            if index == 0
-            else uuid.uuid5(ACCOUNT_DEMO_ID, item["key"] + ":site")
-        )
-        camera_id = (
-            CAMERA_DEMO_ID
-            if index == 0
-            else uuid.uuid5(ACCOUNT_DEMO_ID, item["key"] + ":camera")
-        )
-        set_id = (
-            PROMPT_SET_ID
-            if index == 0
-            else uuid.uuid5(ACCOUNT_DEMO_ID, item["key"] + ":prompts")
-        )
-        address = item.get("address", "US-101, San Luis Obispo, California")
-        timezone = item.get("timezone", "America/Los_Angeles")
-        unit = await session.get(Unit, site_id)
+    await _purge_extras(session, account.id)
+
+    for unit_item in UNITS:
+        unit_id = _unit_id(unit_item["key"])
+        unit = await session.get(Unit, unit_id)
         if unit is None:
             unit = Unit(
-                id=site_id,
+                id=unit_id,
                 account_id=account.id,
-                name=item["site"],
-                address=address,
-                timezone=timezone,
+                name=unit_item["name"],
+                address=unit_item["address"],
+                timezone=unit_item["timezone"],
                 active=True,
             )
             session.add(unit)
             await session.flush()
-        elif unit.name == "Demo Establishment":
-            unit.name = item["site"]
-            unit.address = address
-            unit.timezone = timezone
-        elif unit.address == "US-101, San Luis Obispo, California" and address != unit.address:
-            unit.address = address
-            unit.timezone = timezone
-        camera = await session.get(Camera, camera_id)
-        stream = "ffmpeg:" + item["playlist"] + "#video=copy"
-        if camera is None:
-            camera = Camera(
-                id=camera_id,
-                account_id=account.id,
-                unit_id=site_id,
-                name=item["name"],
-                stream_url=stream,
-                is_active=True,
-            )
-            session.add(camera)
-            await session.flush()
-        elif camera.stream_url == "rtsp://example.invalid/cam01":
-            camera.name = item["name"]
-            camera.stream_url = stream
-        prompt_set = await session.get(PromptSet, set_id)
-        if prompt_set is None:
-            prompt_set = PromptSet(
-                id=set_id,
-                account_id=account.id,
-                camera_id=camera_id,
-                name=item["watchlist"],
-            )
-            session.add(prompt_set)
-            await session.flush()
-        elif prompt_set.name in LEGACY_WATCHLIST_NAMES:
-            prompt_set.name = item["watchlist"]
-        for order, prompt_text in enumerate(item["prompts"]):
-            prompt_id = (
-                PROMPT_ID
-                if index == 0 and order == 0
-                else uuid.uuid5(set_id, str(order))
-            )
-            prompt = await session.get(Prompt, prompt_id)
-            if prompt is None:
-                session.add(
-                    Prompt(
-                        id=prompt_id,
-                        account_id=account.id,
-                        prompt_set_id=set_id,
-                        text=prompt_text,
-                        enabled=True,
-                        sort_order=order,
-                    )
+        else:
+            # Consolidated demo units always converge to the Portuguese catalog labels.
+            unit.name = unit_item["name"]
+            unit.address = unit_item["address"]
+            unit.timezone = unit_item["timezone"]
+            unit.active = True
+
+        for camera_index, camera_item in enumerate(unit_item["cameras"]):
+            camera_id = _camera_id(unit_item["key"], camera_item["key"], camera_index)
+            set_id = _prompt_set_id(unit_item["key"], camera_item["key"], camera_index)
+            stream = "ffmpeg:" + camera_item["playlist"] + "#video=copy"
+
+            camera = await session.get(Camera, camera_id)
+            if camera is None:
+                camera = Camera(
+                    id=camera_id,
+                    account_id=account.id,
+                    unit_id=unit_id,
+                    name=camera_item["name"],
+                    stream_url=stream,
+                    is_active=True,
                 )
-            elif prompt.text in LEGACY_PROMPT_TEXTS:
-                prompt.text = prompt_text
-        await session.flush()
-    # Preserve the stable fixture identifiers used by operators and API tests.
+                session.add(camera)
+                await session.flush()
+            else:
+                camera.unit_id = unit_id
+                if camera.stream_url in {
+                    None,
+                    "",
+                    "rtsp://example.invalid/cam01",
+                } or camera.stream_url.startswith("ffmpeg:https://wzmedia.dot.ca.gov/") or camera.stream_url.startswith(
+                    "ffmpeg:https://5ed325193d4e1.streamlock.net"
+                ) or camera.stream_url.startswith("ffmpeg:https://zssd-"):
+                    # Refresh known public demo feeds; leave unknown operator URLs alone.
+                    camera.stream_url = stream
+                legacy_camera_names = {
+                    "US-101 — Broad Street",
+                    "US-101 — Monterey Street",
+                    "US-101 — Madonna Road",
+                    "Beach TV — Key West & Florida Keys",
+                    "Beach TV — Myrtle Beach",
+                    "San Diego Zoo — Platypus Cam",
+                    "San Diego Zoo — Koala Cam",
+                    "Marginal Pinheiros — Cidade Jardim",
+                    "Av. 23 de Maio — Bela Vista",
+                    "Marginal Tietê — Santana",
+                }
+                if camera.name in legacy_camera_names:
+                    camera.name = camera_item["name"]
+                camera.is_active = True
+
+            prompt_set = await session.get(PromptSet, set_id)
+            if prompt_set is None:
+                prompt_set = PromptSet(
+                    id=set_id,
+                    account_id=account.id,
+                    camera_id=camera_id,
+                    name=camera_item["watchlist"],
+                )
+                session.add(prompt_set)
+                await session.flush()
+            else:
+                prompt_set.camera_id = camera_id
+                if prompt_set.name in LEGACY_WATCHLIST_NAMES:
+                    prompt_set.name = camera_item["watchlist"]
+
+            for order, prompt_text in enumerate(camera_item["prompts"]):
+                prompt_id = _prompt_id(set_id, unit_item["key"], camera_index, order)
+                prompt = await session.get(Prompt, prompt_id)
+                if prompt is None:
+                    session.add(
+                        Prompt(
+                            id=prompt_id,
+                            account_id=account.id,
+                            prompt_set_id=set_id,
+                            text=prompt_text,
+                            enabled=True,
+                            sort_order=order,
+                        )
+                    )
+                elif prompt.text in LEGACY_PROMPT_TEXTS:
+                    prompt.text = prompt_text
+                    prompt.enabled = True
+            await session.flush()
+
     ids.update(
         unit_id=str(UNIT_DEMO_ID),
+        unit_costa_id=str(_unit_id(UNITS[1]["key"])),
         camera_id=str(CAMERA_DEMO_ID),
         prompt_set_id=str(PROMPT_SET_ID),
         prompt_id=str(PROMPT_ID),
@@ -208,18 +287,22 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             id=WEBHOOK_ID,
             account_id=account.id,
             unit_id=UNIT_DEMO_ID,
-            name="Demo inbound context",
+            name="Contexto de entrada (demo)",
             token_hash=hash_password(token),
             active=True,
         )
         session.add(webhook)
         await session.flush()
+    else:
+        webhook.unit_id = UNIT_DEMO_ID
+        if webhook.name in {"Demo inbound context"}:
+            webhook.name = "Contexto de entrada (demo)"
     ids["webhook_id"] = str(WEBHOOK_ID)
 
     password_hash = hash_password(demo_password())
-    for user_id, email, role, name in (
-        (USER_MANAGER_ID, "manager@demo.local", UserRole.MANAGER, "Demo Manager"),
-        (USER_GUEST_ID, "guest@demo.local", UserRole.OPERATOR, "Demo Operator"),
+    for user_id, email, role, _name in (
+        (USER_MANAGER_ID, "manager@demo.local", UserRole.MANAGER, "Gestor Demo"),
+        (USER_GUEST_ID, "guest@demo.local", UserRole.OPERATOR, "Operador Demo"),
     ):
         user = await session.get(AccountUser, user_id)
         if user is None:
@@ -241,15 +324,17 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             await session.flush()
         if user.email != email:
             raise ValueError("Demo user identity mismatch; no membership changed")
-        # Default: preserve operator-changed passwords. Opt-in sync for panel recovery.
         if demo_password_sync_enabled():
             user.password_hash = password_hash
-        targets = [account.id]
-        if role == UserRole.MANAGER:
-            targets.append(SANDBOX_ACCOUNT_ID)
-        for target in targets:
-            if await session.get(AccountUserMembership, (user.id, target)) is None:
-                session.add(AccountUserMembership(user_id=user.id, account_id=target))
+        if await session.get(AccountUserMembership, (user.id, account.id)) is None:
+            session.add(AccountUserMembership(user_id=user.id, account_id=account.id))
+        # Drop stale sandbox membership if still present after account delete race.
+        await session.execute(
+            delete(AccountUserMembership).where(
+                AccountUserMembership.user_id == user.id,
+                AccountUserMembership.account_id == SANDBOX_ACCOUNT_ID,
+            )
+        )
         ids[f"user_{role.value}"] = str(user.id)
 
     await session.commit()

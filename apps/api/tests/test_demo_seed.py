@@ -65,11 +65,11 @@ def test_demo_seed_is_complete_idempotent_and_preserves_edits():
                 assert first == second
                 assert not any("password" in key or "token" in key for key in second)
                 for model, count in [
-                    (Account, 2),
-                    (Camera, 7),
-                    (Prompt, 14),
+                    (Account, 1),
+                    (Camera, 6),
+                    (Prompt, 12),
                     (AccountUser, 2),
-                    (AccountUserMembership, 3),
+                    (AccountUserMembership, 2),
                 ]:
                     assert (
                         await session.scalar(select(func.count()).select_from(model))

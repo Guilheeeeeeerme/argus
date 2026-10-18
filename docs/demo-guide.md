@@ -9,12 +9,15 @@ unit. Tenant access is checked server-side.
 Run the reviewed demo seed through infra's **Migrate app** workflow with
 `seed_demo=true`, using the deployed release. It creates:
 
-- **Argus Public Camera Demo**: seven camera sites across traffic, beach, and zoo
-  topics (three Caltrans + two Beach TV + two San Diego Zoo), one prompt set per
-  camera, and two enabled prompts per set.
-- **Demo Sandbox**: an empty account for trying camera and prompt management.
-- **manager@demo.local**: manager assigned to both demo accounts.
-- **guest@demo.local**: operator assigned only to the public-camera account.
+- **Argus Demo Brasil**: one account, two estabelecimentos, three cameras each
+  (six public HLS feeds: three Caltrans traffic stand-ins, two Beach TV coastal
+  channels, one San Diego Zoo habitat cam). One PromptSet per camera with two
+  enabled Portuguese prompts.
+- **manager@demo.local**: manager on the demo account.
+- **guest@demo.local**: operator on the demo account.
+
+The previous **Demo Sandbox** account and one-camera-per-site layout are removed
+on re-seed.
 
 New accounts use the protected `DEMO_PASSWORD` setting. Existing passwords and
 operator-edited streams/prompts are preserved unless `DEMO_PASSWORD_SYNC=1` is
@@ -24,13 +27,10 @@ falls back to the existing local-only demo password.
 
 ## Cameras and analysis
 
-Feeds are grouped so detections can be compared within a topic:
-
-| Topic | Cameras | Source |
+| Estabelecimento | Câmeras | Source |
 | --- | --- | --- |
-| Traffic | US-101 Broad Street, Monterey Street, Madonna Road (San Luis Obispo) | [Caltrans D5 CCTV](https://cwwp2.dot.ca.gov/data/d5/cctv/cctvStatusD05.json) — [conditions](https://dot.ca.gov/conditions-of-use) |
-| Beach | Beach TV Key West & Florida Keys; Beach TV Myrtle Beach | [Beach TV](https://www.beachtv.net/) (TripSmarter HLS) |
-| Zoo | San Diego Zoo Platypus Cam; San Diego Zoo Koala Cam | [San Diego Zoo Live Cams](https://zoo.sandiegozoo.org/live-cameras) |
+| São Paulo — Trânsito | Marginal Pinheiros, Av. 23 de Maio, Marginal Tietê | [Caltrans D5 CCTV](https://cwwp2.dot.ca.gov/data/d5/cctv/cctvStatusD05.json) — [conditions](https://dot.ca.gov/conditions-of-use) |
+| Costa e Habitat | Praia Key West, Praia Myrtle Beach, Zoológico Ornitorrinco | [Beach TV](https://www.beachtv.net/) · [San Diego Zoo Live Cams](https://zoo.sandiegozoo.org/live-cameras) |
 
 Providers give no availability guarantee; cameras and tourism channels may go
 offline, show nighttime loops, or (for Beach TV) interleave studio segments with
@@ -38,11 +38,10 @@ coastal footage. Prompts fail closed when the scene is not clearly visible.
 
 Gateway sources use stable HLS master URLs through FFmpeg video-copy mode.
 Private go2rtc snapshots feed stream-prep, Edge CV, and prompt-eval. Each camera
-has two assertive prompts scoped to that scene type (vehicles/queues; people and
-shoreline; target animals and people near the habitat). Prompts avoid inferring
-speed, identity, intent, or duration from a single image.
+has two assertive Portuguese prompts scoped to that scene type. Prompts avoid
+inferring speed, identity, intent, or duration from a single image.
 
-Select the public-camera account and a unit to manage its camera, prompt set,
+Select the demo account and an estabelecimento to manage its cameras, PromptSets,
 and prompts. Open triage to inspect real positive detections and their retained
 evidence; observations are not proof of an incident. No fake detections are
 inserted by the seed. Existing provider quotas still apply. Night glare, HLS
