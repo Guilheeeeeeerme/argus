@@ -1,11 +1,14 @@
 """Official public demo feeds: stable HLS master playlists (not temporary segments).
 
-Shape: one account, two estabelecimentos, three cameras each.
+Narrative (Option A — monitoramento municipal):
+  One Brazilian operator account watches two related districts of the same
+  demonstration operation — vias (tráfego) and orla (costa) — with Portuguese
+  PromptSets that match each camera's real scene.
 
 Sources (subject to provider terms; feeds may go offline):
-- Caltrans District 5 CCTV — traffic (stand-in for São Paulo vias)
+- Caltrans District 5 CCTV — highway traffic (named honestly, not as Brazilian streets)
 - Beach TV / TripSmarter — coastal tourism live channels
-- San Diego Zoo Camzone CDN — habitat live cam
+- CoastalCOMs (AU) — coastal promenade / harbour webcams
 """
 
 SOURCE_PAGE = "https://cwwp2.dot.ca.gov/data/d5/cctv/cctvStatusD05.json"
@@ -23,9 +26,9 @@ SOURCES = (
         "terms": "https://www.beachtv.net/",
     },
     {
-        "name": "San Diego Zoo Live Cams",
-        "page": "https://zoo.sandiegozoo.org/live-cameras",
-        "terms": "https://zoo.sandiegozoo.org/terms-of-use",
+        "name": "CoastalCOMs webcams",
+        "page": "https://www.coastalcoms.com/",
+        "terms": "https://www.coastalcoms.com/",
     },
 )
 
@@ -39,10 +42,19 @@ LEGACY_WATCHLIST_NAMES = frozenset(
         "Veículos e filas na US-101",
         "Composição do tráfego na US-101",
         "Tráfego e obstáculos na via",
+        "Veículos e filas na via",
+        "Composição do tráfego",
         "Praia, orla e pessoas",
         "Orla, ondas e pedestres",
         "Ornitorrinco e atividade no recinto",
         "Coala e presença humana no habitat",
+        "Veículos na via expressa",
+        "Filas e bloqueios na via",
+        "Mistura de veículos",
+        "Pessoas na orla",
+        "Costa e embarcações",
+        "Banhistas e pedestres",
+        "Promenade e acesso à orla",
     }
 )
 
@@ -73,20 +85,54 @@ LEGACY_PROMPT_TEXTS = frozenset(
     }
 )
 
+# Prior playlists — re-seed refreshes these URLs to the current catalog.
+LEGACY_PLAYLISTS = frozenset(
+    {
+        "https://wzmedia.dot.ca.gov/D5/101atBroadSt.stream/playlist.m3u8",
+        "https://wzmedia.dot.ca.gov/D5/101atMontereySt.stream/playlist.m3u8",
+        "https://wzmedia.dot.ca.gov/D5/101atMadonnaRd.stream/playlist.m3u8",
+        "https://5ed325193d4e1.streamlock.net:444/LiveTV/KTVHD/playlist.m3u8",
+        "https://5ed325193d4e1.streamlock.net:444/LiveTV/MTVHD/playlist.m3u8",
+        "https://zssd-platypus.hls.camzonecdn.com/CamzoneStreams/zssd-platypus/Playlist.m3u8",
+        "https://zssd-koala.hls.camzonecdn.com/CamzoneStreams/zssd-koala/Playlist.m3u8",
+        "https://streaming-au.coastalcoms.com/cw/ballinarmscamera.stream/playlist.m3u8",
+        "https://streaming-au.coastalcoms.com/cw/forstercamera.stream/playlist.m3u8",
+        "https://streaming-au.coastalcoms.com/cw/brunswickheadscamera.stream/playlist.m3u8",
+    }
+)
+
+LEGACY_CAMERA_NAMES = frozenset(
+    {
+        "US-101 — Broad Street",
+        "US-101 — Monterey Street",
+        "US-101 — Madonna Road",
+        "Beach TV — Key West & Florida Keys",
+        "Beach TV — Myrtle Beach",
+        "San Diego Zoo — Platypus Cam",
+        "San Diego Zoo — Koala Cam",
+        "Marginal Pinheiros — Cidade Jardim",
+        "Av. 23 de Maio — Bela Vista",
+        "Marginal Tietê — Santana",
+        "Praia — Key West e Florida Keys",
+        "Praia — Myrtle Beach",
+        "Zoológico — Ornitorrinco",
+    }
+)
+
 # Two estabelecimentos × three cameras. Verified reachable HLS masters (HTTP 200).
 UNITS = (
     {
-        "key": "sp-trafego",
-        "name": "São Paulo — Trânsito",
-        "address": "São Paulo, SP, Brasil",
+        "key": "distrito-vias",
+        "name": "Distrito Vias — Trânsito",
+        "address": "Operação municipal · vias (feeds públicos Caltrans D5)",
         "timezone": "America/Sao_Paulo",
         "cameras": (
             {
                 # Stable fixture key → CAMERA_DEMO_ID / PROMPT_SET_ID
                 "key": "broad-street",
-                "name": "Marginal Pinheiros — Cidade Jardim",
+                "name": "Câmera Via 101 — Broad Street",
                 "playlist": "https://wzmedia.dot.ca.gov/D5/101atBroadSt.stream/playlist.m3u8",
-                "watchlist": "Veículos e filas na via",
+                "watchlist": "Veículos na via expressa",
                 "prompts": (
                     "Há veículos claramente distinguíveis (carro, caminhão, ônibus ou moto) nas faixas ou acostamento? Descreva tipos e contagem aproximada só quando for possível separar uns dos outros. Não leia placas, não estime velocidade e não infira identidade. Escuridão, reflexo ou blur sem veículo claro = sem acerto.",
                     "Há fila densa ou objeto/veículo claramente ocupando uma faixa de rolamento de forma a sugerir bloqueio? Descreva a posição relativa na imagem e a incerteza. Não afirme colisão, tempo parado, intenção ou direção do movimento a partir de um único frame. Evidência fraca = sem acerto.",
@@ -94,9 +140,9 @@ UNITS = (
             },
             {
                 "key": "monterey-street",
-                "name": "Av. 23 de Maio — Bela Vista",
+                "name": "Câmera Via 101 — Monterey Street",
                 "playlist": "https://wzmedia.dot.ca.gov/D5/101atMontereySt.stream/playlist.m3u8",
-                "watchlist": "Tráfego e obstáculos na via",
+                "watchlist": "Filas e bloqueios na via",
                 "prompts": (
                     "Há veículos claramente visíveis na pista ou na área de incorporação? Relate distribuição e tipos só com evidência visual. Não estime velocidade, não leia placas e não invente veículos parcialmente oclusos. Sem veículo distinguível = sem acerto.",
                     "Há pessoa a pé ou objeto de grande porte claramente dentro de uma faixa de rolamento (possível obstrução)? Diferencie veículo em trânsito de pessoa/objeto na faixa. Não deduza acidente, intenção ou identidade. Oclusão ou dúvida = sem acerto.",
@@ -104,9 +150,9 @@ UNITS = (
             },
             {
                 "key": "madonna-road",
-                "name": "Marginal Tietê — Santana",
+                "name": "Câmera Via 101 — Madonna Road",
                 "playlist": "https://wzmedia.dot.ca.gov/D5/101atMadonnaRd.stream/playlist.m3u8",
-                "watchlist": "Composição do tráfego",
+                "watchlist": "Mistura de veículos",
                 "prompts": (
                     "Há carros, caminhões ou ônibus claramente visíveis na pista? Resuma a mistura visível e conte só quando for possível distinguir. Mencione baixa visibilidade se ela impedir a leitura. Sem veículos claros = sem acerto.",
                     "Há congestionamento denso ou bloqueio claramente visível em pelo menos uma faixa? Localize em termos relativos à imagem. Não afirme contramão, colisão, identidades ou velocidade a partir deste snapshot. Evidência insuficiente = sem acerto.",
@@ -115,17 +161,17 @@ UNITS = (
         ),
     },
     {
-        "key": "costa-habitat",
-        "name": "Costa e Habitat",
-        "address": "Orla costeira e habitat de observação (feeds públicos)",
+        "key": "distrito-orla",
+        "name": "Distrito Orla — Costa",
+        "address": "Operação municipal · orla e turismo (feeds públicos Beach TV / CoastalCOMs)",
         "timezone": "America/Sao_Paulo",
         "cameras": (
             {
                 # Unit UUID preserved via legacy key-west-beach:site in seed_demo.
                 "key": "key-west-beach",
-                "name": "Praia — Key West e Florida Keys",
+                "name": "Câmera Praia Key West",
                 "playlist": "https://5ed325193d4e1.streamlock.net:444/LiveTV/KTVHD/playlist.m3u8",
-                "watchlist": "Praia, orla e pessoas",
+                "watchlist": "Pessoas na orla",
                 "prompts": (
                     "Há pessoas claramente visíveis na praia, no píer, na orla ou em um deck costeiro? Descreva posição relativa e se estão sozinhas ou em grupo só quando for óbvio. Não infira identidade, idade, intenção ou atividade além do visível. Sem pessoa distinguível (ex.: só vinheta/TV) = sem acerto.",
                     "Há água costeira, ondas, faixa de areia/rocha ou embarcação claramente visíveis? Descreva apenas o que aparece no quadro. Não invente condição de surf, maré, perigo ou clima. Cena indoor/estúdio sem orla = sem acerto.",
@@ -133,22 +179,22 @@ UNITS = (
             },
             {
                 "key": "myrtle-beach",
-                "name": "Praia — Myrtle Beach",
+                "name": "Câmera Praia Myrtle Beach",
                 "playlist": "https://5ed325193d4e1.streamlock.net:444/LiveTV/MTVHD/playlist.m3u8",
-                "watchlist": "Orla, ondas e pedestres",
+                "watchlist": "Banhistas e pedestres",
                 "prompts": (
                     "Há pedestres ou banhistas claramente visíveis na areia, no calçadão ou junto à água? Descreva posição relativa na imagem. Não leia rostos, não estime idade e não invente incidentes. Sem pessoa clara = sem acerto.",
                     "Há ondas quebrando, linha de costa, píer ou embarcação claramente visíveis? Relate só evidência no frame. Não deduza direção do vento, altura de onda numérica ou risco. Sem cena costeira distinguível = sem acerto.",
                 ),
             },
             {
-                "key": "sdz-platypus",
-                "name": "Zoológico — Ornitorrinco",
-                "playlist": "https://zssd-platypus.hls.camzonecdn.com/CamzoneStreams/zssd-platypus/Playlist.m3u8",
-                "watchlist": "Ornitorrinco e atividade no recinto",
+                "key": "ballina-orla",
+                "name": "Câmera Orla Ballina",
+                "playlist": "https://streaming-au.coastalcoms.com/cw/ballinarmscamera.stream/playlist.m3u8",
+                "watchlist": "Promenade e acesso à orla",
                 "prompts": (
-                    "Há um ou mais ornitorrincos (platypus) claramente visíveis na água ou na margem do recinto? Descreva posição e oclusão. Não invente outros animais nem conte silhuetas ambíguas. Sem animal distinguível = sem acerto.",
-                    "Há uma pessoa (tratador/visitante) claramente visível junto ao habitat? Descreva só o que é óbvio no frame. Não infira identidade, função exata ou interação além do visível. Sem pessoa clara = sem acerto.",
+                    "Há pedestres, ciclistas ou veículos claramente visíveis no calçadão, na promenade ou no acesso à orla? Descreva posição relativa e densidade só quando for óbvio. Não infira identidade nem intenção. Sem pessoa/veículo distinguível = sem acerto.",
+                    "Há linha de costa, água, píer, porto ou estrutura de orla claramente visíveis? Relate só o que aparece no quadro. Não invente maré, perigo ou clima. Sem cena costeira = sem acerto.",
                 ),
             },
         ),

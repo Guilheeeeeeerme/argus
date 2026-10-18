@@ -39,6 +39,8 @@ from argus.domain.models import (
 )
 from argus.services.database import set_session_context
 from demo_catalog import (
+    LEGACY_CAMERA_NAMES,
+    LEGACY_PLAYLISTS,
     LEGACY_PROMPT_TEXTS,
     LEGACY_WATCHLIST_NAMES,
     SOURCE_PAGE,
@@ -127,6 +129,18 @@ async def _purge_extras(session: AsyncSession, account_id: uuid.UUID) -> None:
             )
         )
     ).all()
+    # Delete PromptSets first — ORM nulls camera_id on relationship detach, which
+    # violates NOT NULL before the DB CASCADE can run.
+    extra_camera_ids = [camera.id for camera in extra_cameras]
+    if extra_camera_ids:
+        extra_sets = (
+            await session.scalars(
+                select(PromptSet).where(PromptSet.camera_id.in_(extra_camera_ids))
+            )
+        ).all()
+        for prompt_set in extra_sets:
+            await session.delete(prompt_set)
+        await session.flush()
     for camera in extra_cameras:
         await session.delete(camera)
     await session.flush()
@@ -161,13 +175,14 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
         account.name = "Argus Demo Brasil"
     account.settings = {
         **(account.settings or {}),
-        "demo_source": "Câmeras públicas ao vivo (tráfego, praia, zoológico)",
+        "demo_source": "Operação municipal demo · vias e orla (feeds públicos)",
         "demo_source_url": SOURCE_PAGE,
         "demo_source_terms": SOURCE_TERMS,
         "demo_sources": [
             {"name": s["name"], "page": s["page"], "terms": s["terms"]} for s in SOURCES
         ],
         "demo_shape": "1 conta · 2 estabelecimentos · 3 câmeras cada",
+        "demo_narrative": "Monitoramento municipal — Distrito Vias + Distrito Orla",
     }
     ids["account_id"] = str(account.id)
 
@@ -198,6 +213,7 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
             camera_id = _camera_id(unit_item["key"], camera_item["key"], camera_index)
             set_id = _prompt_set_id(unit_item["key"], camera_item["key"], camera_index)
             stream = "ffmpeg:" + camera_item["playlist"] + "#video=copy"
+            playlist = camera_item["playlist"]
 
             camera = await session.get(Camera, camera_id)
             if camera is None:
@@ -213,28 +229,22 @@ async def seed_demo(session: AsyncSession) -> dict[str, str]:
                 await session.flush()
             else:
                 camera.unit_id = unit_id
+                current_playlist = (camera.stream_url or "").removeprefix("ffmpeg:").split("#", 1)[0]
                 if camera.stream_url in {
                     None,
                     "",
                     "rtsp://example.invalid/cam01",
-                } or camera.stream_url.startswith("ffmpeg:https://wzmedia.dot.ca.gov/") or camera.stream_url.startswith(
-                    "ffmpeg:https://5ed325193d4e1.streamlock.net"
-                ) or camera.stream_url.startswith("ffmpeg:https://zssd-"):
+                } or camera.stream_url.startswith(
+                    (
+                        "ffmpeg:https://wzmedia.dot.ca.gov/",
+                        "ffmpeg:https://5ed325193d4e1.streamlock.net",
+                        "ffmpeg:https://zssd-",
+                        "ffmpeg:https://streaming-au.coastalcoms.com/",
+                    )
+                ) or current_playlist in LEGACY_PLAYLISTS or current_playlist == playlist:
                     # Refresh known public demo feeds; leave unknown operator URLs alone.
                     camera.stream_url = stream
-                legacy_camera_names = {
-                    "US-101 — Broad Street",
-                    "US-101 — Monterey Street",
-                    "US-101 — Madonna Road",
-                    "Beach TV — Key West & Florida Keys",
-                    "Beach TV — Myrtle Beach",
-                    "San Diego Zoo — Platypus Cam",
-                    "San Diego Zoo — Koala Cam",
-                    "Marginal Pinheiros — Cidade Jardim",
-                    "Av. 23 de Maio — Bela Vista",
-                    "Marginal Tietê — Santana",
-                }
-                if camera.name in legacy_camera_names:
+                if camera.name in LEGACY_CAMERA_NAMES:
                     camera.name = camera_item["name"]
                 camera.is_active = True
 

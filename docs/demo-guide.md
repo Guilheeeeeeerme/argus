@@ -10,9 +10,10 @@ Run the reviewed demo seed through infra's **Migrate app** workflow with
 `seed_demo=true`, using the deployed release. It creates:
 
 - **Argus Demo Brasil**: one account, two estabelecimentos, three cameras each
-  (six public HLS feeds: three Caltrans traffic stand-ins, two Beach TV coastal
-  channels, one San Diego Zoo habitat cam). One PromptSet per camera with two
-  enabled Portuguese prompts.
+  under a **monitoramento municipal** story — Distrito Vias (tráfego) and
+  Distrito Orla (costa). Streams are verified public HLS feeds named honestly
+  after their real scenes (not Brazilian street names on foreign highways).
+  One PromptSet per camera with two enabled Portuguese prompts.
 - **manager@demo.local**: manager on the demo account.
 - **guest@demo.local**: operator on the demo account.
 
@@ -29,8 +30,8 @@ falls back to the existing local-only demo password.
 
 | Estabelecimento | Câmeras | Source |
 | --- | --- | --- |
-| São Paulo — Trânsito | Marginal Pinheiros, Av. 23 de Maio, Marginal Tietê | [Caltrans D5 CCTV](https://cwwp2.dot.ca.gov/data/d5/cctv/cctvStatusD05.json) — [conditions](https://dot.ca.gov/conditions-of-use) |
-| Costa e Habitat | Praia Key West, Praia Myrtle Beach, Zoológico Ornitorrinco | [Beach TV](https://www.beachtv.net/) · [San Diego Zoo Live Cams](https://zoo.sandiegozoo.org/live-cameras) |
+| Distrito Vias — Trânsito | Via 101 Broad / Monterey / Madonna | [Caltrans D5 CCTV](https://cwwp2.dot.ca.gov/data/d5/cctv/cctvStatusD05.json) — [conditions](https://dot.ca.gov/conditions-of-use) |
+| Distrito Orla — Costa | Praia Key West, Praia Myrtle Beach, Orla Ballina | [Beach TV](https://www.beachtv.net/) · [CoastalCOMs](https://www.coastalcoms.com/) |
 
 Providers give no availability guarantee; cameras and tourism channels may go
 offline, show nighttime loops, or (for Beach TV) interleave studio segments with

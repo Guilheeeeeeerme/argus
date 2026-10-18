@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
+from datetime import datetime, timezone
 from uuid import UUID
 
+import httpx
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
@@ -105,30 +108,50 @@ async def camera_latest_frame(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
 
     frame = await get_latest_frame(camera_id)
-    if frame is None or (frame.account_id and frame.account_id != str(account_id)):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Latest frame not found")
+    if frame is not None and (not frame.account_id or frame.account_id == str(account_id)):
+        etag = f'W/"{frame.captured_at}"'
+        base_headers = {
+            "ETag": etag,
+            "Cache-Control": "private, no-store",
+            "X-Captured-At": frame.captured_at,
+        }
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=base_headers)
+        try:
+            payload, content_type = await download_bytes(frame.uri)
+            return Response(
+                content=payload,
+                media_type=content_type if content_type.startswith("image/") else "image/jpeg",
+                headers={**base_headers, "X-Content-Type-Options": "nosniff"},
+            )
+        except ValueError:
+            pass
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code")
+            if code not in {"NoSuchKey", "NoSuchBucket", "404"}:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Evidence storage unavailable",
+                ) from exc
 
-    etag = f'W/"{frame.captured_at}"'
-    base_headers = {
-        "ETag": etag,
-        "Cache-Control": "private, no-store",
-        "X-Captured-At": frame.captured_at,
-    }
-    if request.headers.get("if-none-match") == etag:
-        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=base_headers)
-
+    # Preview fallback when Redis/S3 latest-frame is unavailable: pull JPEG from go2rtc.
+    gateway = os.environ.get("STREAM_GATEWAY_URL", "http://stream-gateway:1984").rstrip("/")
     try:
-        payload, content_type = await download_bytes(frame.uri)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Latest frame not found") from exc
-    except ClientError as exc:
-        code = exc.response.get("Error", {}).get("Code")
-        if code in {"NoSuchKey", "NoSuchBucket", "404"}:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Latest frame not found") from exc
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Evidence storage unavailable") from exc
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.get(f"{gateway}/api/frame.jpeg", params={"src": str(camera_id)})
+        if resp.status_code == 200 and resp.content:
+            stamp = datetime.now(timezone.utc).isoformat()
+            return Response(
+                content=resp.content,
+                media_type="image/jpeg",
+                headers={
+                    "Cache-Control": "private, no-store",
+                    "X-Captured-At": stamp,
+                    "X-Content-Type-Options": "nosniff",
+                    "X-Frame-Source": "stream-gateway-fallback",
+                },
+            )
+    except Exception:
+        pass
 
-    return Response(
-        content=payload,
-        media_type=content_type if content_type.startswith("image/") else "image/jpeg",
-        headers={**base_headers, "X-Content-Type-Options": "nosniff"},
-    )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Latest frame not found")

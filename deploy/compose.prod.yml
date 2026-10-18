@@ -216,7 +216,10 @@ services:
       start_period: 30s
     mem_limit: ${GATEWAY_MEM_LIMIT:-128m}
     cpus: 0.50
-    networks: [argus-internal]
+    # dokploy-network: argus-internal is internal:true (no egress); ffmpeg must
+    # reach public HLS origins. DNS override helps when the host resolver flaps.
+    dns: [1.1.1.1, 8.8.8.8]
+    networks: [argus-internal, dokploy-network]
 
   stream-gateway-sync:
     profiles: [pipeline]
@@ -250,7 +253,7 @@ services:
       start_period: 45s
     mem_limit: ${SYNC_MEM_LIMIT:-128m}
     cpus: 0.25
-    networks: [argus-internal]
+    networks: [argus-internal, dokploy-network]
 
   stream-prep:
     profiles: [pipeline]
