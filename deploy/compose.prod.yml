@@ -41,8 +41,8 @@ x-llm-env: &llm-env
   JEV_VERIFY_CONFIDENCE_FLOOR: ${JEV_VERIFY_CONFIDENCE_FLOOR:-0.55}
 
 x-object-env: &object-env
-  # Garage v2.4.1 S3-compatible object store (platform stack on dokploy-network).
-  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:?S3_ENDPOINT_URL required (e.g. http://object-store:9000)}
+  # Cloudflare R2 (S3 API). Prod: https://<accountid>.r2.cloudflarestorage.com
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:?S3_ENDPOINT_URL required (e.g. https://<accountid>.r2.cloudflarestorage.com)}
   S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-}
   S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID required}
   S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY required}
@@ -78,8 +78,8 @@ services:
     command: ["bash", "/app/deploy/migrate.sh"]
     environment:
       # object-env: bootstrap.py ensure_bucket_exists (R2 / S3). Staging has no
-      # Garage — default SKIP_S3_BOOTSTRAP=1 so Dokploy redeploys do not block
-      # on http://object-store. Set SKIP_S3_BOOTSTRAP=0 only to re-run bucket
+      # R2 bucket is pre-created (argus-frames). Default SKIP_S3_BOOTSTRAP=1 so
+      # redeploys do not call ensure_bucket. Set 0 only to re-run bucket
       # bootstrap against a live S3/R2 endpoint.
       # DEV_ROOT_*: bootstrap.py creates the platform ROOT account (idempotent)
       <<: [*common-env, *db-env, *object-env]
@@ -372,7 +372,7 @@ networks:
   # Internal-only app traffic (api/redis/pipeline; never host-exposed).
   argus-internal:
     internal: true
-  # Platform network: Traefik entry + Garage (object-store) + Headroom (llm).
+  # Platform network: Traefik entry (R2 is public HTTPS; no object-store/Garage).
   dokploy-network:
     external: true
 

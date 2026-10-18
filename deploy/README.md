@@ -26,7 +26,7 @@ Runtime database stays the **existing Supabase project** — never repoint the D
 # `DATABASE_URL` / `ADMIN_DATABASE_URL` point at the **existing Supabase pooler**: host `aws-0-eu-west-1.pooler.supabase.com`, DB `postgres`, schema `argus`, ports `6543` (pooled, transaction mode) and `5432` (direct/session). Scheme stays `postgresql+asyncpg://` (config drives asyncpg from apps/api config); on transaction-mode poolers append `?statement_cache_size=0` (pgBouncer + asyncpg prepared-statement conflict).
    - Owner role `argus` (migrations) and runtime role `argus_app` (NOBYPASSRLS) are separate roles; `ensure_grants.py` keeps `argus_app` non-superuser/NOBYPASSRLS and re-grants schema `argus` DML. Never merge them into one connection.
    - `REDIS_PASSWORD` is required; compose renders `redis://:<pw>@redis:6379/1` (pipeline_health enforces DB `/1`).
-   - S3 is Garage: `S3_ENDPOINT_URL=http://object-store:9000`, bucket `argus-frames`.
+   - Frames are Cloudflare R2 (`argus-frames`): `S3_ENDPOINT_URL=https://<accountid>.r2.cloudflarestorage.com`, `S3_REGION=auto`, `SKIP_S3_BOOTSTRAP=1`. Do not point at Garage/`object-store`.
    - LLM: `GEMINI_MODEL=gemini-3.1-flash-lite` (verified production pin), `GEMINI_BASE_URL=https://generativelanguage.googleapis.com`. Compose hardcodes the public URL.
    - Tier: paste `tiers/16gb.env` (incl. `COMPOSE_PROFILES=pipeline`) or `tiers/8gb.env` on the small VPS.
 3. **GHCR pull credential** — configure the private-registry credentials in Dokploy so the stack can pull the `ghcr.io/guilheeeeeeerme/argus/*` images.
