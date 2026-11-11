@@ -21,7 +21,7 @@ Coding-agent rules for this repository.
 
 ## Scope
 
-Work inside `apps/`, `packages/`, `services/`, `docs/`, `scripts/`. Production Compose and GHA workflows live in **infra** (sole prod control plane; do not invent parallel paths). Prefer targeted changes; no broad refactors or full test matrices unless asked.
+Work inside `apps/`, `packages/`, `services/`, `docs/`, `scripts/`. Production Compose lives in `deploy/compose.prod.yml`; this repo's GitHub Actions build GHCR images and deploy through Dokploy, while `pages.yml` deploys the SPAs. Infra owns shared host operations; do not invent a competing deployment path. Prefer targeted changes; no broad refactors or full test matrices unless asked.
 
 ## Hard rules
 
@@ -32,8 +32,8 @@ Work inside `apps/`, `packages/`, `services/`, `docs/`, `scripts/`. Production C
 | **LLM** | Gemini VLM direct (`gemini-3.1-flash-lite`, public API); JEV post-VLM verify (`JEV_VERIFY_MODE`, `services/prompt-eval/.../jev_verify.py`, `jev_client.py`). No API keys in prompts; fail closed; log ids/statuses only. |
 | **Env** | `.env.example` → `.env`. Never commit `.env`. Redis DB `/0` local, `/1` prod. |
 | **Auth0** | MVP uses mock (`AUTH0_USE_MOCK`). Do not wire production Auth0 without an explicit task. |
-| **Deploy** | `docker-compose.yml` / `scripts/up.sh` for dev only; prod is infra-owned. |
-| **DB** | Production on Supabase Postgres, schema `argus`. Never rewrite URLs to VPS Postgres. Run Alembic migrations via infra before rollout. |
+| **Deploy** | `docker-compose.yml` / `scripts/up.sh` for dev only; production uses app-owned GitHub Actions → GHCR → Dokploy plus Cloudflare Pages. |
+| **DB** | Production on Supabase Postgres, schema `argus`. Never rewrite URLs to VPS Postgres. The production `migrate` one-shot runs Alembic with `ADMIN_DATABASE_URL` before rollout. |
 
 ## Verification
 

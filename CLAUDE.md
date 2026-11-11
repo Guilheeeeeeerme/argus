@@ -11,9 +11,9 @@ Agent behavioral rules (including RTK): see [AGENTS.md](./AGENTS.md). UI: [STYLE
 | Admin | https://app.argus.ferredemo.dev |
 | Triage | https://triage.argus.ferredemo.dev |
 | API | https://api.argus.ferredemo.dev |
-| Storage | https://api.storage.argus.ferredemo.dev |
+| Frames | Authenticated API camera `latest-frame` route; private R2 objects |
 
-Production deploys are owned by the **infra** repo (GitHub Actions is the sole supported control plane — do not use Jenkins; VPS removal is CONFIRM-gated in infra after GHA is proven — `Deploy app` → GHCR → VPS). Production Postgres remains on the existing Supabase database (schema `argus`, runtime role `argus_app`). Alembic uses `ADMIN_DATABASE_URL`; migrations run before rollout through infra GitHub Actions. Local Compose uses its own Docker Postgres. Step-by-step: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+Production deploys use this repo's **Deploy (Dokploy)** workflow (GitHub Actions → GHCR → Dokploy, `deploy/compose.prod.yml`) and **Pages (SPA)** workflow for admin/triage. Infra owns shared host operations. Production Postgres remains on the existing Supabase database (schema `argus`, runtime role `argus_app`). The `migrate` one-shot runs Alembic with `ADMIN_DATABASE_URL` before dependent services start. Local Compose uses its own Docker Postgres. See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) and [deploy/README.md](./deploy/README.md).
 
 ## Layout
 
@@ -28,16 +28,16 @@ npm workspaces (`apps/*`, `apps/shared/*`, `packages/*`):
 | `packages/ui` | `@argus/design-system` |
 | `packages/i18n` | Shared i18n |
 | `services/stream-gateway` | go2rtc |
-| `services/stream-prep` | Frame sample → MinIO → Redis `frames:ready` |
+| `services/stream-prep` | Frame sample → S3-compatible storage (R2 production, MinIO local) → Redis `frames:ready` |
 | `services/prompt-eval` | Multimodal PromptSet eval → Detection / TriageCase |
 
-Pipeline: `stream-gateway` → `stream-prep` → `prompt-eval` → `api` → admin / triage MFEs.
+Pipeline design: `stream-gateway` → `stream-prep` → `prompt-eval` → `api` → admin / triage MFEs. Production requires the `pipeline` profile and running consumers; an API health response alone does not verify live frame processing.
 
 ## Stack
 
 - FE: React 19, Vite, Tailwind, oxlint
-- BE: FastAPI, Postgres 16 + RLS + pgvector, Redis, MinIO
-- LLM: Gemini only (public API via `GEMINI_BASE_URL` in `.env.example`)
+- BE: FastAPI, Supabase Postgres + RLS + pgvector, Redis, R2 (MinIO for local development)
+- LLM: Gemini VLM (public API via `GEMINI_BASE_URL`) plus JEV post-VLM verification under `JEV_VERIFY_MODE`
 
 ## Local
 
@@ -63,7 +63,7 @@ PYTHONPATH=src pytest tests/
 alembic upgrade head
 ```
 
-CI pre-deploy subset (via infra `app_test.sh`): `tests/test_http_cors.py`, `tests/test_compose_contract.py`.
+CI pre-deploy gates live in `.github/workflows/deploy.yml`: DB-free API contract/version tests, stream-prep tests and prompt-eval tests before image builds and runner smoke.
 
 ## Conventions
 

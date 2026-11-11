@@ -13,7 +13,7 @@ Multi-account vision platform (MVP): admin SSO host, near-realtime triage micro-
 | Admin (SSO host) | https://app.argus.ferredemo.dev |
 | Triage MFE | https://triage.argus.ferredemo.dev |
 | API | https://api.argus.ferredemo.dev |
-| Storage (signed URLs) | https://api.storage.argus.ferredemo.dev |
+| Camera frames | Authenticated API `latest-frame` route backed by private R2 storage |
 
 ## Technical docs (GitHub Pages)
 
@@ -23,9 +23,9 @@ Multi-account vision platform (MVP): admin SSO host, near-realtime triage micro-
 
 | Capability | Status |
 | --- | --- |
-| Pipeline `stream-gateway → stream-prep → prompt-eval → API WS → triage` | **VERIFIED** |
-| Live multimodal LLM in **prompt-eval**; SAMPLE_FPS=1, WINDOW=6, POLL=30s, confidence 0.5, VLM 60s | **VERIFIED** |
-| Product i18n pt-BR first (+ en opt-in); session 7d; opaque Redis SSO | **VERIFIED** |
+| Pipeline `stream-gateway → stream-prep → prompt-eval → API WS → triage` | **IMPLEMENTED** — live end-to-end processing requires running pipeline consumers and camera/provider evidence |
+| Multimodal LLM in **prompt-eval**; sampling/window settings | **IMPLEMENTED** — source defaults do not prove live provider execution |
+| Product i18n pt-BR first (+ en opt-in); opaque Redis SSO | **IMPLEMENTED** — session/UI configuration must be checked separately from worker activity |
 | Agents framework / offline eval product | **NOT FOUND** |
 | API LLM + Celery model rank | **UNUSED** on live triage path |
 | RAG (`RAG_LIMIT=5`, lookback 900s) | **PARTIAL** — no `query_embedding` on live path |
@@ -35,10 +35,12 @@ Align with Promptdesk guardrails: [`apps/api/docs/guardrails.md`](apps/api/docs/
 ## Architecture snapshot
 
 ```
-stream-gateway (go2rtc) → stream-prep → MinIO + Redis frames:ready
+stream-gateway (go2rtc) → stream-prep → R2 + Redis frames:ready
                                       → prompt-eval → Detection / TriageCase
                                       → api (WS) → admin / triage MFEs
 ```
+
+Production frames stay in private Cloudflare R2 storage; the authenticated API proxies camera frames to the UI. Local development uses MinIO. The retired storage hostname is not a required public endpoint.
 
 Brand mark: [`branding/argus.svg`](branding/argus.svg) — geometric many-eyed watcher (original; Panoptes-inspired, not a Wikimedia copy).
 
@@ -59,8 +61,8 @@ cp .env.example .env.local.docker && cp .env.local.docker .env   # Compose Postg
 
 - Agent map: [`CLAUDE.md`](CLAUDE.md) · [`AGENTS.md`](AGENTS.md) · [`STYLE_GUIDE.md`](STYLE_GUIDE.md)
 - Spec: [`docs/SPEC.md`](docs/SPEC.md)
-- Production deploy: private **infra** repo (GitHub Actions → GHCR → VPS; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md))
+- Production deploy: app-owned GitHub Actions → GHCR → Dokploy; SPAs on Cloudflare Pages (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md))
 
 ## Deployment
 
-Push to `main` → infra GitHub Actions builds to GHCR and deploys. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Push to `main` → **Deploy (Dokploy)** builds GHCR images and deploys the API/workers; **Pages (SPA)** publishes admin/triage independently. Production database remains Supabase Postgres, schema `argus`. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

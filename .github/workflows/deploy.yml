@@ -182,7 +182,16 @@ jobs:
   deploy:
     needs: [resolve, images, smoke]
     runs-on: ubuntu-24.04
+    timeout-minutes: 18
     steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Test release confirmation
+        run: node --test scripts/wait-for-version.test.mjs
       - name: Trigger Dokploy deploy hook
         env:
           HOOK_URL: ${{ secrets.DOKPLOY_DEPLOY_HOOK_URL }}
@@ -194,21 +203,8 @@ jobs:
           code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$HOOK_URL")
           echo "webhook status: $code"
           case "$code" in 2*) exit 0 ;; *) exit 1 ;; esac
-      - name: Poll /version == released SHA (up to 5 min)
+      - name: Confirm released API version (up to 15 min)
         env:
-          SHA: ${{ needs.resolve.outputs.sha }}
-          API_URL: ${{ vars.API_PUBLIC_URL || 'https://api.argus.ferredemo.dev' }}
-        run: |
-          set -euo pipefail
-          API_URL="${API_URL%/}"
-          for attempt in $(seq 1 30); do
-            body=$(curl -fsS --max-time 10 "$API_URL/version" 2>/dev/null || true)
-            if [ -n "$body" ]; then
-              echo "served: $body"
-              if printf '%s' "$body" | grep -qE "\"gitsha\"[[:space:]]*:[[:space:]]*\"$SHA\""; then
-                echo "released SHA $SHA is live"; exit 0
-              fi
-            fi
-            sleep 10
-          done
-          echo "::error::/version did not report $SHA in time"; exit 1
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+          API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL || 'https://api.argus.ferredemo.dev' }}
+        run: node scripts/wait-for-version.mjs
