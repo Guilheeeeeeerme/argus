@@ -51,7 +51,13 @@ except ImportError:  # pragma: no cover — standalone / unit-test fallback
 
 @lru_cache
 def get_engine() -> AsyncEngine:
-    return create_async_engine(settings.database_url, pool_pre_ping=True)
+    return create_async_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        # Match the API: transaction poolers can reuse a server connection across
+        # clients and reject asyncpg's cached prepared statement names (42P05).
+        connect_args={"statement_cache_size": 0},
+    )
 
 
 @lru_cache
